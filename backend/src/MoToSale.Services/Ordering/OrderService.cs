@@ -562,7 +562,9 @@ public class OrderService : IOrderService
         }
 
         // Giao tiền mặt/COD: thu tiền ngay khi giao (Đã giao + Đã thanh toán).
+        // KHÔNG áp dụng cho đơn trả góp: phần còn lại do đối tác tài chính giải ngân (ghi phiếu thu riêng), không tự thu khi giao.
         if (order.PaymentMethod is PaymentMethod.COD or PaymentMethod.Cash
+            && order.OrderType != OrderType.Installment
             && order.PaymentStatus is not (PaymentStatus.Paid or PaymentStatus.Refunded))
         {
             var paidSoFar = await _payments.GetTotalPaidAsync(orderId);
