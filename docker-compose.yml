@@ -1,0 +1,89 @@
+# MoToSale v2 - run with: docker compose up --build
+# Access: Storefront http://localhost:8081 | Admin http://localhost:8080 | API Gateway http://localhost:5100
+name: motosale-v2
+
+x-db-env: &db-env
+  ConnectionStrings__DefaultConnection: "Server=mssql;Database=${MSSQL_DATABASE:-MoToSaleV2};User Id=sa;Password=${MSSQL_SA_PASSWORD:?Set MSSQL_SA_PASSWORD in .env};TrustServerCertificate=True;Encrypt=False"
+  Jwt__SecretKey: "${JWT_SECRET_KEY:?Set JWT_SECRET_KEY in .env}"
+  Jwt__Issuer: "${JWT_ISSUER:-MoToSale.Auth}"
+  Jwt__Audience: "${JWT_AUDIENCE:-MoToSale.Client}"
+  Jwt__ExpiryMinutes: "${JWT_EXPIRY_MINUTES:-480}"
+  ASPNETCORE_ENVIRONMENT: "Production"
+
+services:
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:?Set MSSQL_SA_PASSWORD in .env}"
+      MSSQL_PID: "${MSSQL_PID:-Developer}"
+    volumes:
+      - mssql-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q \"SELECT 1\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 40s
+
+  auth:
+    build:
+      context: ./backend
+      dockerfile: src/MoToSale.AuthService/Dockerfile
+    environment:
+      <<: *db-env
+      ASPNETCORE_URLS: "http://+:5101"
+    depends_on:
+      mssql:
+        condition: service_healthy
+    restart: on-failure
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: src/MoToSale.APIService/Dockerfile
+    environment:
+      <<: *db-env
+      ASPNETCORE_URLS: "http://+:5102"
+    depends_on:
+      mssql:
+        condition: service_healthy
+    volumes:
+      - api-uploads:/app/wwwroot/uploads
+    restart: on-failure
+
+  gateway:
+    build:
+      context: ./backend
+      dockerfile: src/MoToSale.ApiGateway/Dockerfile
+    environment:
+      ASPNETCORE_URLS: "http://+:5100"
+      ASPNETCORE_ENVIRONMENT: "Docker"
+    ports:
+      - "5100:5100"
+    depends_on:
+      - auth
+      - api
+    restart: on-failure
+
+  admin:
+    build:
+      context: ./frontend-admin
+    ports:
+      - "8080:80"
+    depends_on:
+      - gateway
+    restart: on-failure
+
+  store:
+    build:
+      context: ./frontend-store
+    ports:
+      - "8081:80"
+    depends_on:
+      - gateway
+    restart: on-failure
+
+volumes:
+  mssql-data:
+  api-uploads:

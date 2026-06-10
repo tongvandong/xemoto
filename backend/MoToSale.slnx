@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/MoToSale.ApiGateway/MoToSale.ApiGateway.csproj" />
+    <Project Path="src/MoToSale.APIService/MoToSale.APIService.csproj" />
+    <Project Path="src/MoToSale.AuthService/MoToSale.AuthService.csproj" />
+    <Project Path="src/MoToSale.Common/MoToSale.Common.csproj" />
+    <Project Path="src/MoToSale.DTO/MoToSale.DTO.csproj" />
+    <Project Path="src/MoToSale.Entities/MoToSale.Entities.csproj" />
+    <Project Path="src/MoToSale.Repository/MoToSale.Repository.csproj" />
+    <Project Path="src/MoToSale.Services/MoToSale.Services.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/MoToSale.Backend.Tests/MoToSale.Backend.Tests.csproj" />
+  </Folder>
+</Solution>

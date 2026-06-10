@@ -1,0 +1,24 @@
+# ===== .NET =====
+**/bin/
+**/obj/
+*.user
+*.suo
+.vs/
+**/.vs/
+
+# ===== Node / Vite =====
+**/node_modules/
+**/dist/
+
+# ===== Env & secrets (vẫn commit .env.example) =====
+.env
+*.env
+!.env.example
+
+# ===== Logs / misc =====
+*.log
+~$*.docx
+test-artifacts/
+**/test-artifacts/
+test-results/
+**/test-results/

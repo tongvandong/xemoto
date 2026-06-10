@@ -1,0 +1,16 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\MoToSale.Common\MoToSale.Common.csproj" />
+    <ProjectReference Include="..\MoToSale.Entities\MoToSale.Entities.csproj" />
+    <ProjectReference Include="..\MoToSale.DTO\MoToSale.DTO.csproj" />
+    <ProjectReference Include="..\MoToSale.Repository\MoToSale.Repository.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

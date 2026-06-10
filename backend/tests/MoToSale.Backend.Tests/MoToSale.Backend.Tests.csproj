@@ -1,0 +1,31 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="8.*" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\MoToSale.APIService\MoToSale.APIService.csproj" />
+    <ProjectReference Include="..\..\src\MoToSale.Services\MoToSale.Services.csproj" />
+    <ProjectReference Include="..\..\src\MoToSale.Repository\MoToSale.Repository.csproj" />
+    <ProjectReference Include="..\..\src\MoToSale.Entities\MoToSale.Entities.csproj" />
+    <ProjectReference Include="..\..\src\MoToSale.DTO\MoToSale.DTO.csproj" />
+    <ProjectReference Include="..\..\src\MoToSale.Common\MoToSale.Common.csproj" />
+  </ItemGroup>
+
+</Project>
