@@ -1,0 +1,24 @@
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:            # cho phép bấm "Run workflow" thủ công trên tab Actions
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false     # không cắt ngang khi đang build
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    steps:
+      - name: Redeploy on VPS
+        run: |
+          set -e
+          cd /opt/xemoto
+          git fetch origin
+          git reset --hard origin/main      # khớp đúng commit vừa push
+          docker compose build
+          docker compose up -d
+          docker compose ps
