@@ -1,4 +1,4 @@
-using MoToSale.DTO.Common;
+﻿using MoToSale.DTO.Common;
 using MoToSale.DTO.Content;
 
 namespace MoToSale.Services.Content;
@@ -33,5 +33,7 @@ public interface IContentService
 
 public class ContentException : Exception
 {
-    public ContentException(string message) : base(message) { }
+    public ContentException(string message) : base(message)
+    {
+    }
 }

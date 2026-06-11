@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MoToSale.APIService.Models;
@@ -25,98 +25,265 @@ public class ContentController : ControllerBase
         _storage = storage;
     }
 
-    private int? CurrentUserId => int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : null;
+    private int? CurrentUserId
+    {
+        get
+        {
+            string? userIdText = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-    // ===== Bài viết =====
-    // Storefront: danh sách bài viết đã xuất bản (công khai)
+            if (int.TryParse(userIdText, out int userId))
+            {
+                return userId;
+            }
+
+            return null;
+        }
+    }
+
     [HttpGet("posts/public")]
-    public async Task<IActionResult> PublicPosts() => Ok(new { items = await _content.GetPublishedPostsAsync() });
+    public async Task<IActionResult> PublicPosts()
+    {
+        var posts = await _content.GetPublishedPostsAsync();
+        return Ok(new { items = posts });
+    }
 
     [Authorize(Roles = StaffRoles)]
     [HttpGet("posts")]
-    public async Task<IActionResult> Posts([FromQuery] PagingRequest request, [FromQuery] string? status) => Ok(await _content.SearchPostsAsync(request, status));
+    public async Task<IActionResult> Posts([FromQuery] PagingRequest request, [FromQuery] string? status)
+    {
+        var result = await _content.SearchPostsAsync(request, status);
+        return Ok(result);
+    }
 
     [Authorize(Roles = StaffRoles)]
     [HttpGet("posts/{id:int}")]
-    public async Task<IActionResult> Post(int id) { var p = await _content.GetPostAsync(id); return p is null ? NotFound() : Ok(p); }
+    public async Task<IActionResult> Post(int id)
+    {
+        var post = await _content.GetPostAsync(id);
+
+        if (post == null)
+        {
+            return NotFound();
+        }
+
+        return Ok(post);
+    }
 
     [Authorize(Roles = StaffRoles)]
     [HttpPost("posts")]
     public async Task<IActionResult> CreatePost(SavePostRequest request)
-    { try { return Ok(new { id = await _content.CreatePostAsync(request, CurrentUserId) }); } catch (ContentException ex) { return BadRequest(new { message = ex.Message }); } }
+    {
+        try
+        {
+            int id = await _content.CreatePostAsync(request, CurrentUserId);
+            return Ok(new IdResponse { Id = id });
+        }
+        catch (ContentException ex)
+        {
+            return BadRequest(new MessageResponse { Message = ex.Message });
+        }
+    }
 
     [Authorize(Roles = StaffRoles)]
     [HttpPut("posts/{id:int}")]
     public async Task<IActionResult> UpdatePost(int id, SavePostRequest request)
-    { try { await _content.UpdatePostAsync(id, request); return Ok(new { id }); } catch (ContentException ex) { return BadRequest(new { message = ex.Message }); } }
+    {
+        try
+        {
+            await _content.UpdatePostAsync(id, request);
+            return Ok(new IdResponse { Id = id });
+        }
+        catch (ContentException ex)
+        {
+            return BadRequest(new MessageResponse { Message = ex.Message });
+        }
+    }
 
     [Authorize(Roles = RoleConstant.Admin)]
     [HttpDelete("posts/{id:int}")]
     public async Task<IActionResult> DeletePost(int id)
-    { try { await _content.DeletePostAsync(id); return Ok(new { message = "Đã xóa." }); } catch (ContentException ex) { return BadRequest(new { message = ex.Message }); } }
+    {
+        try
+        {
+            await _content.DeletePostAsync(id);
+            return Ok(new MessageResponse { Message = "Da xoa." });
+        }
+        catch (ContentException ex)
+        {
+            return BadRequest(new MessageResponse { Message = ex.Message });
+        }
+    }
 
     [Authorize(Roles = StaffRoles)]
     [HttpPost("posts/image")]
     [Consumes("multipart/form-data")]
     public async Task<IActionResult> UploadPostImage([FromForm] UploadFileRequest request)
-    { try { return Ok(new { url = await _storage.SaveAsync(request.File, "posts", HttpContext.RequestAborted) }); } catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); } }
+    {
+        try
+        {
+            string url = await _storage.SaveAsync(request.File, "posts", HttpContext.RequestAborted);
+            return Ok(new UrlResponse { Url = url });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new MessageResponse { Message = ex.Message });
+        }
+    }
 
-    // ===== FAQ =====
     [HttpGet("faq")]
-    public async Task<IActionResult> Faqs() => Ok(new { items = await _content.GetFaqsAsync() });
+    public async Task<IActionResult> Faqs()
+    {
+        var faqs = await _content.GetFaqsAsync();
+        return Ok(new { items = faqs });
+    }
 
     [Authorize(Roles = StaffRoles)]
     [HttpPost("faq")]
     public async Task<IActionResult> CreateFaq(SaveFaqRequest request)
-    { try { return Ok(new { id = await _content.CreateFaqAsync(request) }); } catch (ContentException ex) { return BadRequest(new { message = ex.Message }); } }
+    {
+        try
+        {
+            int id = await _content.CreateFaqAsync(request);
+            return Ok(new IdResponse { Id = id });
+        }
+        catch (ContentException ex)
+        {
+            return BadRequest(new MessageResponse { Message = ex.Message });
+        }
+    }
 
     [Authorize(Roles = StaffRoles)]
     [HttpPut("faq/{id:int}")]
     public async Task<IActionResult> UpdateFaq(int id, SaveFaqRequest request)
-    { try { await _content.UpdateFaqAsync(id, request); return Ok(new { id }); } catch (ContentException ex) { return BadRequest(new { message = ex.Message }); } }
+    {
+        try
+        {
+            await _content.UpdateFaqAsync(id, request);
+            return Ok(new IdResponse { Id = id });
+        }
+        catch (ContentException ex)
+        {
+            return BadRequest(new MessageResponse { Message = ex.Message });
+        }
+    }
 
     [Authorize(Roles = RoleConstant.Admin)]
     [HttpDelete("faq/{id:int}")]
     public async Task<IActionResult> DeleteFaq(int id)
-    { try { await _content.DeleteFaqAsync(id); return Ok(new { message = "Đã xóa." }); } catch (ContentException ex) { return BadRequest(new { message = ex.Message }); } }
+    {
+        try
+        {
+            await _content.DeleteFaqAsync(id);
+            return Ok(new MessageResponse { Message = "Da xoa." });
+        }
+        catch (ContentException ex)
+        {
+            return BadRequest(new MessageResponse { Message = ex.Message });
+        }
+    }
 
-    // ===== Liên hệ =====
-    // Storefront: khách gửi yêu cầu liên hệ (công khai)
     [HttpPost("contacts")]
     public async Task<IActionResult> CreateContact(CreateContactRequest request)
-    { try { return Ok(new { id = await _content.CreateContactAsync(request) }); } catch (ContentException ex) { return BadRequest(new { message = ex.Message }); } }
+    {
+        try
+        {
+            int id = await _content.CreateContactAsync(request);
+            return Ok(new IdResponse { Id = id });
+        }
+        catch (ContentException ex)
+        {
+            return BadRequest(new MessageResponse { Message = ex.Message });
+        }
+    }
 
     [Authorize(Roles = StaffRoles)]
     [HttpGet("contacts")]
-    public async Task<IActionResult> Contacts([FromQuery] PagingRequest request, [FromQuery] string? status) => Ok(await _content.SearchContactsAsync(request, status));
+    public async Task<IActionResult> Contacts([FromQuery] PagingRequest request, [FromQuery] string? status)
+    {
+        var result = await _content.SearchContactsAsync(request, status);
+        return Ok(result);
+    }
 
     [Authorize(Roles = StaffRoles)]
     [HttpPatch("contacts/{id:int}/process")]
     public async Task<IActionResult> ProcessContact(int id)
-    { try { await _content.MarkContactProcessedAsync(id); return Ok(new { id }); } catch (ContentException ex) { return BadRequest(new { message = ex.Message }); } }
+    {
+        try
+        {
+            await _content.MarkContactProcessedAsync(id);
+            return Ok(new IdResponse { Id = id });
+        }
+        catch (ContentException ex)
+        {
+            return BadRequest(new MessageResponse { Message = ex.Message });
+        }
+    }
 
-    // ===== Banner trang chủ =====
     [HttpGet("home-banners")]
-    public async Task<IActionResult> Banners([FromQuery] bool all = false) => Ok(new { items = await _content.GetBannersAsync(all) });
+    public async Task<IActionResult> Banners([FromQuery] bool all = false)
+    {
+        var banners = await _content.GetBannersAsync(all);
+        return Ok(new { items = banners });
+    }
 
     [Authorize(Roles = StaffRoles)]
     [HttpPost("home-banners")]
     public async Task<IActionResult> CreateBanner(SaveBannerRequest request)
-    { try { return Ok(new { id = await _content.CreateBannerAsync(request) }); } catch (ContentException ex) { return BadRequest(new { message = ex.Message }); } }
+    {
+        try
+        {
+            int id = await _content.CreateBannerAsync(request);
+            return Ok(new IdResponse { Id = id });
+        }
+        catch (ContentException ex)
+        {
+            return BadRequest(new MessageResponse { Message = ex.Message });
+        }
+    }
 
     [Authorize(Roles = StaffRoles)]
     [HttpPut("home-banners/{id:int}")]
     public async Task<IActionResult> UpdateBanner(int id, SaveBannerRequest request)
-    { try { await _content.UpdateBannerAsync(id, request); return Ok(new { id }); } catch (ContentException ex) { return BadRequest(new { message = ex.Message }); } }
+    {
+        try
+        {
+            await _content.UpdateBannerAsync(id, request);
+            return Ok(new IdResponse { Id = id });
+        }
+        catch (ContentException ex)
+        {
+            return BadRequest(new MessageResponse { Message = ex.Message });
+        }
+    }
 
     [Authorize(Roles = RoleConstant.Admin)]
     [HttpDelete("home-banners/{id:int}")]
     public async Task<IActionResult> DeleteBanner(int id)
-    { try { await _content.DeleteBannerAsync(id); return Ok(new { message = "Đã xóa." }); } catch (ContentException ex) { return BadRequest(new { message = ex.Message }); } }
+    {
+        try
+        {
+            await _content.DeleteBannerAsync(id);
+            return Ok(new MessageResponse { Message = "Da xoa." });
+        }
+        catch (ContentException ex)
+        {
+            return BadRequest(new MessageResponse { Message = ex.Message });
+        }
+    }
 
     [Authorize(Roles = StaffRoles)]
     [HttpPost("home-banners/image")]
     [Consumes("multipart/form-data")]
     public async Task<IActionResult> UploadBannerImage([FromForm] UploadFileRequest request)
-    { try { return Ok(new { url = await _storage.SaveAsync(request.File, "banners", HttpContext.RequestAborted) }); } catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); } }
+    {
+        try
+        {
+            string url = await _storage.SaveAsync(request.File, "banners", HttpContext.RequestAborted);
+            return Ok(new UrlResponse { Url = url });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new MessageResponse { Message = ex.Message });
+        }
+    }
 }

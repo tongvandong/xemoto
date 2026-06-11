@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MoToSale.APIService.Models;
 using MoToSale.APIService.Services;
@@ -22,22 +22,40 @@ public class ManufacturersController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> List() => Ok(new { items = await _catalog.GetManufacturersAsync() });
+    public async Task<IActionResult> List()
+    {
+        var items = await _catalog.GetManufacturersAsync();
+        return Ok(new { items });
+    }
 
     [Authorize(Roles = $"{RoleConstant.Admin},{RoleConstant.Staff}")]
     [HttpPost]
     public async Task<IActionResult> Create(SaveManufacturerRequest request)
     {
-        try { return Ok(new { id = await _catalog.CreateManufacturerAsync(request) }); }
-        catch (CatalogException ex) { return BadRequest(new { message = ex.Message }); }
+        try
+        {
+            int id = await _catalog.CreateManufacturerAsync(request);
+            return Ok(new IdResponse { Id = id });
+        }
+        catch (CatalogException ex)
+        {
+            return BadRequest(new MessageResponse { Message = ex.Message });
+        }
     }
 
     [Authorize(Roles = $"{RoleConstant.Admin},{RoleConstant.Staff}")]
     [HttpPut("{id:int}")]
     public async Task<IActionResult> Update(int id, SaveManufacturerRequest request)
     {
-        try { await _catalog.UpdateManufacturerAsync(id, request); return Ok(new { id }); }
-        catch (CatalogException ex) { return BadRequest(new { message = ex.Message }); }
+        try
+        {
+            await _catalog.UpdateManufacturerAsync(id, request);
+            return Ok(new IdResponse { Id = id });
+        }
+        catch (CatalogException ex)
+        {
+            return BadRequest(new MessageResponse { Message = ex.Message });
+        }
     }
 
     [Authorize(Roles = $"{RoleConstant.Admin},{RoleConstant.Staff}")]
@@ -47,19 +65,34 @@ public class ManufacturersController : ControllerBase
     {
         try
         {
-            var url = await _storage.SaveAsync(request.File, "manufacturers", HttpContext.RequestAborted);
+            string url = await _storage.SaveAsync(request.File, "manufacturers", HttpContext.RequestAborted);
+
             await _catalog.SetManufacturerLogoAsync(id, url);
-            return Ok(new { url });
+
+            return Ok(new UrlResponse { Url = url });
         }
-        catch (CatalogException ex) { return BadRequest(new { message = ex.Message }); }
-        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+        catch (CatalogException ex)
+        {
+            return BadRequest(new MessageResponse { Message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new MessageResponse { Message = ex.Message });
+        }
     }
 
     [Authorize(Roles = RoleConstant.Admin)]
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
     {
-        try { await _catalog.DeleteManufacturerAsync(id); return Ok(new { message = "Đã xóa." }); }
-        catch (CatalogException ex) { return BadRequest(new { message = ex.Message }); }
+        try
+        {
+            await _catalog.DeleteManufacturerAsync(id);
+            return Ok(new MessageResponse { Message = "Đã xóa." });
+        }
+        catch (CatalogException ex)
+        {
+            return BadRequest(new MessageResponse { Message = ex.Message });
+        }
     }
 }

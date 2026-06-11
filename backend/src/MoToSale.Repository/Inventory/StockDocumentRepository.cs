@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using MoToSale.DTO.Common;
 using MoToSale.DTO.Inventory;
 using MoToSale.Entities.Inventory;
@@ -8,45 +8,93 @@ namespace MoToSale.Repository.Inventory;
 
 public class StockDocumentRepository : Repository<StockDocument>, IStockDocumentRepository
 {
-    public StockDocumentRepository(AppDbContext context) : base(context) { }
-
-    public Task<StockDocument?> GetWithLinesAsync(int id) =>
-        Set.Include(d => d.Lines).FirstOrDefaultAsync(d => d.Id == id);
-
-    public async Task<PagingResponse<StockDocumentDto>> SearchAsync(PagingRequest r, string? status, int? type)
+    public StockDocumentRepository(AppDbContext context) : base(context)
     {
-        var query = Set.AsNoTracking().AsQueryable();
+    }
 
-        if (!string.IsNullOrWhiteSpace(status)) query = query.Where(x => x.DocStatus == status);
-        if (type.HasValue) query = query.Where(x => x.Type == type);
+    public async Task<StockDocument?> GetWithLinesAsync(int id)
+    {
+        StockDocument? document = await Set
+            .Include(item => item.Lines)
+            .FirstOrDefaultAsync(item => item.Id == id);
 
-        var total = await query.CountAsync();
-        var rows = await query
-            .OrderByDescending(x => x.Id)
-            .Skip((r.Page - 1) * r.PageSize).Take(r.PageSize)
-            .Select(x => new StockDocumentDto(
-                x.Id, x.Code, x.Type, x.DocStatus, x.Note, x.CreatedDate, x.ApprovedAt, x.Lines.Count))
+        return document;
+    }
+
+    public async Task<PagingResponse<StockDocumentDto>> SearchAsync(PagingRequest request, string? status, int? type)
+    {
+        IQueryable<StockDocument> query = Set.AsNoTracking().AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            query = query.Where(document => document.DocStatus == status);
+        }
+
+        if (type.HasValue)
+        {
+            int typeValue = type.Value;
+            query = query.Where(document => document.Type == typeValue);
+        }
+
+        int totalItems = await query.CountAsync();
+
+        List<StockDocumentDto> items = await query
+            .OrderByDescending(document => document.Id)
+            .Skip((request.Page - 1) * request.PageSize)
+            .Take(request.PageSize)
+            .Select(document => new StockDocumentDto(
+                document.Id,
+                document.Code,
+                document.Type,
+                document.DocStatus,
+                document.Note,
+                document.CreatedDate,
+                document.ApprovedAt,
+                document.Lines.Count))
             .ToListAsync();
 
-        return new PagingResponse<StockDocumentDto> { Items = rows, Page = r.Page, PageSize = r.PageSize, TotalItems = total };
+        return new PagingResponse<StockDocumentDto>
+        {
+            Items = items,
+            Page = request.Page,
+            PageSize = request.PageSize,
+            TotalItems = totalItems
+        };
     }
 
     public async Task<StockDocumentDetail?> GetDetailAsync(int id)
     {
-        var header = await Set.AsNoTracking()
-            .Where(d => d.Id == id)
-            .Select(d => new StockDocumentDto(
-                d.Id, d.Code, d.Type, d.DocStatus, d.Note, d.CreatedDate, d.ApprovedAt, d.Lines.Count))
+        StockDocumentDto? header = await Set
+            .AsNoTracking()
+            .Where(document => document.Id == id)
+            .Select(document => new StockDocumentDto(
+                document.Id,
+                document.Code,
+                document.Type,
+                document.DocStatus,
+                document.Note,
+                document.CreatedDate,
+                document.ApprovedAt,
+                document.Lines.Count))
             .FirstOrDefaultAsync();
 
-        if (header is null) return null;
+        if (header == null)
+        {
+            return null;
+        }
 
-        var lines = await (
-            from l in Context.StockDocumentLines.AsNoTracking()
-            join s in Context.Skus.AsNoTracking() on l.SkuId equals s.Id
-            join p in Context.Products.AsNoTracking() on s.ProductId equals p.Id
-            where l.StockDocumentId == id
-            select new StockDocumentLineDto(l.Id, l.SkuId, s.SkuCode, p.Name, l.Qty, l.Note))
+        List<StockDocumentLineDto> lines = await (
+            from line in Context.StockDocumentLines.AsNoTracking()
+            join sku in Context.Skus.AsNoTracking() on line.SkuId equals sku.Id
+            join product in Context.Products.AsNoTracking() on sku.ProductId equals product.Id
+            where line.StockDocumentId == id
+            select new StockDocumentLineDto(
+                line.Id,
+                line.SkuId,
+                sku.SkuCode,
+                product.Name,
+                line.Qty,
+                line.Note))
             .ToListAsync();
 
         return new StockDocumentDetail(header, lines);

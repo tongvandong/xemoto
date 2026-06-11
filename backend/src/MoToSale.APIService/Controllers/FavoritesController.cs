@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MoToSale.Services.Catalog;
@@ -27,6 +27,6 @@ public class FavoritesController : ControllerBase
     public async Task<IActionResult> Remove(int productId)
     {
         await _favorites.RemoveAsync(CurrentUserId, productId);
-        return Ok(new { message = "Đã bỏ yêu thích." });
+        return Ok(new MessageResponse { Message = "Đã bỏ yêu thích." });
     }
 }

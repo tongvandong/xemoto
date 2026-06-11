@@ -1,9 +1,8 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Text.Json.Serialization;
 using MoToSale.Common.Auth;
-using MoToSale.Entities.SystemConfig;
-using MoToSale.Repository.EFCore;
+using MoToSale.DTO.Operations;
+using MoToSale.Services.Settings;
 
 namespace MoToSale.APIService.Controllers;
 
@@ -12,19 +11,17 @@ namespace MoToSale.APIService.Controllers;
 [Route("api/operations")]
 public class OperationsController : ControllerBase
 {
-    private readonly IRepository<Setting> _settings;
+    private readonly IStorefrontSettingsService _settings;
 
-    public OperationsController(IRepository<Setting> settings)
+    public OperationsController(IStorefrontSettingsService settings)
     {
         _settings = settings;
     }
 
-    // ===== System settings (key-value) =====
     [HttpGet("settings")]
     public async Task<IActionResult> GetSettings()
     {
-        var list = await _settings.GetAllAsync();
-        var items = list.OrderBy(s => s.Key).Select(s => new { key = s.Key, value = s.Value, description = s.Description, moTa = s.Description });
+        var items = await _settings.GetSettingsAsync();
         return Ok(new { items });
     }
 
@@ -32,36 +29,7 @@ public class OperationsController : ControllerBase
     [HttpPut("settings")]
     public async Task<IActionResult> SaveSettings([FromBody] SettingsRequest request)
     {
-        var all = await _settings.GetAllAsync();
-        foreach (var item in request.Items ?? new())
-        {
-            if (string.IsNullOrWhiteSpace(item.Key)) continue;
-            var existing = all.FirstOrDefault(s => s.Key == item.Key.Trim());
-            if (existing is null)
-            {
-                _settings.Add(new Setting { Key = item.Key.Trim(), Value = item.Value, Description = item.ResolvedDescription, CreatedDate = DateTime.UtcNow });
-            }
-            else
-            {
-                existing.Value = item.Value; existing.Description = item.ResolvedDescription; existing.UpdatedDate = DateTime.UtcNow;
-                _settings.Update(existing);
-            }
-        }
-        await _settings.SaveChangesAsync();
-        return Ok(new { message = "Settings saved successfully." });
+        await _settings.SaveSettingsAsync(request);
+        return Ok(new MessageResponse { Message = "Settings saved successfully." });
     }
-}
-
-public class SettingsRequest { public List<SettingItem> Items { get; set; } = new(); }
-public class SettingItem
-{
-    public string Key { get; set; } = "";
-    public string? Value { get; set; }
-    public string? Description { get; set; }
-
-    [JsonPropertyName("moTa")]
-    public string? LegacyDescription { get; set; }
-
-    [JsonIgnore]
-    public string? ResolvedDescription => Description ?? LegacyDescription;
 }

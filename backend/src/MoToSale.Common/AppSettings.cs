@@ -1,6 +1,6 @@
-namespace MoToSale.Common;
+﻿namespace MoToSale.Common;
 
-/// <summary>Ánh xạ cấu hình từ appsettings.json (theo khuôn BaseCore.Common.AppSettings).</summary>
+/// <summary>Ánh xạ cấu hình JWT từ appsettings.json hoặc biến môi trường.</summary>
 public class JwtSettings
 {
     public string SecretKey { get; set; } = string.Empty;

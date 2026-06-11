@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using MoToSale.DTO.Common;
 using MoToSale.DTO.Ordering;
 using MoToSale.Entities.Ordering;
@@ -8,47 +8,134 @@ namespace MoToSale.Repository.Ordering;
 
 public class OrderRepository : Repository<Order>, IOrderRepository
 {
-    public OrderRepository(AppDbContext context) : base(context) { }
-
-    public Task<Order?> GetDetailAsync(int id) =>
-        Set.Include(o => o.Lines).ThenInclude(l => l.Allocations)
-            .FirstOrDefaultAsync(o => o.Id == id);
-
-    public Task<List<Order>> GetByUserAsync(int userId) =>
-        Set.AsNoTracking().Include(o => o.Lines).Where(o => o.UserId == userId)
-            .OrderByDescending(o => o.Id).ToListAsync();
-
-    public async Task<PagingResponse<Order>> SearchAsync(OrderSearchRequest r)
+    public OrderRepository(AppDbContext context) : base(context)
     {
-        var query = Set.AsNoTracking().Include(o => o.Lines).AsQueryable();
-        if (!string.IsNullOrWhiteSpace(r.OrderStatus)) query = query.Where(o => o.OrderStatus == r.OrderStatus);
-        if (!string.IsNullOrWhiteSpace(r.PaymentStatus)) query = query.Where(o => o.PaymentStatus == r.PaymentStatus);
-        if (!string.IsNullOrWhiteSpace(r.FulfillmentStatus)) query = query.Where(o => o.FulfillmentStatus == r.FulfillmentStatus);
-        if (r.StartDate.HasValue) query = query.Where(o => (o.PlacedAt ?? o.CreatedDate) >= r.StartDate.Value.Date);
-        if (r.EndDate.HasValue) query = query.Where(o => (o.PlacedAt ?? o.CreatedDate) < r.EndDate.Value.Date.AddDays(1));
-        if (!string.IsNullOrWhiteSpace(r.Keyword))
-        {
-            var keyword = r.Keyword.Trim();
-            query = query.Where(o =>
-                o.Code.Contains(keyword)
-                || o.ShippingRecipient.Contains(keyword)
-                || o.ShippingPhone.Contains(keyword)
-                || (o.ShippingEmail != null && o.ShippingEmail.Contains(keyword))
-                || Context.Users.Any(u => u.Id == o.UserId
-                    && (u.FullName.Contains(keyword)
-                        || u.Email.Contains(keyword)
-                        || (u.PhoneNumber != null && u.PhoneNumber.Contains(keyword)))));
-        }
-
-        var total = await query.CountAsync();
-        var items = await query.OrderByDescending(o => o.Id)
-            .Skip((r.Page - 1) * r.PageSize).Take(r.PageSize).ToListAsync();
-        return new PagingResponse<Order> { Items = items, Page = r.Page, PageSize = r.PageSize, TotalItems = total };
     }
 
-    public void AddStatusHistory(OrderStatusHistory history) => Context.OrderStatusHistories.Add(history);
+    public async Task<Order?> GetDetailAsync(int id)
+    {
+        Order? order = await Set
+            .Include(item => item.Lines)
+            .ThenInclude(line => line.Allocations)
+            .FirstOrDefaultAsync(item => item.Id == id);
 
-    public Task<List<OrderStatusHistory>> GetHistoriesAsync(int orderId) =>
-        Context.OrderStatusHistories.AsNoTracking().Where(x => x.OrderId == orderId)
-            .OrderBy(x => x.CreatedDate).ThenBy(x => x.Id).ToListAsync();
+        return order;
+    }
+
+    public async Task<List<Order>> GetByUserAsync(int userId)
+    {
+        List<Order> orders = await Set
+            .AsNoTracking()
+            .Include(item => item.Lines)
+            .Where(item => item.UserId == userId)
+            .OrderByDescending(item => item.Id)
+            .ToListAsync();
+
+        return orders;
+    }
+
+    public async Task<PagingResponse<Order>> SearchAsync(OrderSearchRequest request)
+    {
+        IQueryable<Order> query = Set
+            .AsNoTracking()
+            .Include(order => order.Lines)
+            .AsQueryable();
+
+        query = ApplyStatusFilters(query, request);
+        query = ApplyDateFilters(query, request);
+        query = ApplyKeywordFilter(query, request);
+
+        int totalItems = await query.CountAsync();
+
+        List<Order> items = await query
+            .OrderByDescending(order => order.Id)
+            .Skip((request.Page - 1) * request.PageSize)
+            .Take(request.PageSize)
+            .ToListAsync();
+
+        return new PagingResponse<Order>
+        {
+            Items = items,
+            Page = request.Page,
+            PageSize = request.PageSize,
+            TotalItems = totalItems
+        };
+    }
+
+    public void AddStatusHistory(OrderStatusHistory history)
+    {
+        Context.OrderStatusHistories.Add(history);
+    }
+
+    public async Task<List<OrderStatusHistory>> GetHistoriesAsync(int orderId)
+    {
+        List<OrderStatusHistory> histories = await Context.OrderStatusHistories
+            .AsNoTracking()
+            .Where(history => history.OrderId == orderId)
+            .OrderBy(history => history.CreatedDate)
+            .ThenBy(history => history.Id)
+            .ToListAsync();
+
+        return histories;
+    }
+
+    private static IQueryable<Order> ApplyStatusFilters(IQueryable<Order> query, OrderSearchRequest request)
+    {
+        if (!string.IsNullOrWhiteSpace(request.OrderStatus))
+        {
+            query = query.Where(order => order.OrderStatus == request.OrderStatus);
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.PaymentStatus))
+        {
+            query = query.Where(order => order.PaymentStatus == request.PaymentStatus);
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.FulfillmentStatus))
+        {
+            query = query.Where(order => order.FulfillmentStatus == request.FulfillmentStatus);
+        }
+
+        return query;
+    }
+
+    private static IQueryable<Order> ApplyDateFilters(IQueryable<Order> query, OrderSearchRequest request)
+    {
+        if (request.StartDate.HasValue)
+        {
+            DateTime startDate = request.StartDate.Value.Date;
+            query = query.Where(order => (order.PlacedAt ?? order.CreatedDate) >= startDate);
+        }
+
+        if (request.EndDate.HasValue)
+        {
+            DateTime endDate = request.EndDate.Value.Date.AddDays(1);
+            query = query.Where(order => (order.PlacedAt ?? order.CreatedDate) < endDate);
+        }
+
+        return query;
+    }
+
+    private IQueryable<Order> ApplyKeywordFilter(IQueryable<Order> query, OrderSearchRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Keyword))
+        {
+            return query;
+        }
+
+        string keyword = request.Keyword.Trim();
+
+        query = query.Where(order =>
+            order.Code.Contains(keyword)
+            || order.ShippingRecipient.Contains(keyword)
+            || order.ShippingPhone.Contains(keyword)
+            || (order.ShippingEmail != null && order.ShippingEmail.Contains(keyword))
+            || Context.Users.Any(user =>
+                user.Id == order.UserId
+                && (user.FullName.Contains(keyword)
+                    || user.Email.Contains(keyword)
+                    || (user.PhoneNumber != null && user.PhoneNumber.Contains(keyword)))));
+
+        return query;
+    }
 }

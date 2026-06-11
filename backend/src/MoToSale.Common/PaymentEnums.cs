@@ -1,4 +1,4 @@
-namespace MoToSale.Common;
+﻿namespace MoToSale.Common;
 
 public static class PaymentRecordType
 {
@@ -8,7 +8,7 @@ public static class PaymentRecordType
     public const string Installment = "Installment";
 }
 
-/// <summary>Hình thức thanh toán — thủ công (không tích hợp cổng/ngân hàng).</summary>
+/// <summary>Hình thức thanh toán thủ công hoặc được hệ thống ghi nhận.</summary>
 public static class PaymentMethod
 {
     public const string Cash = "Cash";

@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using MoToSale.DTO.Common;
 using MoToSale.Entities.Identity;
 using MoToSale.Repository.EFCore;
@@ -7,43 +7,129 @@ namespace MoToSale.Repository.Identity;
 
 public class UserRepository : Repository<User>, IUserRepository
 {
-    public UserRepository(AppDbContext context) : base(context) { }
+    private static readonly string[] InternalRoles = { "Admin", "Staff" };
 
-    public Task<User?> GetByEmailWithRolesAsync(string email) =>
-        Query.Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
-            .FirstOrDefaultAsync(u => u.Email == email);
+    public UserRepository(AppDbContext context) : base(context)
+    {
+    }
 
-    public Task<User?> GetByIdWithRolesAsync(int id) =>
-        Query.Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
-            .FirstOrDefaultAsync(u => u.Id == id);
+    public async Task<User?> GetByEmailWithRolesAsync(string email)
+    {
+        User? user = await Query
+            .Include(item => item.UserRoles)
+            .ThenInclude(userRole => userRole.Role)
+            .FirstOrDefaultAsync(item => item.Email == email);
 
-    public Task<bool> EmailExistsAsync(string email) => AnyAsync(u => u.Email == email);
+        return user;
+    }
 
-    public Task<Role> GetRoleByCodeAsync(string code) =>
-        Context.Set<Role>().FirstAsync(r => r.Code == code);
+    public async Task<User?> GetByIdWithRolesAsync(int id)
+    {
+        User? user = await Query
+            .Include(item => item.UserRoles)
+            .ThenInclude(userRole => userRole.Role)
+            .FirstOrDefaultAsync(item => item.Id == id);
+
+        return user;
+    }
+
+    public async Task<bool> EmailExistsAsync(string email)
+    {
+        bool exists = await Query.AnyAsync(user => user.Email == email);
+        return exists;
+    }
+
+    public async Task<Role> GetRoleByCodeAsync(string code)
+    {
+        Role role = await Context
+            .Set<Role>()
+            .FirstAsync(item => item.Code == code);
+
+        return role;
+    }
 
     public async Task<PagingResponse<User>> SearchAsync(PagingRequest request, string? role = null, int? status = null)
     {
-        var internalRoles = new[] { "Admin", "Staff" };
-        var query = Query.AsNoTracking()
-            .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
-            .Where(u => u.UserRoles.Any(ur => internalRoles.Contains(ur.Role.Code)));
+        IQueryable<User> query = Query
+            .AsNoTracking()
+            .Include(user => user.UserRoles)
+            .ThenInclude(userRole => userRole.Role)
+            .Where(user => user.UserRoles.Any(userRole => InternalRoles.Contains(userRole.Role.Code)));
 
-        if (!string.IsNullOrWhiteSpace(role) && internalRoles.Contains(role))
-            query = query.Where(u => u.UserRoles.Any(ur => ur.Role.Code == role));
+        if (!string.IsNullOrWhiteSpace(role) && InternalRoles.Contains(role))
+        {
+            query = query.Where(user => user.UserRoles.Any(userRole => userRole.Role.Code == role));
+        }
 
+        query = ApplyStatusFilter(query, status);
+        query = ApplyKeywordFilter(query, request.Keyword);
+
+        return await BuildUserPageAsync(query, request);
+    }
+
+    public async Task<PagingResponse<User>> SearchCustomersAsync(PagingRequest request, int? status = null)
+    {
+        IQueryable<User> query = Query
+            .AsNoTracking()
+            .Where(user => user.UserRoles.Any(userRole => userRole.Role.Code == "Customer"));
+
+        query = ApplyStatusFilter(query, status);
+        query = ApplyKeywordFilter(query, request.Keyword);
+
+        return await BuildUserPageAsync(query, request);
+    }
+
+    public async Task<bool> AnyUserInRoleAsync(string role, int? excludingUserId = null, int? status = null)
+    {
+        IQueryable<User> query = Query
+            .Where(user => user.UserRoles.Any(userRole => userRole.Role.Code == role));
+
+        if (excludingUserId.HasValue)
+        {
+            int userId = excludingUserId.Value;
+            query = query.Where(user => user.Id != userId);
+        }
+
+        query = ApplyStatusFilter(query, status);
+
+        bool exists = await query.AnyAsync();
+        return exists;
+    }
+
+    private static IQueryable<User> ApplyStatusFilter(IQueryable<User> query, int? status)
+    {
         if (status.HasValue)
-            query = query.Where(u => u.Status == status.Value);
+        {
+            int statusValue = status.Value;
+            query = query.Where(user => user.Status == statusValue);
+        }
 
-        var filtered = string.IsNullOrWhiteSpace(request.Keyword)
-            ? query
-            : query.Where(u => u.FullName.Contains(request.Keyword!)
-                || u.Email.Contains(request.Keyword!)
-                || (u.PhoneNumber != null && u.PhoneNumber.Contains(request.Keyword!)));
+        return query;
+    }
 
-        var total = await filtered.CountAsync();
-        var items = await filtered
-            .OrderByDescending(u => u.Id)
+    private static IQueryable<User> ApplyKeywordFilter(IQueryable<User> query, string? keyword)
+    {
+        if (string.IsNullOrWhiteSpace(keyword))
+        {
+            return query;
+        }
+
+        string searchText = keyword;
+
+        query = query.Where(user =>
+            user.FullName.Contains(searchText)
+            || user.Email.Contains(searchText)
+            || (user.PhoneNumber != null && user.PhoneNumber.Contains(searchText)));
+
+        return query;
+    }
+
+    private static async Task<PagingResponse<User>> BuildUserPageAsync(IQueryable<User> query, PagingRequest request)
+    {
+        int totalItems = await query.CountAsync();
+
+        List<User> items = await query
+            .OrderByDescending(user => user.Id)
             .Skip((request.Page - 1) * request.PageSize)
             .Take(request.PageSize)
             .ToListAsync();
@@ -53,36 +139,7 @@ public class UserRepository : Repository<User>, IUserRepository
             Items = items,
             Page = request.Page,
             PageSize = request.PageSize,
-            TotalItems = total,
+            TotalItems = totalItems
         };
-    }
-
-    public async Task<PagingResponse<User>> SearchCustomersAsync(PagingRequest request, int? status = null)
-    {
-        var query = Query.AsNoTracking()
-            .Where(u => u.UserRoles.Any(ur => ur.Role.Code == "Customer"));
-
-        if (status.HasValue)
-            query = query.Where(u => u.Status == status.Value);
-
-        if (!string.IsNullOrWhiteSpace(request.Keyword))
-            query = query.Where(u => u.FullName.Contains(request.Keyword!)
-                || u.Email.Contains(request.Keyword!)
-                || (u.PhoneNumber != null && u.PhoneNumber.Contains(request.Keyword!)));
-
-        var total = await query.CountAsync();
-        var items = await query.OrderByDescending(u => u.Id)
-            .Skip((request.Page - 1) * request.PageSize).Take(request.PageSize).ToListAsync();
-        return new PagingResponse<User> { Items = items, Page = request.Page, PageSize = request.PageSize, TotalItems = total };
-    }
-
-    public Task<bool> AnyUserInRoleAsync(string role, int? excludingUserId = null, int? status = null)
-    {
-        var query = Query.Where(u => u.UserRoles.Any(ur => ur.Role.Code == role));
-        if (excludingUserId.HasValue)
-            query = query.Where(u => u.Id != excludingUserId.Value);
-        if (status.HasValue)
-            query = query.Where(u => u.Status == status.Value);
-        return query.AnyAsync();
     }
 }

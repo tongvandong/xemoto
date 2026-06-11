@@ -1,4 +1,4 @@
-using MoToSale.DTO.Catalog;
+﻿using MoToSale.DTO.Catalog;
 using MoToSale.DTO.Common;
 
 namespace MoToSale.Services.Catalog;
@@ -14,6 +14,9 @@ public interface ICatalogService
     Task<List<CategoryDto>> GetCategoriesAsync();
     Task<List<BrandDto>> GetBrandsAsync();
     Task<List<VehicleModelDto>> GetVehicleModelsAsync(int? brandId);
+    Task<List<CategoryDto>> GetActiveCategoriesAsync();
+    Task<List<BrandDto>> GetActiveBrandsAsync();
+    Task<List<VehicleModelDto>> GetActiveVehicleModelsAsync();
     Task<List<SkuLookupDto>> GetSkusAsync();
 
     // Hãng xe

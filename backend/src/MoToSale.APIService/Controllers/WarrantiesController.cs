@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MoToSale.Common.Auth;
@@ -14,33 +14,81 @@ namespace MoToSale.APIService.Controllers;
 public class WarrantiesController : ControllerBase
 {
     private readonly IWarrantyService _warranties;
-    public WarrantiesController(IWarrantyService warranties) => _warranties = warranties;
-    private int? CurrentUserId => int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : null;
+
+    public WarrantiesController(IWarrantyService warranties)
+    {
+        _warranties = warranties;
+    }
+
+    private int? CurrentUserId
+    {
+        get
+        {
+            string? rawUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            bool parsed = int.TryParse(rawUserId, out int userId);
+
+            return parsed ? userId : null;
+        }
+    }
 
     [HttpGet]
-    public async Task<IActionResult> Search([FromQuery] PagingRequest request, [FromQuery] string? status) => Ok(await _warranties.SearchAsync(request, status));
+    public async Task<IActionResult> Search([FromQuery] PagingRequest request, [FromQuery] string? status)
+    {
+        var result = await _warranties.SearchAsync(request, status);
+        return Ok(result);
+    }
 
     [HttpGet("{id:int}")]
-    public async Task<IActionResult> Get(int id) { var row = await _warranties.GetAsync(id); return row is null ? NotFound() : Ok(row); }
+    public async Task<IActionResult> Get(int id)
+    {
+        var warranty = await _warranties.GetAsync(id);
+        if (warranty == null)
+        {
+            return NotFound();
+        }
+
+        return Ok(warranty);
+    }
 
     [HttpPost]
     public async Task<IActionResult> Create(SaveWarrantyRequest request)
     {
-        try { return Ok(new { id = await _warranties.CreateAsync(request) }); }
-        catch (WarrantyException ex) { return BadRequest(new { message = ex.Message }); }
+        try
+        {
+            int warrantyId = await _warranties.CreateAsync(request);
+            return Ok(new IdResponse { Id = warrantyId });
+        }
+        catch (WarrantyException ex)
+        {
+            return BadRequest(new MessageResponse { Message = ex.Message });
+        }
     }
 
     [HttpPut("{id:int}")]
     public async Task<IActionResult> Update(int id, SaveWarrantyRequest request)
     {
-        try { await _warranties.UpdateAsync(id, request); return Ok(new { id }); }
-        catch (WarrantyException ex) { return BadRequest(new { message = ex.Message }); }
+        try
+        {
+            await _warranties.UpdateAsync(id, request);
+            return Ok(new IdResponse { Id = id });
+        }
+        catch (WarrantyException ex)
+        {
+            return BadRequest(new MessageResponse { Message = ex.Message });
+        }
     }
 
     [HttpPatch("{id:int}/status")]
     public async Task<IActionResult> UpdateStatus(int id, UpdateWarrantyStatusRequest request)
     {
-        try { await _warranties.UpdateStatusAsync(id, request, CurrentUserId); return Ok(new { id }); }
-        catch (WarrantyException ex) { return BadRequest(new { message = ex.Message }); }
+        try
+        {
+            await _warranties.UpdateStatusAsync(id, request, CurrentUserId);
+            return Ok(new IdResponse { Id = id });
+        }
+        catch (WarrantyException ex)
+        {
+            return BadRequest(new MessageResponse { Message = ex.Message });
+        }
     }
 }

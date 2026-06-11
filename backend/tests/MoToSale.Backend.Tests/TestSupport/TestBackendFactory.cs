@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using MoToSale.Common;
 using MoToSale.Common.Auth;
 using MoToSale.Entities.Catalog;
@@ -103,7 +103,8 @@ public sealed class TestBackendFactory
     public InventoryService InventoryService() => new(
         new InventoryRepository(Db),
         new StockDocumentRepository(Db),
-        new ReservationRepository(Db));
+        new ReservationRepository(Db),
+        Db);
 
     public ContentService ContentService() => new(
         new Repository<MoToSale.Entities.Content.Post>(Db),

@@ -1,9 +1,10 @@
-# Ghi nhớ dự án — MoToSale/XeMoto (v2)
+﻿# Ghi nhớ dự án — MoToSale/XeMoto (v2)
 
 ## Deployment (đã chạy thật, thành công)
 Hai tài liệu deploy do chủ dự án viết & đã verify — **luôn tham chiếu khi liên quan deploy/redeploy**:
 - `v2/DEPLOY_VPS_NGINX_GUIDE.md` — deploy lần đầu lên VPS Ubuntu 24.04 + Docker Compose + nginx reverse proxy + Certbot HTTPS.
-- `v2/REDEPLOY_AFTER_CODE_CHANGE.md` — quy trình deploy lại sau khi sửa code.
+- `v2/REDEPLOY_AFTER_CODE_CHANGE.md` — quy trình deploy lại sau khi sửa code (flow 1‑repo).
+- `v2/SETUP_AUTO_DEPLOY.md` — cấu hình auto‑deploy bằng GitHub Actions self‑hosted runner trên VPS (push `main` → tự build+up). Đã dựng chạy thật: user `deploy` (nhóm docker), service cài bằng root `./svc.sh install deploy`, workflow `.github/workflows/deploy.yml`.
 
 ### Hạ tầng demo
 - VPS: `160.187.229.220` (Ubuntu 24.04). Source clone tại `/opt/xemoto`.

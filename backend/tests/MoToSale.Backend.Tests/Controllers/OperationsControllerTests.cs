@@ -1,7 +1,9 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using MoToSale.APIService.Controllers;
 using MoToSale.Backend.Tests.TestSupport;
+using MoToSale.DTO.Operations;
 using MoToSale.Repository.EFCore;
+using MoToSale.Services.Settings;
 
 namespace MoToSale.Backend.Tests.Controllers;
 
@@ -12,7 +14,8 @@ public class OperationsControllerTests
     {
         var f = new TestBackendFactory();
         await f.SeedCoreAsync();
-        var controller = new OperationsController(new Repository<MoToSale.Entities.SystemConfig.Setting>(f.Db));
+        var settingsService = new StorefrontSettingsService(new Repository<MoToSale.Entities.SystemConfig.Setting>(f.Db));
+        var controller = new OperationsController(settingsService);
 
         var result = await controller.SaveSettings(new SettingsRequest
         {

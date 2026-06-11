@@ -1,10 +1,9 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MoToSale.Common.Auth;
 using MoToSale.DTO.Operations;
-using MoToSale.Entities.Audit;
-using MoToSale.Repository;
+using MoToSale.Services.Audit;
 using MoToSale.Services.Operations;
 
 namespace MoToSale.APIService.Controllers;
@@ -14,25 +13,42 @@ namespace MoToSale.APIService.Controllers;
 public class InstallmentApplicationsController : ControllerBase
 {
     private readonly IInstallmentService _service;
-    private readonly AppDbContext _db;
-    public InstallmentApplicationsController(IInstallmentService service, AppDbContext db)
+    private readonly IAuditLogService _auditLogs;
+
+    public InstallmentApplicationsController(IInstallmentService service, IAuditLogService auditLogs)
     {
         _service = service;
-        _db = db;
+        _auditLogs = auditLogs;
     }
 
-    private int? CurrentUserId => int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : null;
-
-    private async Task AddAuditAsync(string action, int id, string? value = null)
+    private int? CurrentUserId
     {
-        var now = DateTime.UtcNow;
-        _db.AuditLogs.Add(new AuditLog
+        get
         {
-            Entity = "InstallmentApplication", EntityId = id.ToString(), Action = action, NewValueJson = value,
-            ActorId = CurrentUserId, ActorName = User.FindFirstValue(ClaimTypes.Name) ?? User.FindFirstValue(ClaimTypes.Email),
-            At = now, CreatedDate = now,
-        });
-        await _db.SaveChangesAsync();
+            string? rawUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (int.TryParse(rawUserId, out int userId))
+            {
+                return userId;
+            }
+
+            return null;
+        }
+    }
+
+    private string? CurrentActorName
+    {
+        get
+        {
+            string? name = User.FindFirstValue(ClaimTypes.Name);
+
+            if (!string.IsNullOrWhiteSpace(name))
+            {
+                return name;
+            }
+
+            return User.FindFirstValue(ClaimTypes.Email);
+        }
     }
 
     // Khách (đăng nhập hoặc vãng lai) gửi hồ sơ tư vấn trả góp.
@@ -43,9 +59,9 @@ public class InstallmentApplicationsController : ControllerBase
         try
         {
             var id = await _service.CreateAsync(request, CurrentUserId);
-            return Ok(new { id });
+            return Ok(new IdResponse { Id = id });
         }
-        catch (InstallmentException ex) { return BadRequest(new { message = ex.Message }); }
+        catch (InstallmentException ex) { return BadRequest(new MessageResponse { Message = ex.Message }); }
     }
 
     [HttpGet]
@@ -60,10 +76,17 @@ public class InstallmentApplicationsController : ControllerBase
         try
         {
             var orderId = await _service.ApproveAsync(id, request, CurrentUserId);
-            await AddAuditAsync("Approve", id, $"OrderId={orderId};Partner={request.FinancePartner}");
+            await _auditLogs.AddAsync(
+                "InstallmentApplication",
+                id.ToString(),
+                "Approve",
+                $"OrderId={orderId};Partner={request.FinancePartner}",
+                CurrentUserId,
+                CurrentActorName);
+
             return Ok(new { id, orderId });
         }
-        catch (InstallmentException ex) { return BadRequest(new { message = ex.Message }); }
+        catch (InstallmentException ex) { return BadRequest(new MessageResponse { Message = ex.Message }); }
     }
 
     [HttpPost("{id:int}/reject")]
@@ -73,9 +96,16 @@ public class InstallmentApplicationsController : ControllerBase
         try
         {
             await _service.RejectAsync(id, request.Note, CurrentUserId);
-            await AddAuditAsync("Reject", id, request.Note);
-            return Ok(new { id });
+            await _auditLogs.AddAsync(
+                "InstallmentApplication",
+                id.ToString(),
+                "Reject",
+                request.Note,
+                CurrentUserId,
+                CurrentActorName);
+
+            return Ok(new IdResponse { Id = id });
         }
-        catch (InstallmentException ex) { return BadRequest(new { message = ex.Message }); }
+        catch (InstallmentException ex) { return BadRequest(new MessageResponse { Message = ex.Message }); }
     }
 }

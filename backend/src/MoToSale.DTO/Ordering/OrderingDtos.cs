@@ -1,4 +1,4 @@
-using MoToSale.DTO.Common;
+﻿using MoToSale.DTO.Common;
 
 namespace MoToSale.DTO.Ordering;
 
@@ -33,7 +33,6 @@ public record OrderDetail(
 
 public class OrderSearchRequest : PagingRequest
 {
-    public string? Keyword { get; set; }
     public string? OrderStatus { get; set; }
     public string? PaymentStatus { get; set; }
     public string? FulfillmentStatus { get; set; }

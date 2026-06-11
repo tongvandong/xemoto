@@ -1,4 +1,4 @@
-using MoToSale.DTO.Common;
+﻿using MoToSale.DTO.Common;
 
 namespace MoToSale.DTO.Catalog;
 
@@ -69,7 +69,7 @@ public record ProductReviewSummary(int ProductId, int TotalReviews, double Avera
 public record MyReviewState(int ProductId, bool IsAuthenticated, bool HasPurchased, bool CanReview, int? EligibleOrderId, string? Reason, ProductReviewItem? MyReview);
 public record CreateReviewRequest(int Rating, string? Title, string? Comment, int? OrderId);
 
-public record FavoriteDto(int Id, int UserId, int ProductId, DateTime CreatedDate, object? Product);
+public record FavoriteDto(int Id, int UserId, int ProductId, DateTime CreatedDate, ProductDetail? Product);
 
 public record CompatibilityDto(int Id, int PartProductId, int? BrandId, string? BrandName, int? VehicleModelId, string? VehicleModelName, short? YearFrom, short? YearTo, bool AppliesToAll, string? Note, int Status);
 public record SaveCompatibilityRequest(int? BrandId, int? VehicleModelId, short? YearFrom, short? YearTo, bool AppliesToAll, string? Note);

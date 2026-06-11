@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using MoToSale.Common;
 using MoToSale.DTO.Inventory;
 using MoToSale.Entities.Inventory;
@@ -8,24 +8,54 @@ namespace MoToSale.Repository.Inventory;
 
 public class ReservationRepository : Repository<Reservation>, IReservationRepository
 {
-    public ReservationRepository(AppDbContext context) : base(context) { }
+    public ReservationRepository(AppDbContext context) : base(context)
+    {
+    }
 
-    public async Task<List<HoldDto>> GetHoldsAsync() =>
-        await (from r in Set.AsNoTracking()
-               where r.ReservationStatus == ReservationStatus.Active || r.ReservationStatus == ReservationStatus.Confirmed
-               join s in Context.Skus.AsNoTracking() on r.SkuId equals s.Id
-               join p in Context.Products.AsNoTracking() on s.ProductId equals p.Id
-               join o in Context.Orders.AsNoTracking() on r.OrderId equals o.Id into orders
-               from o in orders.DefaultIfEmpty()
-               orderby r.ExpiresAt
-               select new HoldDto(r.Id, r.OrderId, o != null ? o.Code : null, r.SkuId, s.SkuCode, p.Name, r.Qty, r.ReservationStatus, r.ExpiresAt))
-              .ToListAsync();
+    public async Task<List<HoldDto>> GetHoldsAsync()
+    {
+        List<HoldDto> holds = await (
+            from reservation in Set.AsNoTracking()
+            where reservation.ReservationStatus == ReservationStatus.Active
+                  || reservation.ReservationStatus == ReservationStatus.Confirmed
+            join sku in Context.Skus.AsNoTracking() on reservation.SkuId equals sku.Id
+            join product in Context.Products.AsNoTracking() on sku.ProductId equals product.Id
+            join order in Context.Orders.AsNoTracking() on reservation.OrderId equals order.Id into orders
+            from order in orders.DefaultIfEmpty()
+            orderby reservation.ExpiresAt
+            select new HoldDto(
+                reservation.Id,
+                reservation.OrderId,
+                order.Code,
+                reservation.SkuId,
+                sku.SkuCode,
+                product.Name,
+                reservation.Qty,
+                reservation.ReservationStatus,
+                reservation.ExpiresAt))
+            .ToListAsync();
 
-    public async Task<int> GetActiveQtyAsync(int skuId) =>
-        await Set.Where(r => r.SkuId == skuId &&
-                (r.ReservationStatus == ReservationStatus.Active || r.ReservationStatus == ReservationStatus.Confirmed))
-            .SumAsync(r => (int?)r.Qty) ?? 0;
+        return holds;
+    }
 
-    public Task<List<Reservation>> GetByOrderAsync(int orderId) =>
-        Set.Where(r => r.OrderId == orderId).ToListAsync();
+    public async Task<int> GetActiveQtyAsync(int skuId)
+    {
+        int? quantity = await Set
+            .Where(reservation =>
+                reservation.SkuId == skuId
+                && (reservation.ReservationStatus == ReservationStatus.Active
+                    || reservation.ReservationStatus == ReservationStatus.Confirmed))
+            .SumAsync(reservation => (int?)reservation.Qty);
+
+        return quantity ?? 0;
+    }
+
+    public async Task<List<Reservation>> GetByOrderAsync(int orderId)
+    {
+        List<Reservation> reservations = await Set
+            .Where(reservation => reservation.OrderId == orderId)
+            .ToListAsync();
+
+        return reservations;
+    }
 }

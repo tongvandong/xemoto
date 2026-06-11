@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using MoToSale.DTO.Auth;
 using MoToSale.Services.Identity;
 
@@ -10,27 +10,51 @@ public class AuthController : ControllerBase
 {
     private readonly IAuthService _auth;
 
-    public AuthController(IAuthService auth) => _auth = auth;
+    public AuthController(IAuthService auth)
+    {
+        _auth = auth;
+    }
 
     [HttpPost("register")]
     public async Task<IActionResult> Register(RegisterRequest request)
     {
-        try { return Ok(await _auth.RegisterAsync(request)); }
-        catch (AuthException ex) { return BadRequest(new { message = ex.Message }); }
+        try
+        {
+            var result = await _auth.RegisterAsync(request);
+            return Ok(result);
+        }
+        catch (AuthException ex)
+        {
+            return BadRequest(new MessageResponse { Message = ex.Message });
+        }
     }
 
     [HttpPost("login")]
     public async Task<IActionResult> Login(LoginRequest request)
     {
-        try { return Ok(await _auth.LoginAsync(request)); }
-        catch (AuthException ex) { return Unauthorized(new { message = ex.Message }); }
+        try
+        {
+            var result = await _auth.LoginAsync(request);
+            return Ok(result);
+        }
+        catch (AuthException ex)
+        {
+            return Unauthorized(new MessageResponse { Message = ex.Message });
+        }
     }
 
     [HttpPost("forgot-password")]
     public async Task<IActionResult> ForgotPassword(ForgotPasswordRequest request)
     {
-        try { return Ok(await _auth.ForgotPasswordAsync(request)); }
-        catch (AuthException ex) { return BadRequest(new { message = ex.Message }); }
+        try
+        {
+            var result = await _auth.ForgotPasswordAsync(request);
+            return Ok(result);
+        }
+        catch (AuthException ex)
+        {
+            return BadRequest(new MessageResponse { Message = ex.Message });
+        }
     }
 
     [HttpPost("reset-password")]
@@ -39,8 +63,11 @@ public class AuthController : ControllerBase
         try
         {
             await _auth.ResetPasswordAsync(request);
-            return Ok(new { message = "Password reset successfully." });
+            return Ok(new MessageResponse { Message = "Đặt lại mật khẩu thành công." });
         }
-        catch (AuthException ex) { return BadRequest(new { message = ex.Message }); }
+        catch (AuthException ex)
+        {
+            return BadRequest(new MessageResponse { Message = ex.Message });
+        }
     }
 }

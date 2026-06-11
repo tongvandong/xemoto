@@ -1,14 +1,12 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using ClosedXML.Excel;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using MoToSale.Common;
 using MoToSale.Common.Auth;
 using MoToSale.DTO.Common;
 using MoToSale.DTO.Inventory;
-using MoToSale.Entities.Audit;
-using MoToSale.Repository;
+using MoToSale.Services.Audit;
 using MoToSale.Services.Inventory;
 
 namespace MoToSale.APIService.Controllers;
@@ -19,108 +17,118 @@ namespace MoToSale.APIService.Controllers;
 public class InventoryController : ControllerBase
 {
     private readonly IInventoryService _inventory;
-    private readonly AppDbContext _db;
+    private readonly IAuditLogService _auditLogs;
 
-    public InventoryController(IInventoryService inventory, AppDbContext db)
+    public InventoryController(IInventoryService inventory, IAuditLogService auditLogs)
     {
         _inventory = inventory;
-        _db = db;
+        _auditLogs = auditLogs;
     }
 
-    private int? CurrentUserId =>
-        int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : null;
-
-    private string? CurrentActorName =>
-        User.FindFirstValue(ClaimTypes.Name) ?? User.FindFirstValue(ClaimTypes.Email);
-
-    private async Task AddAuditAsync(string entity, string entityId, string action, string? newValue = null)
+    private int? CurrentUserId
     {
-        var now = DateTime.UtcNow;
-        _db.AuditLogs.Add(new AuditLog
+        get
         {
-            Entity = entity,
-            EntityId = entityId,
-            Action = action,
-            NewValueJson = newValue,
-            ActorId = CurrentUserId,
-            ActorName = CurrentActorName,
-            At = now,
-            CreatedDate = now
-        });
-        await _db.SaveChangesAsync();
+            string? userIdText = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (int.TryParse(userIdText, out int userId))
+            {
+                return userId;
+            }
+
+            return null;
+        }
+    }
+
+    private string? CurrentActorName
+    {
+        get
+        {
+            string? name = User.FindFirstValue(ClaimTypes.Name);
+
+            if (!string.IsNullOrWhiteSpace(name))
+            {
+                return name;
+            }
+
+            return User.FindFirstValue(ClaimTypes.Email);
+        }
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetInventory([FromQuery] InventorySearchRequest request) =>
-        Ok(await _inventory.GetInventoryAsync(request));
+    public async Task<IActionResult> GetInventory([FromQuery] InventorySearchRequest request)
+    {
+        var result = await _inventory.GetInventoryAsync(request);
+        return Ok(result);
+    }
 
     [HttpGet("movements")]
-    public async Task<IActionResult> GetMovements([FromQuery] int? skuId) =>
-        Ok(new { items = await _inventory.GetMovementsAsync(skuId) });
+    public async Task<IActionResult> GetMovements([FromQuery] int? skuId)
+    {
+        var items = await _inventory.GetMovementsAsync(skuId);
+        return Ok(new { items });
+    }
 
     [HttpGet("documents")]
-    public async Task<IActionResult> SearchDocuments([FromQuery] PagingRequest request, [FromQuery] string? status, [FromQuery] int? type) =>
-        Ok(await _inventory.SearchDocumentsAsync(request, status, type));
+    public async Task<IActionResult> SearchDocuments([FromQuery] PagingRequest request, [FromQuery] string? status, [FromQuery] int? type)
+    {
+        var result = await _inventory.SearchDocumentsAsync(request, status, type);
+        return Ok(result);
+    }
 
     [HttpGet("documents/{id:int}")]
     public async Task<IActionResult> GetDocument(int id)
     {
-        var doc = await _inventory.GetDocumentAsync(id);
-        return doc is null ? NotFound() : Ok(doc);
+        var document = await _inventory.GetDocumentAsync(id);
+
+        if (document == null)
+        {
+            return NotFound();
+        }
+
+        return Ok(document);
     }
 
     [HttpGet("goods-receipts")]
     public async Task<IActionResult> SearchGoodsReceipts([FromQuery] PagingRequest request)
     {
-        var query =
-            from receipt in _db.GoodsReceipts.AsNoTracking()
-            join order in _db.PurchaseOrders.AsNoTracking() on receipt.PurchaseOrderId equals order.Id
-            join supplier in _db.Suppliers.AsNoTracking() on order.SupplierId equals supplier.Id
-            orderby receipt.ReceivedAt descending
-            select new GoodsReceiptDto(
-                receipt.Id, receipt.Code, order.Id, order.Code, supplier.Name,
-                receipt.Note, receipt.ReceivedAt, receipt.Lines.Count);
-        var total = await query.CountAsync();
-        var rows = await query.Skip((request.Page - 1) * request.PageSize).Take(request.PageSize).ToListAsync();
-        return Ok(new PagingResponse<GoodsReceiptDto> { Items = rows, Page = request.Page, PageSize = request.PageSize, TotalItems = total });
+        var result = await _inventory.SearchGoodsReceiptsAsync(request);
+        return Ok(result);
     }
 
     [HttpGet("goods-receipts/{id:int}")]
     public async Task<IActionResult> GetGoodsReceipt(int id)
     {
-        var receipt = await (
-            from row in _db.GoodsReceipts.AsNoTracking()
-            join order in _db.PurchaseOrders.AsNoTracking() on row.PurchaseOrderId equals order.Id
-            join supplier in _db.Suppliers.AsNoTracking() on order.SupplierId equals supplier.Id
-            where row.Id == id
-            select new GoodsReceiptDto(
-                row.Id, row.Code, order.Id, order.Code, supplier.Name,
-                row.Note, row.ReceivedAt, row.Lines.Count))
-            .FirstOrDefaultAsync();
-        if (receipt is null) return NotFound();
-        var lines = await (
-            from line in _db.GoodsReceiptLines.AsNoTracking()
-            join sku in _db.Skus.AsNoTracking() on line.SkuId equals sku.Id
-            join product in _db.Products.AsNoTracking() on sku.ProductId equals product.Id
-            where line.GoodsReceiptId == id
-            select new GoodsReceiptLineDto(line.Id, sku.Id, sku.SkuCode, product.Name, line.Qty, line.UnitCost))
-            .ToListAsync();
-        return Ok(new GoodsReceiptDetail(receipt, lines));
+        var receipt = await _inventory.GetGoodsReceiptAsync(id);
+
+        if (receipt == null)
+        {
+            return NotFound();
+        }
+
+        return Ok(receipt);
     }
 
     [HttpPost("documents")]
     public async Task<IActionResult> CreateDocument(CreateStockDocumentRequest request)
     {
-        if (request.Type == (int)StockDocumentType.Receipt && !User.IsInRole(RoleConstant.Admin)) return Forbid();
+        bool isReceiptDocument = request.Type == (int)StockDocumentType.Receipt;
+        bool isAdmin = User.IsInRole(RoleConstant.Admin);
+
+        if (isReceiptDocument && !isAdmin)
+        {
+            return Forbid();
+        }
+
         try
         {
             var id = await _inventory.CreateDocumentAsync(request, CurrentUserId);
-            await AddAuditAsync("StockDocument", id.ToString(), "Create", $"Type={request.Type};Lines={request.Lines.Count}");
-            return Ok(new { id });
+            await _auditLogs.AddAsync("StockDocument", id.ToString(), "Create", $"Type={request.Type};Lines={request.Lines.Count}", CurrentUserId, CurrentActorName);
+            return Ok(new IdResponse { Id = id });
         }
         catch (InventoryException ex)
         {
-            return BadRequest(new { message = ex.Message });
+            return BadRequest(new MessageResponse { Message = ex.Message });
         }
     }
 
@@ -130,14 +138,21 @@ public class InventoryController : ControllerBase
         try
         {
             var document = await _inventory.GetDocumentAsync(id);
-            if (document?.Document.Type == (int)StockDocumentType.Receipt && !User.IsInRole(RoleConstant.Admin)) return Forbid();
+            bool isReceiptDocument = document?.Document.Type == (int)StockDocumentType.Receipt;
+            bool isAdmin = User.IsInRole(RoleConstant.Admin);
+
+            if (isReceiptDocument && !isAdmin)
+            {
+                return Forbid();
+            }
+
             await _inventory.ApproveDocumentAsync(id, CurrentUserId);
-            await AddAuditAsync("StockDocument", id.ToString(), "Approve");
-            return Ok(new { message = "Duyệt phiếu thành công." });
+            await _auditLogs.AddAsync("StockDocument", id.ToString(), "Approve", null, CurrentUserId, CurrentActorName);
+            return Ok(new MessageResponse { Message = "Duyệt phiếu thành công." });
         }
         catch (InventoryException ex)
         {
-            return BadRequest(new { message = ex.Message });
+            return BadRequest(new MessageResponse { Message = ex.Message });
         }
     }
 
@@ -147,35 +162,49 @@ public class InventoryController : ControllerBase
         try
         {
             await _inventory.CancelDocumentAsync(id);
-            await AddAuditAsync("StockDocument", id.ToString(), "Cancel");
-            return Ok(new { message = "Hủy phiếu thành công." });
+            await _auditLogs.AddAsync("StockDocument", id.ToString(), "Cancel", null, CurrentUserId, CurrentActorName);
+            return Ok(new MessageResponse { Message = "Hủy phiếu thành công." });
         }
         catch (InventoryException ex)
         {
-            return BadRequest(new { message = ex.Message });
+            return BadRequest(new MessageResponse { Message = ex.Message });
         }
     }
 
     [HttpGet("holds")]
-    public async Task<IActionResult> GetHolds() => Ok(new { items = await _inventory.GetHoldsAsync() });
+    public async Task<IActionResult> GetHolds()
+    {
+        var items = await _inventory.GetHoldsAsync();
+        return Ok(new { items });
+    }
 
     [HttpGet("adjustments")]
-    public async Task<IActionResult> GetAdjustments([FromQuery] int? skuId) =>
-        Ok(new { items = await _inventory.GetMovementsAsync(skuId) });
+    public async Task<IActionResult> GetAdjustments([FromQuery] int? skuId)
+    {
+        var items = await _inventory.GetMovementsAsync(skuId);
+        return Ok(new { items });
+    }
 
     [HttpPost("adjust")]
     public async Task<IActionResult> Adjust(AdjustStockRequest request)
     {
-        if (request.TransactionType == "Import" && !User.IsInRole(RoleConstant.Admin)) return Forbid();
+        bool isImport = request.TransactionType == "Import";
+        bool isAdmin = User.IsInRole(RoleConstant.Admin);
+
+        if (isImport && !isAdmin)
+        {
+            return Forbid();
+        }
+
         try
         {
             await _inventory.AdjustStockAsync(request, CurrentUserId);
-            await AddAuditAsync("Inventory", request.SkuId.ToString(), "Adjust", $"Type={request.TransactionType};Qty={request.Qty};Reason={request.Reason}");
-            return Ok(new { message = "Điều chỉnh tồn thành công." });
+            await _auditLogs.AddAsync("Inventory", request.SkuId.ToString(), "Adjust", $"Type={request.TransactionType};Qty={request.Qty};Reason={request.Reason}", CurrentUserId, CurrentActorName);
+            return Ok(new MessageResponse { Message = "Điều chỉnh tồn thành công." });
         }
         catch (InventoryException ex)
         {
-            return BadRequest(new { message = ex.Message });
+            return BadRequest(new MessageResponse { Message = ex.Message });
         }
     }
 
@@ -185,12 +214,12 @@ public class InventoryController : ControllerBase
         try
         {
             await _inventory.UpdateThresholdAsync(request);
-            await AddAuditAsync("InventoryThreshold", request.SkuId.ToString(), "Update", $"ReorderPoint={request.ReorderPoint}");
-            return Ok(new { message = "Cập nhật ngưỡng thành công." });
+            await _auditLogs.AddAsync("InventoryThreshold", request.SkuId.ToString(), "Update", $"ReorderPoint={request.ReorderPoint}", CurrentUserId, CurrentActorName);
+            return Ok(new MessageResponse { Message = "Cập nhật ngưỡng thành công." });
         }
         catch (InventoryException ex)
         {
-            return BadRequest(new { message = ex.Message });
+            return BadRequest(new MessageResponse { Message = ex.Message });
         }
     }
 
@@ -198,8 +227,12 @@ public class InventoryController : ControllerBase
     public async Task<IActionResult> Sync()
     {
         var changed = await _inventory.SyncAsync();
-        await AddAuditAsync("Inventory", "Ledger", "Sync", $"Changed={changed}");
-        return Ok(new { message = $"Đồng bộ tồn theo sổ cái xong ({changed} dòng điều chỉnh).", changed });
+        await _auditLogs.AddAsync("Inventory", "Ledger", "Sync", $"Changed={changed}", CurrentUserId, CurrentActorName);
+        return Ok(new ChangedMessageResponse
+        {
+            Message = $"Đồng bộ tồn theo sổ cái xong ({changed} dòng điều chỉnh).",
+            Changed = changed
+        });
     }
 
     [HttpGet("export")]
@@ -209,8 +242,12 @@ public class InventoryController : ControllerBase
         using var workbook = new XLWorkbook();
         var sheet = workbook.Worksheets.Add("TonKho");
         var headers = new[] { "SKU", "Sản phẩm", "Tồn thực tế", "Đang giữ", "Khả dụng", "Ngưỡng thấp", "Cập nhật" };
-        for (var i = 0; i < headers.Length; i++) sheet.Cell(1, i + 1).Value = headers[i];
-        for (var i = 0; i < rows.Count; i++)
+        for (int i = 0; i < headers.Length; i++)
+        {
+            sheet.Cell(1, i + 1).Value = headers[i];
+        }
+
+        for (int i = 0; i < rows.Count; i++)
         {
             var row = rows[i];
             sheet.Cell(i + 2, 1).Value = row.SkuCode;
@@ -219,7 +256,10 @@ public class InventoryController : ControllerBase
             sheet.Cell(i + 2, 4).Value = row.Reserved;
             sheet.Cell(i + 2, 5).Value = row.Available;
             sheet.Cell(i + 2, 6).Value = row.ReorderPoint;
-            if (row.UpdatedAt.HasValue) sheet.Cell(i + 2, 7).Value = row.UpdatedAt.Value;
+            if (row.UpdatedAt.HasValue)
+            {
+                sheet.Cell(i + 2, 7).Value = row.UpdatedAt.Value;
+            }
         }
         sheet.Row(1).Style.Font.Bold = true;
         sheet.SheetView.FreezeRows(1);

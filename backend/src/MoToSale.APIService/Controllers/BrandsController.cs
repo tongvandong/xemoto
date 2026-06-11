@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MoToSale.APIService.Models;
 using MoToSale.APIService.Services;
@@ -25,22 +25,43 @@ public class BrandsController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create(CreateBrandRequest request)
     {
-        try { return Ok(new { id = await _catalog.CreateBrandAsync(request) }); }
-        catch (CatalogException ex) { return BadRequest(new { message = ex.Message }); }
+        try
+        {
+            int id = await _catalog.CreateBrandAsync(request);
+            return Ok(new IdResponse { Id = id });
+        }
+        catch (CatalogException ex)
+        {
+            return BadRequest(new MessageResponse { Message = ex.Message });
+        }
     }
 
     [HttpPut("{id:int}")]
     public async Task<IActionResult> Update(int id, UpdateBrandRequest request)
     {
-        try { await _catalog.UpdateBrandAsync(id, request); return Ok(new { id }); }
-        catch (CatalogException ex) { return BadRequest(new { message = ex.Message }); }
+        try
+        {
+            await _catalog.UpdateBrandAsync(id, request);
+            return Ok(new IdResponse { Id = id });
+        }
+        catch (CatalogException ex)
+        {
+            return BadRequest(new MessageResponse { Message = ex.Message });
+        }
     }
 
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
     {
-        try { await _catalog.DeleteBrandAsync(id); return Ok(new { message = "Đã xóa hãng." }); }
-        catch (CatalogException ex) { return BadRequest(new { message = ex.Message }); }
+        try
+        {
+            await _catalog.DeleteBrandAsync(id);
+            return Ok(new MessageResponse { Message = "Đã xóa hãng." });
+        }
+        catch (CatalogException ex)
+        {
+            return BadRequest(new MessageResponse { Message = ex.Message });
+        }
     }
 
     [HttpPost("{id:int}/logo")]
@@ -49,11 +70,19 @@ public class BrandsController : ControllerBase
     {
         try
         {
-            var url = await _storage.SaveAsync(request.File, "brands", HttpContext.RequestAborted);
-            await _catalog.SetBrandLogoAsync(id, url); // persist vào hãng
-            return Ok(new { url });
+            string url = await _storage.SaveAsync(request.File, "brands", HttpContext.RequestAborted);
+
+            await _catalog.SetBrandLogoAsync(id, url);
+
+            return Ok(new UrlResponse { Url = url });
         }
-        catch (CatalogException ex) { return BadRequest(new { message = ex.Message }); }
-        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+        catch (CatalogException ex)
+        {
+            return BadRequest(new MessageResponse { Message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new MessageResponse { Message = ex.Message });
+        }
     }
 }

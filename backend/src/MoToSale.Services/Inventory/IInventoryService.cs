@@ -1,4 +1,4 @@
-using MoToSale.DTO.Common;
+﻿using MoToSale.DTO.Common;
 using MoToSale.DTO.Inventory;
 
 namespace MoToSale.Services.Inventory;
@@ -9,6 +9,8 @@ public interface IInventoryService
     Task<List<StockMovementDto>> GetMovementsAsync(int? skuId);
     Task<PagingResponse<StockDocumentDto>> SearchDocumentsAsync(PagingRequest request, string? status, int? type);
     Task<StockDocumentDetail?> GetDocumentAsync(int id);
+    Task<PagingResponse<GoodsReceiptDto>> SearchGoodsReceiptsAsync(PagingRequest request);
+    Task<GoodsReceiptDetail?> GetGoodsReceiptAsync(int id);
     Task<int> CreateDocumentAsync(CreateStockDocumentRequest request, int? userId);
     Task ApproveDocumentAsync(int id, int? userId);
     Task CancelDocumentAsync(int id);

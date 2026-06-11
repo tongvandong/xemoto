@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using MoToSale.Entities.Catalog;
 using MoToSale.Repository.EFCore;
 
@@ -6,13 +6,32 @@ namespace MoToSale.Repository.Catalog;
 
 public class SkuRepository : Repository<Sku>, ISkuRepository
 {
-    public SkuRepository(AppDbContext context) : base(context) { }
+    public SkuRepository(AppDbContext context) : base(context)
+    {
+    }
 
-    public Task<List<Sku>> GetByProductAsync(int productId) =>
-        Set.Where(s => s.ProductId == productId).OrderBy(s => s.Id).ToListAsync();
+    public async Task<List<Sku>> GetByProductAsync(int productId)
+    {
+        List<Sku> skus = await Set
+            .Where(sku => sku.ProductId == productId)
+            .OrderBy(sku => sku.Id)
+            .ToListAsync();
 
-    public Task<int> CountByProductAsync(int productId) => Set.CountAsync(s => s.ProductId == productId);
+        return skus;
+    }
 
-    public Task<bool> SkuCodeExistsAsync(string skuCode, int? exceptId = null) =>
-        Set.AnyAsync(s => s.SkuCode == skuCode && (exceptId == null || s.Id != exceptId));
+    public async Task<int> CountByProductAsync(int productId)
+    {
+        int count = await Set.CountAsync(sku => sku.ProductId == productId);
+        return count;
+    }
+
+    public async Task<bool> SkuCodeExistsAsync(string skuCode, int? exceptId = null)
+    {
+        bool exists = await Set.AnyAsync(sku =>
+            sku.SkuCode == skuCode
+            && (!exceptId.HasValue || sku.Id != exceptId.Value));
+
+        return exists;
+    }
 }

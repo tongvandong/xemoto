@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -12,10 +12,14 @@ using MoToSale.Repository.Ordering;
 using MoToSale.Repository.Payments;
 using MoToSale.Services.Catalog;
 using MoToSale.Services.Content;
+using MoToSale.Services.Audit;
+using MoToSale.Services.Customers;
 using MoToSale.Services.Inventory;
 using MoToSale.Services.Ordering;
 using MoToSale.Services.Payments;
 using MoToSale.Services.Operations;
+using MoToSale.Services.Reports;
+using MoToSale.Services.Settings;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -58,6 +62,10 @@ builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IAdvancedOperationsService, AdvancedOperationsService>();
 builder.Services.AddScoped<IBusinessOperationsService, BusinessOperationsService>();
 builder.Services.AddScoped<IInstallmentService, InstallmentService>();
+builder.Services.AddScoped<IAuditLogService, AuditLogService>();
+builder.Services.AddScoped<ICustomerProfileService, CustomerProfileService>();
+builder.Services.AddScoped<IStorefrontSettingsService, StorefrontSettingsService>();
+builder.Services.AddScoped<IReportService, ReportService>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(o =>

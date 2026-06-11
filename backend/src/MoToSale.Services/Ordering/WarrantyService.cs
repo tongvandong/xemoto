@@ -1,4 +1,4 @@
-using MoToSale.Common;
+﻿using MoToSale.Common;
 using MoToSale.DTO.Common;
 using MoToSale.DTO.Ordering;
 using MoToSale.Entities.Ordering;
@@ -8,7 +8,18 @@ namespace MoToSale.Services.Ordering;
 
 public class WarrantyService : IWarrantyService
 {
-    private static readonly HashSet<string> Allowed = new() { "Received", "Processing", "WaitingParts", "Completed", "Rejected", "Active", "Expired", "Void" };
+    private static readonly HashSet<string> AllowedStatuses = new()
+    {
+        "Received",
+        "Processing",
+        "WaitingParts",
+        "Completed",
+        "Rejected",
+        "Active",
+        "Expired",
+        "Void",
+    };
+
     private readonly IRepository<Warranty> _warranties;
     private readonly IRepository<WarrantyHistory> _histories;
 
@@ -18,116 +29,247 @@ public class WarrantyService : IWarrantyService
         _histories = histories;
     }
 
-    public async Task<PagingResponse<WarrantyDto>> SearchAsync(PagingRequest r, string? status)
+    public async Task<PagingResponse<WarrantyDto>> SearchAsync(PagingRequest request, string? status)
     {
-        var all = await _warranties.GetAllAsync();
-        var q = all.AsEnumerable();
-        if (!string.IsNullOrWhiteSpace(status)) q = q.Where(w => w.WarrantyStatus == status);
-        if (!string.IsNullOrWhiteSpace(r.Keyword))
-            q = q.Where(w => w.Code.Contains(r.Keyword!, StringComparison.OrdinalIgnoreCase)
-                || w.ProductSnapshot.Contains(r.Keyword!, StringComparison.OrdinalIgnoreCase)
-                || (w.CustomerName?.Contains(r.Keyword!, StringComparison.OrdinalIgnoreCase) ?? false)
-                || (w.CustomerPhone?.Contains(r.Keyword!, StringComparison.OrdinalIgnoreCase) ?? false));
-        var ordered = q.OrderByDescending(w => w.Id).ToList();
+        var allWarranties = await _warranties.GetAllAsync();
+        IEnumerable<Warranty> query = allWarranties;
+
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            query = query.Where(warranty => warranty.WarrantyStatus == status);
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Keyword))
+        {
+            query = query.Where(warranty => MatchesKeyword(warranty, request.Keyword));
+        }
+
+        var ordered = query.OrderByDescending(warranty => warranty.Id).ToList();
+        var items = ordered
+            .Skip((request.Page - 1) * request.PageSize)
+            .Take(request.PageSize)
+            .Select(Map)
+            .ToList();
+
         return new PagingResponse<WarrantyDto>
         {
-            Items = ordered.Skip((r.Page - 1) * r.PageSize).Take(r.PageSize).Select(Map).ToList(),
-            Page = r.Page,
-            PageSize = r.PageSize,
+            Items = items,
+            Page = request.Page,
+            PageSize = request.PageSize,
             TotalItems = ordered.Count,
         };
     }
 
     public async Task<WarrantyDetailDto?> GetAsync(int id)
     {
-        var w = await _warranties.GetByIdAsync(id);
-        if (w is null) return null;
-        var histories = (await _histories.FindAsync(x => x.WarrantyId == id)).OrderBy(x => x.CreatedDate)
-            .Select(x => new WarrantyHistoryDto(x.Id, x.FromStatus, x.ToStatus, x.Note, x.ActualCost, x.ChangedBy, x.CreatedDate));
-        return new WarrantyDetailDto(Map(w), histories);
-    }
-
-    public async Task<int> CreateAsync(SaveWarrantyRequest r)
-    {
-        if (string.IsNullOrWhiteSpace(r.ProductSnapshot)) throw new WarrantyException("Product name is required.");
-        if (r.Months <= 0) throw new WarrantyException("Warranty months must be greater than zero.");
-        var now = DateTime.UtcNow;
-        var w = new Warranty
+        var warranty = await _warranties.GetByIdAsync(id);
+        if (warranty == null)
         {
-            Code = $"BH{now:yyyyMMddHHmmssfff}",
-            OrderId = r.OrderId,
-            SkuId = r.SkuId,
-            CustomerId = r.CustomerId,
-            ProductSnapshot = r.ProductSnapshot.Trim(),
-            SerialNumber = r.SerialNumber,
-            CustomerName = r.CustomerName,
-            CustomerPhone = r.CustomerPhone,
-            FrameNumber = r.FrameNumber,
-            EngineNumber = r.EngineNumber,
-            ReportedIssue = r.ReportedIssue ?? "",
-            EstimatedCost = r.EstimatedCost,
-            ReceivedAt = now,
-            StartAt = r.StartAt ?? now,
-            Months = r.Months,
-            Note = r.Note,
-            WarrantyStatus = "Received",
-            CreatedDate = now,
-            Status = (int)EntityStatus.Active,
-        };
-        _warranties.Add(w);
-        await _warranties.SaveChangesAsync();
-        _histories.Add(new WarrantyHistory { WarrantyId = w.Id, ToStatus = "Received", Note = r.Note, CreatedDate = now });
-        await _histories.SaveChangesAsync();
-        return w.Id;
+            return null;
+        }
+
+        var histories = await GetHistoriesAsync(id);
+        return new WarrantyDetailDto(Map(warranty), histories);
     }
 
-    public async Task UpdateAsync(int id, SaveWarrantyRequest r)
+    public async Task<int> CreateAsync(SaveWarrantyRequest request)
     {
-        var w = await _warranties.GetByIdAsync(id) ?? throw new WarrantyException("Không tìm thấy phiếu bảo hành.");
-        if (w.WarrantyStatus != "Received")
+        ValidateWarrantyRequest(request);
+
+        DateTime now = DateTime.UtcNow;
+        var warranty = CreateWarrantyEntity(request, now);
+
+        _warranties.Add(warranty);
+        await _warranties.SaveChangesAsync();
+
+        AddHistory(warranty.Id, null, "Received", request.Note, null, null, now);
+        await _histories.SaveChangesAsync();
+
+        return warranty.Id;
+    }
+
+    public async Task UpdateAsync(int id, SaveWarrantyRequest request)
+    {
+        var warranty = await _warranties.GetByIdAsync(id);
+        if (warranty == null)
+        {
+            throw new WarrantyException("Không tìm thấy phiếu bảo hành.");
+        }
+
+        if (warranty.WarrantyStatus != "Received")
+        {
             throw new WarrantyException("Chỉ sửa được thông tin khi phiếu đang ở trạng thái mới tiếp nhận.");
-        if (string.IsNullOrWhiteSpace(r.ProductSnapshot)) throw new WarrantyException("Tên sản phẩm là bắt buộc.");
-        if (r.Months <= 0) throw new WarrantyException("Số tháng bảo hành phải lớn hơn 0.");
-        w.OrderId = r.OrderId;
-        w.SkuId = r.SkuId;
-        w.CustomerId = r.CustomerId;
-        w.ProductSnapshot = r.ProductSnapshot.Trim();
-        w.SerialNumber = r.SerialNumber;
-        w.CustomerName = r.CustomerName;
-        w.CustomerPhone = r.CustomerPhone;
-        w.FrameNumber = r.FrameNumber;
-        w.EngineNumber = r.EngineNumber;
-        w.ReportedIssue = r.ReportedIssue ?? "";
-        w.EstimatedCost = r.EstimatedCost;
-        if (r.StartAt.HasValue) w.StartAt = r.StartAt.Value;
-        w.Months = r.Months;
-        w.Note = r.Note;
-        w.UpdatedDate = DateTime.UtcNow;
-        _warranties.Update(w);
+        }
+
+        ValidateWarrantyRequest(request);
+        UpdateWarrantyEntity(warranty, request);
+
+        _warranties.Update(warranty);
         await _warranties.SaveChangesAsync();
     }
 
     public async Task UpdateStatusAsync(int id, UpdateWarrantyStatusRequest request, int? userId)
     {
-        if (!Allowed.Contains(request.Status)) throw new WarrantyException("Invalid warranty status.");
-        var w = await _warranties.GetByIdAsync(id) ?? throw new WarrantyException("Warranty not found.");
-        var from = w.WarrantyStatus;
-        w.WarrantyStatus = request.Status;
-        if (request.ActualCost.HasValue) w.ActualCost = request.ActualCost;
-        if (!string.IsNullOrWhiteSpace(request.Note)) w.Note = request.Note;
-        if (request.Status == "Completed") w.CompletedAt = DateTime.UtcNow;
-        w.UpdatedDate = DateTime.UtcNow;
-        _warranties.Update(w);
-        _histories.Add(new WarrantyHistory
+        if (!AllowedStatuses.Contains(request.Status))
         {
-            WarrantyId = id, FromStatus = from, ToStatus = request.Status, Note = request.Note,
-            ActualCost = request.ActualCost, ChangedBy = userId, CreatedDate = DateTime.UtcNow,
-        });
+            throw new WarrantyException("Trạng thái bảo hành không hợp lệ.");
+        }
+
+        var warranty = await _warranties.GetByIdAsync(id);
+        if (warranty == null)
+        {
+            throw new WarrantyException("Không tìm thấy phiếu bảo hành.");
+        }
+
+        string oldStatus = warranty.WarrantyStatus;
+        warranty.WarrantyStatus = request.Status;
+
+        if (request.ActualCost.HasValue)
+        {
+            warranty.ActualCost = request.ActualCost;
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Note))
+        {
+            warranty.Note = request.Note;
+        }
+
+        if (request.Status == "Completed")
+        {
+            warranty.CompletedAt = DateTime.UtcNow;
+        }
+
+        warranty.UpdatedDate = DateTime.UtcNow;
+
+        _warranties.Update(warranty);
+        AddHistory(id, oldStatus, request.Status, request.Note, request.ActualCost, userId, DateTime.UtcNow);
+
         await _warranties.SaveChangesAsync();
     }
 
-    private static WarrantyDto Map(Warranty w) => new(
-        w.Id, w.Code, w.OrderId, w.SkuId, w.CustomerId, w.ProductSnapshot, w.SerialNumber,
-        w.CustomerName, w.CustomerPhone, w.FrameNumber, w.EngineNumber, w.ReportedIssue,
-        w.EstimatedCost, w.ActualCost, w.ReceivedAt, w.CompletedAt, w.StartAt, w.Months, w.WarrantyStatus, w.Note, w.CreatedDate);
+    private static bool MatchesKeyword(Warranty warranty, string keyword)
+    {
+        return warranty.Code.Contains(keyword, StringComparison.OrdinalIgnoreCase)
+            || warranty.ProductSnapshot.Contains(keyword, StringComparison.OrdinalIgnoreCase)
+            || (warranty.CustomerName?.Contains(keyword, StringComparison.OrdinalIgnoreCase) ?? false)
+            || (warranty.CustomerPhone?.Contains(keyword, StringComparison.OrdinalIgnoreCase) ?? false);
+    }
+
+    private async Task<IEnumerable<WarrantyHistoryDto>> GetHistoriesAsync(int warrantyId)
+    {
+        var histories = await _histories.FindAsync(history => history.WarrantyId == warrantyId);
+
+        return histories
+            .OrderBy(history => history.CreatedDate)
+            .Select(history => new WarrantyHistoryDto(
+                history.Id,
+                history.FromStatus,
+                history.ToStatus,
+                history.Note,
+                history.ActualCost,
+                history.ChangedBy,
+                history.CreatedDate));
+    }
+
+    private static void ValidateWarrantyRequest(SaveWarrantyRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.ProductSnapshot))
+        {
+            throw new WarrantyException("Tên sản phẩm là bắt buộc.");
+        }
+
+        if (request.Months <= 0)
+        {
+            throw new WarrantyException("Số tháng bảo hành phải lớn hơn 0.");
+        }
+    }
+
+    private static Warranty CreateWarrantyEntity(SaveWarrantyRequest request, DateTime now)
+    {
+        return new Warranty
+        {
+            Code = $"BH{now:yyyyMMddHHmmssfff}",
+            OrderId = request.OrderId,
+            SkuId = request.SkuId,
+            CustomerId = request.CustomerId,
+            ProductSnapshot = request.ProductSnapshot.Trim(),
+            SerialNumber = request.SerialNumber,
+            CustomerName = request.CustomerName,
+            CustomerPhone = request.CustomerPhone,
+            FrameNumber = request.FrameNumber,
+            EngineNumber = request.EngineNumber,
+            ReportedIssue = request.ReportedIssue ?? string.Empty,
+            EstimatedCost = request.EstimatedCost,
+            ReceivedAt = now,
+            StartAt = request.StartAt ?? now,
+            Months = request.Months,
+            Note = request.Note,
+            WarrantyStatus = "Received",
+            CreatedDate = now,
+            Status = (int)EntityStatus.Active,
+        };
+    }
+
+    private static void UpdateWarrantyEntity(Warranty warranty, SaveWarrantyRequest request)
+    {
+        warranty.OrderId = request.OrderId;
+        warranty.SkuId = request.SkuId;
+        warranty.CustomerId = request.CustomerId;
+        warranty.ProductSnapshot = request.ProductSnapshot.Trim();
+        warranty.SerialNumber = request.SerialNumber;
+        warranty.CustomerName = request.CustomerName;
+        warranty.CustomerPhone = request.CustomerPhone;
+        warranty.FrameNumber = request.FrameNumber;
+        warranty.EngineNumber = request.EngineNumber;
+        warranty.ReportedIssue = request.ReportedIssue ?? string.Empty;
+        warranty.EstimatedCost = request.EstimatedCost;
+        warranty.Months = request.Months;
+        warranty.Note = request.Note;
+        warranty.UpdatedDate = DateTime.UtcNow;
+
+        if (request.StartAt.HasValue)
+        {
+            warranty.StartAt = request.StartAt.Value;
+        }
+    }
+
+    private void AddHistory(int warrantyId, string? fromStatus, string toStatus, string? note, decimal? actualCost, int? userId, DateTime now)
+    {
+        _histories.Add(new WarrantyHistory
+        {
+            WarrantyId = warrantyId,
+            FromStatus = fromStatus,
+            ToStatus = toStatus,
+            Note = note,
+            ActualCost = actualCost,
+            ChangedBy = userId,
+            CreatedDate = now,
+        });
+    }
+
+    private static WarrantyDto Map(Warranty warranty)
+    {
+        return new WarrantyDto(
+            warranty.Id,
+            warranty.Code,
+            warranty.OrderId,
+            warranty.SkuId,
+            warranty.CustomerId,
+            warranty.ProductSnapshot,
+            warranty.SerialNumber,
+            warranty.CustomerName,
+            warranty.CustomerPhone,
+            warranty.FrameNumber,
+            warranty.EngineNumber,
+            warranty.ReportedIssue,
+            warranty.EstimatedCost,
+            warranty.ActualCost,
+            warranty.ReceivedAt,
+            warranty.CompletedAt,
+            warranty.StartAt,
+            warranty.Months,
+            warranty.WarrantyStatus,
+            warranty.Note,
+            warranty.CreatedDate);
+    }
 }

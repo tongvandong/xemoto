@@ -1,3 +1,4 @@
+﻿using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using MoToSale.Common;
 using MoToSale.DTO.Catalog;
@@ -9,103 +10,290 @@ namespace MoToSale.Repository.Catalog;
 
 public class ProductRepository : Repository<Product>, IProductRepository
 {
-    public ProductRepository(AppDbContext context) : base(context) { }
-
-    public async Task<PagingResponse<Product>> SearchAsync(ProductSearchRequest r)
+    public ProductRepository(AppDbContext context) : base(context)
     {
-        var query = Query.AsNoTracking()
-            .Include(p => p.Skus)
-            .Include(p => p.Images)
-            .Where(p => r.Status.HasValue ? p.Status == r.Status.Value : p.Status == (int)EntityStatus.Active);
+    }
 
-        if (!string.IsNullOrWhiteSpace(r.Keyword))
-            query = query.Where(p => p.Name.Contains(r.Keyword!) || p.Code.Contains(r.Keyword!));
-        if (r.CategoryId.HasValue)
-            query = query.Where(p => p.CategoryId == r.CategoryId || p.Category.ParentId == r.CategoryId);
-        if (r.BrandId.HasValue) query = query.Where(p => p.BrandId == r.BrandId);
-        if (r.VehicleModelId.HasValue) query = query.Where(p => p.VehicleModelId == r.VehicleModelId);
-        if (r.CompatibleVehicleModelId.HasValue)
-        {
-            var modelId = r.CompatibleVehicleModelId.Value;
-            query = query.Where(p => p.Kind == (int)ProductKind.Part && Context.PartCompatibilities.Any(c =>
-                c.PartProductId == p.Id
-                && c.Status == (int)EntityStatus.Active
-                && (c.AppliesToAll
-                    || c.VehicleModelId == modelId
-                    || (c.BrandId.HasValue && Context.VehicleModels.Any(m => m.Id == modelId && m.BrandId == c.BrandId.Value)))));
-        }
-        if (r.Kind.HasValue) query = query.Where(p => p.Kind == r.Kind);
-        if (r.Status.HasValue) query = query.Where(p => p.Status == r.Status);
-        if (r.IsFeatured.HasValue) query = query.Where(p => p.IsFeatured == r.IsFeatured);
-        if (r.IsHotDeal.HasValue) query = query.Where(p => p.IsHotDeal == r.IsHotDeal);
-        if (r.MinPrice.HasValue) query = query.Where(p => p.Skus.Any(s => (s.SalePrice ?? s.ListPrice) >= r.MinPrice.Value));
-        if (r.MaxPrice.HasValue) query = query.Where(p => p.Skus.Any(s => (s.SalePrice ?? s.ListPrice) <= r.MaxPrice.Value));
-        if (r.StockStatus is "InStock")
-            query = query.Where(p => Context.InventoryItems.Where(i => p.Skus.Select(s => s.Id).Contains(i.SkuId)).Sum(i => (int?)i.OnHand - i.Reserved) > 0);
-        if (r.StockStatus is "OutOfStock")
-            query = query.Where(p => !Context.InventoryItems.Any(i => p.Skus.Select(s => s.Id).Contains(i.SkuId) && i.OnHand - i.Reserved > 0));
-        if (r.StockStatus is "LowStock")
-            query = query.Where(p => Context.InventoryItems.Any(i => p.Skus.Select(s => s.Id).Contains(i.SkuId) && i.OnHand - i.Reserved > 0 && i.OnHand - i.Reserved <= i.ReorderPoint));
-        if (r.HasPromotion.HasValue)
-        {
-            var now = DateTime.UtcNow;
-            query = r.HasPromotion.Value
-                ? query.Where(p => Context.VoucherScopes.Any(s =>
-                    Context.Vouchers.Any(v => v.Id == s.VoucherId
-                        && v.Status == (int)EntityStatus.Active
-                        && (!v.StartAt.HasValue || v.StartAt <= now)
-                        && (!v.EndAt.HasValue || v.EndAt >= now)
-                        && (!v.UsageLimit.HasValue || v.UsedCount < v.UsageLimit)
-                        && ((s.ScopeType == "Product" && s.RefId == p.Id)
-                            || (s.ScopeType == "Category" && s.RefId == p.CategoryId)
-                            || (s.ScopeType == "Brand" && p.BrandId.HasValue && s.RefId == p.BrandId.Value)))))
-                : query.Where(p => !Context.VoucherScopes.Any(s =>
-                    Context.Vouchers.Any(v => v.Id == s.VoucherId
-                        && v.Status == (int)EntityStatus.Active
-                        && (!v.StartAt.HasValue || v.StartAt <= now)
-                        && (!v.EndAt.HasValue || v.EndAt >= now)
-                        && (!v.UsageLimit.HasValue || v.UsedCount < v.UsageLimit)
-                        && ((s.ScopeType == "Product" && s.RefId == p.Id)
-                            || (s.ScopeType == "Category" && s.RefId == p.CategoryId)
-                            || (s.ScopeType == "Brand" && p.BrandId.HasValue && s.RefId == p.BrandId.Value)))));
-        }
+    public async Task<PagingResponse<Product>> SearchAsync(ProductSearchRequest request)
+    {
+        IQueryable<Product> query = Query
+            .AsNoTracking()
+            .Include(product => product.Skus)
+            .Include(product => product.Images);
 
-        query = (r.SortBy?.ToLowerInvariant()) switch
-        {
-            "name" => r.SortDescending ? query.OrderByDescending(p => p.Name) : query.OrderBy(p => p.Name),
-            "price" => r.SortDescending
-                ? query.OrderByDescending(p => p.Skus.Min(s => s.SalePrice ?? s.ListPrice))
-                : query.OrderBy(p => p.Skus.Min(s => s.SalePrice ?? s.ListPrice)),
-            _ => r.SortDescending ? query.OrderByDescending(p => p.Id) : query.OrderBy(p => p.Id),
-        };
+        query = ApplyDefaultStatusFilter(query, request);
+        query = ApplyBasicFilters(query, request);
+        query = ApplyVehicleCompatibilityFilter(query, request);
+        query = ApplyPriceFilters(query, request);
+        query = ApplyStockStatusFilter(query, request);
+        query = ApplyPromotionFilter(query, request);
+        query = ApplySorting(query, request);
 
-        var total = await query.CountAsync();
-        var items = await query.Skip((r.Page - 1) * r.PageSize).Take(r.PageSize).ToListAsync();
+        int totalItems = await query.CountAsync();
+
+        List<Product> items = await query
+            .Skip((request.Page - 1) * request.PageSize)
+            .Take(request.PageSize)
+            .ToListAsync();
 
         return new PagingResponse<Product>
         {
             Items = items,
-            Page = r.Page,
-            PageSize = r.PageSize,
-            TotalItems = total,
+            Page = request.Page,
+            PageSize = request.PageSize,
+            TotalItems = totalItems
         };
     }
 
-    public Task<Product?> GetDetailAsync(int id) =>
-        Query.AsNoTracking()
-            .Include(p => p.Skus)
-            .Include(p => p.Images)
-            .FirstOrDefaultAsync(p => p.Id == id);
+    public async Task<Product?> GetDetailAsync(int id)
+    {
+        Product? product = await Query
+            .AsNoTracking()
+            .Include(item => item.Skus)
+            .Include(item => item.Images)
+            .FirstOrDefaultAsync(item => item.Id == id);
 
-    public Task<Product?> GetBySlugAsync(string slug) =>
-        Query.AsNoTracking()
-            .Include(p => p.Skus)
-            .Include(p => p.Images)
-            .FirstOrDefaultAsync(p => p.Slug == slug);
+        return product;
+    }
 
-    public Task<bool> CodeExistsAsync(string code, int? exceptId = null) =>
-        AnyAsync(p => p.Code == code && (exceptId == null || p.Id != exceptId));
+    public async Task<Product?> GetBySlugAsync(string slug)
+    {
+        Product? product = await Query
+            .AsNoTracking()
+            .Include(item => item.Skus)
+            .Include(item => item.Images)
+            .FirstOrDefaultAsync(item => item.Slug == slug);
 
-    public Task<bool> SlugExistsAsync(string slug, int? exceptId = null) =>
-        AnyAsync(p => p.Slug == slug && (exceptId == null || p.Id != exceptId));
+        return product;
+    }
+
+    public async Task<bool> CodeExistsAsync(string code, int? exceptId = null)
+    {
+        bool exists = await Query.AnyAsync(product =>
+            product.Code == code
+            && (!exceptId.HasValue || product.Id != exceptId.Value));
+
+        return exists;
+    }
+
+    public async Task<bool> SlugExistsAsync(string slug, int? exceptId = null)
+    {
+        bool exists = await Query.AnyAsync(product =>
+            product.Slug == slug
+            && (!exceptId.HasValue || product.Id != exceptId.Value));
+
+        return exists;
+    }
+
+    private static IQueryable<Product> ApplyDefaultStatusFilter(IQueryable<Product> query, ProductSearchRequest request)
+    {
+        if (request.Status.HasValue)
+        {
+            return query.Where(product => product.Status == request.Status.Value);
+        }
+
+        return query.Where(product => product.Status == (int)EntityStatus.Active);
+    }
+
+    private static IQueryable<Product> ApplyBasicFilters(IQueryable<Product> query, ProductSearchRequest request)
+    {
+        if (!string.IsNullOrWhiteSpace(request.Keyword))
+        {
+            string keyword = request.Keyword;
+            query = query.Where(product =>
+                product.Name.Contains(keyword)
+                || product.Code.Contains(keyword));
+        }
+
+        if (request.CategoryId.HasValue)
+        {
+            int categoryId = request.CategoryId.Value;
+            query = query.Where(product =>
+                product.CategoryId == categoryId
+                || product.Category.ParentId == categoryId);
+        }
+
+        if (request.BrandId.HasValue)
+        {
+            int brandId = request.BrandId.Value;
+            query = query.Where(product => product.BrandId == brandId);
+        }
+
+        if (request.VehicleModelId.HasValue)
+        {
+            int vehicleModelId = request.VehicleModelId.Value;
+            query = query.Where(product => product.VehicleModelId == vehicleModelId);
+        }
+
+        if (request.Kind.HasValue)
+        {
+            int kind = request.Kind.Value;
+            query = query.Where(product => product.Kind == kind);
+        }
+
+        if (request.IsFeatured.HasValue)
+        {
+            bool isFeatured = request.IsFeatured.Value;
+            query = query.Where(product => product.IsFeatured == isFeatured);
+        }
+
+        if (request.IsHotDeal.HasValue)
+        {
+            bool isHotDeal = request.IsHotDeal.Value;
+            query = query.Where(product => product.IsHotDeal == isHotDeal);
+        }
+
+        return query;
+    }
+
+    private IQueryable<Product> ApplyVehicleCompatibilityFilter(IQueryable<Product> query, ProductSearchRequest request)
+    {
+        if (!request.CompatibleVehicleModelId.HasValue)
+        {
+            return query;
+        }
+
+        int modelId = request.CompatibleVehicleModelId.Value;
+
+        query = query.Where(product =>
+            product.Kind == (int)ProductKind.Part
+            && Context.PartCompatibilities.Any(compatibility =>
+                compatibility.PartProductId == product.Id
+                && compatibility.Status == (int)EntityStatus.Active
+                && (compatibility.AppliesToAll
+                    || compatibility.VehicleModelId == modelId
+                    || (compatibility.BrandId.HasValue
+                        && Context.VehicleModels.Any(model =>
+                            model.Id == modelId
+                            && model.BrandId == compatibility.BrandId.Value)))));
+
+        return query;
+    }
+
+    private static IQueryable<Product> ApplyPriceFilters(IQueryable<Product> query, ProductSearchRequest request)
+    {
+        if (request.MinPrice.HasValue)
+        {
+            decimal minPrice = request.MinPrice.Value;
+            query = query.Where(product =>
+                product.Skus.Any(sku => (sku.SalePrice ?? sku.ListPrice) >= minPrice));
+        }
+
+        if (request.MaxPrice.HasValue)
+        {
+            decimal maxPrice = request.MaxPrice.Value;
+            query = query.Where(product =>
+                product.Skus.Any(sku => (sku.SalePrice ?? sku.ListPrice) <= maxPrice));
+        }
+
+        return query;
+    }
+
+    private IQueryable<Product> ApplyStockStatusFilter(IQueryable<Product> query, ProductSearchRequest request)
+    {
+        if (request.StockStatus == "InStock")
+        {
+            query = query.Where(product =>
+                Context.InventoryItems
+                    .Where(item => product.Skus.Select(sku => sku.Id).Contains(item.SkuId))
+                    .Sum(item => (int?)item.OnHand - item.Reserved) > 0);
+        }
+
+        if (request.StockStatus == "OutOfStock")
+        {
+            query = query.Where(product =>
+                !Context.InventoryItems.Any(item =>
+                    product.Skus.Select(sku => sku.Id).Contains(item.SkuId)
+                    && item.OnHand - item.Reserved > 0));
+        }
+
+        if (request.StockStatus == "LowStock")
+        {
+            query = query.Where(product =>
+                Context.InventoryItems.Any(item =>
+                    product.Skus.Select(sku => sku.Id).Contains(item.SkuId)
+                    && item.OnHand - item.Reserved > 0
+                    && item.OnHand - item.Reserved <= item.ReorderPoint));
+        }
+
+        return query;
+    }
+
+    private IQueryable<Product> ApplyPromotionFilter(IQueryable<Product> query, ProductSearchRequest request)
+    {
+        if (!request.HasPromotion.HasValue)
+        {
+            return query;
+        }
+
+        DateTime now = DateTime.UtcNow;
+
+        if (request.HasPromotion.Value)
+        {
+            query = query.Where(HasActivePromotionExpression(now));
+        }
+        else
+        {
+            query = query.Where(product =>
+                !Context.VoucherScopes.Any(scope =>
+                    Context.Vouchers.Any(voucher =>
+                        voucher.Id == scope.VoucherId
+                        && voucher.Status == (int)EntityStatus.Active
+                        && (!voucher.StartAt.HasValue || voucher.StartAt <= now)
+                        && (!voucher.EndAt.HasValue || voucher.EndAt >= now)
+                        && (!voucher.UsageLimit.HasValue || voucher.UsedCount < voucher.UsageLimit)
+                        && ((scope.ScopeType == "Product" && scope.RefId == product.Id)
+                            || (scope.ScopeType == "Category" && scope.RefId == product.CategoryId)
+                            || (scope.ScopeType == "Brand" && product.BrandId.HasValue && scope.RefId == product.BrandId.Value)))));
+        }
+
+        return query;
+    }
+
+    private Expression<Func<Product, bool>> HasActivePromotionExpression(DateTime now)
+    {
+        return product => Context.VoucherScopes.Any(scope =>
+            Context.Vouchers.Any(voucher =>
+                voucher.Id == scope.VoucherId
+                && voucher.Status == (int)EntityStatus.Active
+                && (!voucher.StartAt.HasValue || voucher.StartAt <= now)
+                && (!voucher.EndAt.HasValue || voucher.EndAt >= now)
+                && (!voucher.UsageLimit.HasValue || voucher.UsedCount < voucher.UsageLimit)
+                && ((scope.ScopeType == "Product" && scope.RefId == product.Id)
+                    || (scope.ScopeType == "Category" && scope.RefId == product.CategoryId)
+                    || (scope.ScopeType == "Brand" && product.BrandId.HasValue && scope.RefId == product.BrandId.Value))));
+    }
+
+    private static IQueryable<Product> ApplySorting(IQueryable<Product> query, ProductSearchRequest request)
+    {
+        string sortBy = (request.SortBy ?? string.Empty).ToLowerInvariant();
+        bool sortDescending = request.SortDescending;
+
+        if (sortBy == "name")
+        {
+            if (sortDescending)
+            {
+                return query.OrderByDescending(product => product.Name);
+            }
+
+            return query.OrderBy(product => product.Name);
+        }
+
+        if (sortBy == "price")
+        {
+            if (sortDescending)
+            {
+                return query.OrderByDescending(product => product.Skus.Min(sku => sku.SalePrice ?? sku.ListPrice));
+            }
+
+            return query.OrderBy(product => product.Skus.Min(sku => sku.SalePrice ?? sku.ListPrice));
+        }
+
+        if (sortDescending)
+        {
+            return query.OrderByDescending(product => product.Id);
+        }
+
+        return query.OrderBy(product => product.Id);
+    }
 }
