@@ -11,8 +11,11 @@ public partial class ReportService
 {
     private async Task<DashboardOperationsDto> BuildDashboardOperationsAsync(List<Order> orders)
     {
-        DateTime today = DateTime.UtcNow.Date;
-        DateTime monthStart = new DateTime(today.Year, today.Month, 1);
+        DateTime today = GetBusinessToday();
+        DateTime todayStart = GetBusinessDayStartUtc(today);
+        DateTime todayEnd = GetBusinessDayEndUtc(today);
+        DateTime monthStart = GetBusinessDayStartUtc(new DateTime(today.Year, today.Month, 1));
+        DateTime monthEnd = GetBusinessDayEndUtc(today);
 
         var paid = await _db.Payments.AsNoTracking()
             .Where(payment => payment.PaymentRecordStatus == PaymentRecordStatus.Paid)
@@ -24,12 +27,12 @@ public partial class ReportService
 
         decimal paidTotal = paid.Sum(payment => payment.Amount);
         decimal refundedTotal = refunded.Sum(refund => refund.Amount);
-        decimal outstandingCustomer = CalculateCustomerReceivable(orders, paid, refunded);
+        decimal outstandingCustomer = CalculateCustomerReceivable(orders);
         decimal supplierDebt = await CalculateSupplierDebtAsync();
 
         return new DashboardOperationsDto(
-            TodayRevenue: orders.Where(IsRevenueOrder).Where(order => (order.PlacedAt ?? order.UpdatedDate ?? order.CreatedDate).Date == today).Sum(order => order.GrandTotal),
-            MonthRevenue: orders.Where(IsRevenueOrder).Where(order => (order.PlacedAt ?? order.UpdatedDate ?? order.CreatedDate) >= monthStart).Sum(order => order.GrandTotal),
+            TodayRevenue: CalculateNetRevenue(orders, refunded, todayStart, todayEnd),
+            MonthRevenue: CalculateNetRevenue(orders, refunded, monthStart, monthEnd),
             PaidTotal: paidTotal,
             RefundedTotal: refundedTotal,
             CustomerReceivable: outstandingCustomer,
@@ -41,19 +44,48 @@ public partial class ReportService
             OpenWarranties: await _db.Warranties.CountAsync(warranty => warranty.WarrantyStatus != "Completed" && warranty.WarrantyStatus != "Rejected" && warranty.WarrantyStatus != "Cancelled"),
             OpenCrmTasks: await _db.CustomerInteractions.CountAsync(task => task.InteractionStatus == "Open"),
             OutOfStock: await _db.InventoryItems.CountAsync(item => item.OnHand - item.Reserved <= 0),
-            LowStock: await _db.InventoryItems.CountAsync(item => item.OnHand - item.Reserved > 0 && item.OnHand - item.Reserved <= item.ReorderPoint));
+            LowStock: await _db.InventoryItems.CountAsync(item => item.OnHand - item.Reserved > 0 && item.OnHand - item.Reserved <= item.ReorderPoint),
+            UnpaidOrders: orders.Count(IsUnpaidActiveOrder),
+            PendingPaymentOrders: orders.Count(order => order.PaymentStatus == PaymentStatus.PendingConfirmation && order.OrderStatus != OrderStatus.Cancelled),
+            NewContacts: await _db.ContactRequests.CountAsync(contact => contact.ContactStatus == "New"));
     }
 
-    private static decimal CalculateCustomerReceivable(IEnumerable<Order> orders, IEnumerable<Payment> paid, IEnumerable<Refund> refunded)
+    private static decimal CalculateCustomerReceivable(IEnumerable<Order> orders)
     {
-        return orders.Sum(order =>
-        {
-            decimal paidAmount = paid.Where(payment => payment.OrderId == order.Id).Sum(payment => payment.Amount);
-            decimal refundedAmount = refunded.Where(refund => refund.OrderId == order.Id).Sum(refund => refund.Amount);
-            decimal netPaid = paidAmount - refundedAmount;
+        return orders
+            .Where(order => order.OrderStatus != OrderStatus.Cancelled)
+            .Where(order => order.PaymentStatus != PaymentStatus.Paid)
+            .Where(order => order.PaymentStatus != PaymentStatus.Refunded)
+            .Sum(order => Math.Max(0, order.RemainingAmount));
+    }
 
-            return Math.Max(0, order.GrandTotal - netPaid);
-        });
+    private static decimal CalculateNetRevenue(IEnumerable<Order> orders, IEnumerable<Refund> refunds, DateTime start, DateTime end)
+    {
+        decimal grossRevenue = orders
+            .Where(IsRevenueOrder)
+            .Where(order => IsInRange(GetOrderRevenueDate(order), start, end))
+            .Sum(order => order.GrandTotal);
+
+        decimal refundTotal = refunds
+            .Where(refund => IsInRange(refund.RefundedAt, start, end))
+            .Sum(refund => refund.Amount);
+
+        return Math.Max(0, grossRevenue - refundTotal);
+    }
+
+    private static bool IsUnpaidActiveOrder(Order order)
+    {
+        if (order.OrderStatus == OrderStatus.Cancelled)
+        {
+            return false;
+        }
+
+        if (order.PaymentStatus != PaymentStatus.Unpaid)
+        {
+            return false;
+        }
+
+        return order.RemainingAmount > 0;
     }
 
     private async Task<decimal> CalculateSupplierDebtAsync()

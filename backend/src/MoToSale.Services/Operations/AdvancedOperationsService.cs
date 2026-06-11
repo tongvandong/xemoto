@@ -179,8 +179,8 @@ public class AdvancedOperationsService : IAdvancedOperationsService
     public async Task RejectReturnAsync(int id, string? note, int? userId)
     {
         var row = await _db.SalesReturns.FirstOrDefaultAsync(x => x.Id == id)
-            ?? throw new AdvancedOperationsException("Sales return not found.");
-        if (row.ReturnStatus != "Draft") throw new AdvancedOperationsException("Only draft returns can be rejected.");
+            ?? throw new AdvancedOperationsException("Không tìm thấy phiếu trả hàng.");
+        if (row.ReturnStatus != "Draft") throw new AdvancedOperationsException("Chỉ phiếu chờ duyệt mới được từ chối.");
         row.ReturnStatus = "Rejected";
         row.Note = note;
         row.ApprovedBy = userId;

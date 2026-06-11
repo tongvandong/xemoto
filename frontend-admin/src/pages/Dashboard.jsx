@@ -4,10 +4,7 @@ import StatCard from '../components/StatCard';
 import RevenueChart from '../components/charts/RevenueChart';
 import OrderStatusChart from '../components/charts/OrderStatusChart';
 import reportService from '../services/reportService';
-import inventoryService from '../services/inventoryService';
-import contactService from '../services/contactService';
 import voucherService from '../services/voucherService';
-import warrantyService from '../services/warrantyService';
 import { useAuth } from '../contexts/AuthContext';
 import { formatCurrency } from '../utils/formatCurrency';
 import { formatDate } from '../utils/formatDate';
@@ -58,6 +55,7 @@ const Dashboard = () => {
     newContacts: 0,
     expiringVouchers: 0,
     activeWarranties: 0,
+    pendingPaymentOrders: 0,
   });
 
   useEffect(() => {
@@ -67,31 +65,27 @@ const Dashboard = () => {
       try {
         const dashboard = await reportService.getDashboard();
         setData(dashboard);
-        const [inventoryRes, contactsRes, vouchersRes, warrantiesRes] = await Promise.allSettled([
-          inventoryService.getAll({ page: 1, pageSize: 1 }),
-          contactService.getAll({ status: 'New', page: 1, pageSize: 1 }),
+        const [vouchersRes] = await Promise.allSettled([
           voucherService.getAll({ page: 1, pageSize: 100 }),
-          warrantyService.getAll({ page: 1, pageSize: 100 }),
         ]);
 
-        const orders = dashboard.orders || dashboard.recentOrders || [];
         const vouchers = vouchersRes.status === 'fulfilled' ? (vouchersRes.value.data.items || []) : [];
-        const warranties = warrantiesRes.status === 'fulfilled' ? (warrantiesRes.value.data.items || []) : [];
         const now = new Date();
         const nextSevenDays = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
         const remoteOps = dashboard.operations || {};
         setOperations({
-          awaitingOrders: remoteOps.pendingOrders ?? orders.filter((o) => ['AwaitingPayment', 'Pending', 'Checkout', 'Confirmed'].includes(o.trangThaiDonHang || o.status || o.orderStatus)).length,
-          unpaidOrders: orders.filter((o) => ['Unpaid', 'Pending'].includes(o.trangThaiThanhToan || o.paymentStatus)).length,
-          shippingOrders: remoteOps.shippingOrders ?? orders.filter((o) => ['Allocated', 'Shipped'].includes(o.trangThaiVanChuyen || o.shippingStatus || o.fulfillmentStatus)).length,
-          outOfStock: remoteOps.outOfStock ?? (inventoryRes.status === 'fulfilled' ? (inventoryRes.value.data.summary?.outOfStock || 0) : 0),
-          lowStock: remoteOps.lowStock ?? (inventoryRes.status === 'fulfilled' ? (inventoryRes.value.data.summary?.lowStock || 0) : 0),
-          newContacts: contactsRes.status === 'fulfilled' ? (contactsRes.value.data.totalItems || contactsRes.value.data.items?.length || 0) : 0,
+          awaitingOrders: remoteOps.pendingOrders ?? 0,
+          unpaidOrders: remoteOps.unpaidOrders ?? 0,
+          pendingPaymentOrders: remoteOps.pendingPaymentOrders ?? 0,
+          shippingOrders: remoteOps.shippingOrders ?? 0,
+          outOfStock: remoteOps.outOfStock ?? 0,
+          lowStock: remoteOps.lowStock ?? 0,
+          newContacts: remoteOps.newContacts ?? 0,
           expiringVouchers: vouchers.filter((v) => {
             const end = new Date(v.endsAt || v.endAt || v.ngayKetThuc);
             return !Number.isNaN(end.getTime()) && end >= now && end <= nextSevenDays;
           }).length,
-          activeWarranties: remoteOps.openWarranties ?? warranties.filter((w) => ['Received', 'Processing', 'WaitingParts'].includes(w.trangThai || w.TrangThai || w.warrantyStatus)).length,
+          activeWarranties: remoteOps.openWarranties ?? 0,
           pendingPurchases: remoteOps.pendingPurchases ?? 0,
           openRepairs: remoteOps.openRepairs ?? 0,
           openCrmTasks: remoteOps.openCrmTasks ?? 0,
@@ -163,7 +157,7 @@ const Dashboard = () => {
                   color="danger"
                   icon="fas fa-chart-line"
                   label="Doanh thu tháng"
-                  value={formatCurrency(data.stats.monthRevenue)}
+                  value={formatCurrency(operations.monthRevenue || 0)}
                   to="/reports"
                 />
               </div>
@@ -171,22 +165,27 @@ const Dashboard = () => {
               <div className="-mx-[7.5px] flex flex-wrap">
                 <StatCard color="primary" icon="fas fa-clipboard-check" label="Đơn cần xử lý" value={operations.awaitingOrders} to="/orders" />
                 <StatCard color="warning" icon="fas fa-money-bill-wave" label="Chưa thanh toán" value={operations.unpaidOrders} to="/orders" />
+                <StatCard color="warning" icon="fas fa-university" label="Chờ xác nhận CK" value={operations.pendingPaymentOrders} to="/orders" />
                 <StatCard color="info" icon="fas fa-truck" label="Đang giao/chuẩn bị" value={operations.shippingOrders} to="/orders" />
-                <StatCard color="danger" icon="fas fa-box-open" label="Hết hàng" value={operations.outOfStock} to="/inventory" />
               </div>
 
               <div className="-mx-[7.5px] flex flex-wrap">
+                <StatCard color="danger" icon="fas fa-box-open" label="Hết hàng" value={operations.outOfStock} to="/inventory" />
                 <StatCard color="warning" icon="fas fa-exclamation-triangle" label="Sắp hết hàng" value={operations.lowStock} to="/inventory" />
                 <StatCard color="secondary" icon="fas fa-truck-loading" label="Đơn mua đang xử lý" value={operations.pendingPurchases} to="/supply" />
                 <StatCard color="success" icon="fas fa-ticket-alt" label="Voucher sắp hết hạn" value={operations.expiringVouchers} to="/vouchers" />
-                <StatCard color="info" icon="fas fa-tools" label="Bảo hành đang xử lý" value={operations.activeWarranties} to="/warranties" />
               </div>
 
               <div className="-mx-[7.5px] flex flex-wrap">
                 <StatCard color="success" icon="fas fa-calendar-day" label="Doanh thu hôm nay" value={formatCurrency(operations.todayRevenue || 0)} to="/reports" />
                 <StatCard color="danger" icon="fas fa-hand-holding-usd" label="Còn phải thu" value={formatCurrency(operations.customerReceivable || 0)} to="/reports" />
                 <StatCard color="warning" icon="fas fa-file-invoice-dollar" label="Cần trả NCC" value={formatCurrency(operations.supplierPayable || 0)} to="/supply" />
+                <StatCard color="info" icon="fas fa-tools" label="Bảo hành đang xử lý" value={operations.activeWarranties} to="/warranties" />
+              </div>
+
+              <div className="-mx-[7.5px] flex flex-wrap">
                 <StatCard color="primary" icon="fas fa-phone-volume" label="CSKH cần xử lý" value={operations.openCrmTasks || 0} to="/service-crm" />
+                <StatCard color="danger" icon="fas fa-envelope-open-text" label="Liên hệ mới" value={operations.newContacts || 0} to="/service-crm" />
               </div>
 
               <div className="-mx-[7.5px] flex flex-wrap">
@@ -273,13 +272,13 @@ const Dashboard = () => {
                 <div className="w-full px-[7.5px] lg:w-5/12">
                   <div className={cardClass}>
                     <div className={cardHeaderClass}>
-                      <h3 className={cardTitleClass}>Top sản phẩm bán chạy</h3>
+                      <h3 className={cardTitleClass}>Top SKU bán chạy</h3>
                     </div>
                     <div className="block w-full overflow-x-auto">
                       <table className={tableClass}>
                         <thead>
                           <tr>
-                            <th className={cn(thClass, 'text-left')}>Sản phẩm</th>
+                            <th className={cn(thClass, 'text-left')}>SKU/Sản phẩm</th>
                             <th className={cn(thClass, 'text-right')}>Đã bán</th>
                             <th className={cn(thClass, 'text-right')}>Doanh thu</th>
                           </tr>

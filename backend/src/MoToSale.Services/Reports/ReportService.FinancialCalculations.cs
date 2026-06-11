@@ -85,6 +85,11 @@ public partial class ReportService
         return true;
     }
 
+    private static DateTime GetOrderRevenueDate(Order order)
+    {
+        return order.PlacedAt ?? order.UpdatedDate ?? order.CreatedDate;
+    }
+
     private static bool IsRevenueOrder(Order order)
     {
         bool isPaid = order.PaymentStatus == PaymentStatus.Paid;

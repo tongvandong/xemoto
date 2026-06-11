@@ -11,8 +11,8 @@ public partial class ReportService
 {
     private static List<RevenuePointDto> BuildRevenueSeries(IEnumerable<Order> orders, DateTime? start, DateTime? end)
     {
-        DateTime from = (start ?? DateTime.UtcNow.Date.AddDays(-6)).Date;
-        DateTime to = (end ?? DateTime.UtcNow.Date).Date;
+        DateTime from = start.HasValue ? ToBusinessDate(start.Value) : GetBusinessToday().AddDays(-6);
+        DateTime to = end.HasValue ? ToBusinessDate(end.Value) : GetBusinessToday();
         int days = Math.Clamp((int)(to - from).TotalDays + 1, 1, 62);
 
         Dictionary<string, RevenuePointDto> buckets = Enumerable.Range(0, days)
@@ -23,7 +23,7 @@ public partial class ReportService
 
         foreach (Order order in orders)
         {
-            string key = (order.PlacedAt ?? order.UpdatedDate ?? order.CreatedDate).Date.ToString("yyyy-MM-dd");
+            string key = ToBusinessDate(GetOrderRevenueDate(order)).ToString("yyyy-MM-dd");
 
             if (buckets.TryGetValue(key, out RevenuePointDto? bucket))
             {

@@ -20,7 +20,24 @@ public record RevenuePointDto(string Key, string Label, decimal Value);
 public record OrderStatusPointDto(string Label, int Value);
 public record TopProductDto(int Id, string Name, int Sold, decimal Revenue, decimal Cost, decimal Profit);
 public record RecentOrderDto(int Id, string Code, int UserId, string? CustomerName, decimal GrandTotal, string OrderStatus, string PaymentStatus, string FulfillmentStatus, DateTime CreatedAt);
-public record DashboardOperationsDto(decimal TodayRevenue, decimal MonthRevenue, decimal PaidTotal, decimal RefundedTotal, decimal CustomerReceivable, decimal SupplierPayable, int PendingOrders, int ShippingOrders, int PendingPurchases, int OpenRepairs, int OpenWarranties, int OpenCrmTasks, int OutOfStock, int LowStock);
+public record DashboardOperationsDto(
+    decimal TodayRevenue,
+    decimal MonthRevenue,
+    decimal PaidTotal,
+    decimal RefundedTotal,
+    decimal CustomerReceivable,
+    decimal SupplierPayable,
+    int PendingOrders,
+    int ShippingOrders,
+    int PendingPurchases,
+    int OpenRepairs,
+    int OpenWarranties,
+    int OpenCrmTasks,
+    int OutOfStock,
+    int LowStock,
+    int UnpaidOrders,
+    int PendingPaymentOrders,
+    int NewContacts);
 public record InventoryWarningDto(int SkuId, string SkuCode, string ProductName, int OnHand, int Reserved, int Available, int ReorderPoint, string WarningStatus);
 public record PurchaseReportDto(int Id, string Code, string SupplierName, string Status, decimal TotalAmount, decimal PaidAmount, decimal Outstanding, DateTime CreatedDate);
 public record CashReportDto(int Id, string Code, string TransactionType, string Category, decimal Amount, string Method, string? ReferenceType, int? ReferenceId, DateTime OccurredAt, string? Note);

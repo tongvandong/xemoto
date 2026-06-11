@@ -10,6 +10,7 @@ namespace MoToSale.Services.Reports;
 
 public partial class ReportService : IReportService
 {
+    private const int BusinessUtcOffsetHours = 7;
     private readonly AppDbContext _db;
 
     public ReportService(AppDbContext db)
@@ -24,8 +25,9 @@ public partial class ReportService : IReportService
 
     public async Task<ReportResponse> GetDashboardAsync()
     {
-        DateTime start = DateTime.UtcNow.Date.AddDays(-6);
-        DateTime end = DateTime.UtcNow.Date.AddDays(1).AddTicks(-1);
+        DateTime today = GetBusinessToday();
+        DateTime start = GetBusinessDayStartUtc(today.AddDays(-6));
+        DateTime end = GetBusinessDayEndUtc(today);
 
         return await BuildReportAsync(start, end, 5);
     }
@@ -103,5 +105,25 @@ public partial class ReportService : IReportService
             await BuildServiceReportAsync(start, end),
             await BuildReceivableReportAsync(),
             await BuildCrmTasksAsync(now));
+    }
+
+    private static DateTime GetBusinessToday()
+    {
+        return DateTime.UtcNow.AddHours(BusinessUtcOffsetHours).Date;
+    }
+
+    private static DateTime GetBusinessDayStartUtc(DateTime businessDate)
+    {
+        return businessDate.Date.AddHours(-BusinessUtcOffsetHours);
+    }
+
+    private static DateTime GetBusinessDayEndUtc(DateTime businessDate)
+    {
+        return businessDate.Date.AddDays(1).AddHours(-BusinessUtcOffsetHours).AddTicks(-1);
+    }
+
+    private static DateTime ToBusinessDate(DateTime value)
+    {
+        return value.AddHours(BusinessUtcOffsetHours).Date;
     }
 }

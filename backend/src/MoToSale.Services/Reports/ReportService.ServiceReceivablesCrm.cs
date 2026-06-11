@@ -73,12 +73,14 @@ public partial class ReportService
             .ToDictionaryAsync(row => row.OrderId, row => row.Amount);
 
         return orders
+            .Where(order => order.OrderStatus != OrderStatus.Cancelled)
+            .Where(order => order.PaymentStatus != PaymentStatus.Paid)
+            .Where(order => order.PaymentStatus != PaymentStatus.Refunded)
             .Select(order =>
             {
                 decimal totalPaid = paid.GetValueOrDefault(order.Id);
                 decimal totalRefunded = refunded.GetValueOrDefault(order.Id);
-                decimal netPaid = totalPaid - totalRefunded;
-                decimal outstanding = Math.Max(0, order.GrandTotal - netPaid);
+                decimal outstanding = Math.Max(0, order.RemainingAmount);
                 string customerName = users.GetValueOrDefault(order.UserId) ?? order.ShippingRecipient;
 
                 return new ReceivableReportDto(order.Id, order.Code, customerName, order.GrandTotal, totalPaid, totalRefunded, outstanding, order.PaymentStatus);
@@ -110,11 +112,13 @@ public partial class ReportService
 
     private static DateTime GetReportStartDate(DateTime? startDate)
     {
-        return (startDate ?? DateTime.UtcNow.Date.AddDays(-29)).Date;
+        DateTime businessDate = (startDate ?? GetBusinessToday().AddDays(-29)).Date;
+        return GetBusinessDayStartUtc(businessDate);
     }
 
     private static DateTime GetReportEndDate(DateTime? endDate)
     {
-        return (endDate ?? DateTime.UtcNow.Date).Date.AddDays(1).AddTicks(-1);
+        DateTime businessDate = (endDate ?? GetBusinessToday()).Date;
+        return GetBusinessDayEndUtc(businessDate);
     }
 }

@@ -85,11 +85,11 @@ const ReportsPage = () => {
               { label: 'Khoảng thời gian', value: `${range.startDate} đến ${range.endDate}` },
               { label: 'Tiêu chí doanh thu', value: 'Chỉ tính đơn đã thanh toán đầy đủ và đã giao/hoàn tất.' },
               { label: 'Tổng đơn hàng', value: 'Tính theo ngày tạo đơn trong khoảng thời gian đã chọn.' },
-              { label: 'Sản phẩm bán chạy', value: 'Tổng hợp từ chi tiết sản phẩm của các đơn có doanh thu hợp lệ.' },
+              { label: 'SKU bán chạy', value: 'Tổng hợp theo từng SKU/biến thể từ chi tiết đơn có doanh thu hợp lệ.' },
               { label: 'Sheet TongQuan', value: 'Các chỉ số chính để quản lý nhìn nhanh hiệu quả kinh doanh.' },
               { label: 'Sheet DoanhThuTheoNgay', value: 'Dùng kiểm tra doanh thu từng ngày và so với biểu đồ.' },
               { label: 'Sheet TrangThaiDonHang', value: 'Dùng xem phân bổ đơn theo nhóm trạng thái nghiệp vụ.' },
-              { label: 'Sheet SanPhamBanChay', value: 'Dùng quyết định nhập hàng, khuyến mãi hoặc theo dõi mặt hàng bán tốt.' },
+              { label: 'Sheet SanPhamBanChay', value: 'Dùng quyết định nhập hàng, khuyến mãi hoặc theo dõi SKU bán tốt.' },
               { label: 'Sheet MuaHang', value: 'Theo dõi đơn mua, đã trả và còn phải trả nhà cung cấp.' },
               { label: 'Sheet ThuChi', value: 'Theo dõi phiếu thu/chi trong kỳ.' },
               { label: 'Sheet CongNo', value: 'Theo dõi các đơn còn phải thu từ khách.' },
@@ -137,7 +137,7 @@ const ReportsPage = () => {
             columns: [
               { header: 'STT', key: 'index', type: 'number', width: 8 },
               { header: 'Mã sản phẩm/SKU', key: 'id', width: 18 },
-              { header: 'Tên sản phẩm', key: 'name', width: 36 },
+              { header: 'SKU/Sản phẩm', key: 'name', width: 36 },
               { header: 'Số lượng bán', key: 'sold', type: 'number', width: 16 },
               { header: 'Doanh thu', key: 'revenue', type: 'currency', width: 18 },
               { header: 'Giá vốn', key: 'cost', type: 'currency', width: 18 },
@@ -405,7 +405,7 @@ const ReportsPage = () => {
                   <div className="card">
                     <div className="card-header">
                       <h3 className="card-title">
-                        <i className="fas fa-trophy mr-1"></i> Top 10 sản phẩm bán chạy
+                      <i className="fas fa-trophy mr-1"></i> Top 10 SKU bán chạy
                       </h3>
                     </div>
                     <div className="card-body">
@@ -434,7 +434,7 @@ const ReportsPage = () => {
                     <thead>
                       <tr>
                         <th className="table-col-code">#</th>
-                        <th className="table-col-text">Sản phẩm</th>
+                        <th className="table-col-text">SKU/Sản phẩm</th>
                         <th className="table-col-number">Số lượng bán</th>
                         <th className="table-col-money">Doanh thu ước tính</th>
                         <th className="table-col-money">Giá vốn ước tính</th>

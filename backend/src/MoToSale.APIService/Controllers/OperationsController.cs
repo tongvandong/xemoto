@@ -30,6 +30,6 @@ public class OperationsController : ControllerBase
     public async Task<IActionResult> SaveSettings([FromBody] SettingsRequest request)
     {
         await _settings.SaveSettingsAsync(request);
-        return Ok(new MessageResponse { Message = "Settings saved successfully." });
+        return Ok(new MessageResponse { Message = "Đã lưu cấu hình." });
     }
 }

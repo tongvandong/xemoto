@@ -18,7 +18,7 @@ const StatCard = ({ color = 'info', icon = 'fas fa-chart-bar', label, value, to,
     <div className="w-1/2 px-[7.5px] lg:w-1/4">
       <div className={cn('relative mb-5 block min-h-[8.8rem] overflow-hidden rounded text-white shadow-[0_0_1px_rgba(0,0,0,0.125),0_1px_3px_rgba(0,0,0,0.2)]', colorClasses[color] || colorClasses.info)}>
         <div className="p-2.5">
-          <h3 className="mb-2.5 mt-0 whitespace-nowrap text-[2.2rem] font-bold">{value}</h3>
+          <h3 className="mb-2.5 mt-0 max-w-[calc(100%-4.8rem)] break-words text-[1.45rem] font-bold leading-tight md:text-[1.8rem] xl:text-[2rem]">{value}</h3>
           <p>{label}</p>
         </div>
         <div className="absolute right-4 top-4 text-[70px] text-black/15 transition-transform duration-200">
