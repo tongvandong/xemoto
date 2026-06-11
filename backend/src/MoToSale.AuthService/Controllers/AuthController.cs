@@ -25,4 +25,22 @@ public class AuthController : ControllerBase
         try { return Ok(await _auth.LoginAsync(request)); }
         catch (AuthException ex) { return Unauthorized(new { message = ex.Message }); }
     }
+
+    [HttpPost("forgot-password")]
+    public async Task<IActionResult> ForgotPassword(ForgotPasswordRequest request)
+    {
+        try { return Ok(await _auth.ForgotPasswordAsync(request)); }
+        catch (AuthException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    [HttpPost("reset-password")]
+    public async Task<IActionResult> ResetPassword(ResetPasswordRequest request)
+    {
+        try
+        {
+            await _auth.ResetPasswordAsync(request);
+            return Ok(new { message = "Password reset successfully." });
+        }
+        catch (AuthException ex) { return BadRequest(new { message = ex.Message }); }
+    }
 }

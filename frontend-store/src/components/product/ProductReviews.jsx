@@ -76,7 +76,7 @@ function UserAvatar({ name }) {
   const idx = (name || '').split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) % colors.length;
 
   return (
-    <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold text-white ${colors[idx]}`}>
+    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white ${colors[idx]}`}>
       {letter}
     </div>
   );
@@ -99,6 +99,18 @@ function ratingLabel(rating) {
   if (rating >= 2.5) return 'Trung bình';
   if (rating >= 1.5) return 'Kém';
   return 'Rất kém';
+}
+
+function getReviewStatusLabel(status) {
+  if (status === 'Approved') return 'Đã hiển thị';
+  if (status === 'Hidden' || status === 'Rejected') return 'Không hiển thị';
+  return 'Chờ duyệt';
+}
+
+function getReviewStatusClass(status) {
+  if (status === 'Approved') return 'bg-green-100 text-green-700';
+  if (status === 'Hidden' || status === 'Rejected') return 'bg-zinc-100 text-zinc-600';
+  return 'bg-amber-100 text-amber-700';
 }
 
 /* ============================================================
@@ -124,7 +136,7 @@ function ReviewSummary({ summary, reviews }) {
         <span className="text-5xl font-black tracking-tight text-gray-900">{avg.toFixed(1)}</span>
         <RatingStars value={avg} size={20} />
         <span className="mt-1 text-sm font-medium text-gray-500">
-          {total > 0 ? `${total} đánh giá` : 'Chưa có đánh giá'}
+          {total > 0 ? `(${total} đánh giá)` : 'Chưa có đánh giá'}
         </span>
         {total > 0 && (
           <span className="rounded-full bg-amber-50 px-3 py-0.5 text-xs font-semibold text-amber-700">
@@ -148,20 +160,27 @@ function ReviewSummary({ summary, reviews }) {
 /* ============================================================
    ReviewCard
    ============================================================ */
-function ReviewCard({ review }) {
+function ReviewCard({ review, isMine = false }) {
   return (
-    <div className="rounded-xl border border-gray-100 bg-white p-5 transition-shadow hover:shadow-md">
+    <div className={`rounded-xl border bg-white p-5 transition-shadow hover:shadow-md ${isMine ? 'border-amber-200' : 'border-gray-100'}`}>
       <div className="mb-3 flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
           <UserAvatar name={review.userName} />
           <div>
             <div className="font-semibold text-gray-900">
-              {review.userName || `Khách hàng #${review.userId}`}
+              {isMine ? 'Đánh giá của bạn' : review.userName || `Khách hàng #${review.userId}`}
             </div>
             <div className="text-xs text-gray-400">{formatReviewDate(review.createdAt)}</div>
           </div>
         </div>
-        <RatingStars value={review.rating} size={14} />
+        <div className="flex flex-col items-end gap-2">
+          <RatingStars value={review.rating} size={14} />
+          {isMine && (
+            <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${getReviewStatusClass(review.status)}`}>
+              {getReviewStatusLabel(review.status)}
+            </span>
+          )}
+        </div>
       </div>
 
       {review.title && <h4 className="mb-1 text-sm font-bold text-gray-800">{review.title}</h4>}
@@ -177,6 +196,26 @@ function ReviewCard({ review }) {
           />
         </div>
       )}
+    </div>
+  );
+}
+
+function MyReviewCard({ review }) {
+  if (!review) return null;
+
+  const isApproved = review.status === 'Approved';
+
+  return (
+    <div className={`space-y-3 rounded-2xl border p-4 ${isApproved ? 'border-green-200 bg-green-50/50' : 'border-amber-200 bg-amber-50/50'}`}>
+      <div>
+        <h4 className={`text-sm font-black ${isApproved ? 'text-green-900' : 'text-amber-900'}`}>Đánh giá bạn đã gửi</h4>
+        <p className={`mt-1 text-xs leading-5 ${isApproved ? 'text-green-700' : 'text-amber-700'}`}>
+          {isApproved
+            ? 'Đánh giá đã được duyệt và đang hiển thị công khai.'
+            : 'Đánh giá sẽ xuất hiện trong danh sách công khai sau khi cửa hàng duyệt.'}
+        </p>
+      </div>
+      <ReviewCard review={review} isMine />
     </div>
   );
 }
@@ -257,13 +296,9 @@ function ReviewForm({ productId, reviewState, stateLoading, isAuthenticated, myR
         orderId: reviewState?.eligibleOrderId || myReview?.orderId,
       };
 
-      if (myReview) {
-        await reviewApi.updateMine(productId, payload);
-      } else {
-        await reviewApi.create(productId, payload);
-      }
+      await reviewApi.create(productId, payload);
 
-      setSuccess(myReview ? 'Đã cập nhật đánh giá của bạn!' : 'Cảm ơn bạn đã gửi đánh giá!');
+      setSuccess('Cảm ơn bạn đã gửi đánh giá!');
       onSubmitSuccess?.();
 
       // Auto-hide success after 3s
@@ -306,11 +341,15 @@ function ReviewForm({ productId, reviewState, stateLoading, isAuthenticated, myR
     return null;
   }
 
-  /* --- Form (can review / can update) --- */
+  if (myReview) {
+    return null;
+  }
+
+  /* --- Form (can review) --- */
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
       <h4 className="mb-4 text-base font-bold text-gray-900">
-        {myReview ? '✏️ Cập nhật đánh giá của bạn' : '⭐ Viết đánh giá'}
+        ⭐ Viết đánh giá
       </h4>
 
       <form className="space-y-4" onSubmit={handleSubmit}>
@@ -360,8 +399,6 @@ function ReviewForm({ productId, reviewState, stateLoading, isAuthenticated, myR
               <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
               Đang gửi...
             </>
-          ) : myReview ? (
-            'Cập nhật đánh giá'
           ) : (
             'Gửi đánh giá'
           )}
@@ -383,6 +420,19 @@ export default function ProductReviews({ productId }) {
   const [stateLoading, setStateLoading] = useState(false);
 
   const myReview = reviewState?.myReview;
+  const approvedMyReview = useMemo(() => {
+    if (!myReview?.id) return null;
+    return reviews.find((review) => review.id === myReview.id && review.status === 'Approved') || null;
+  }, [myReview, reviews]);
+  const displayedMyReview = useMemo(
+    () => (approvedMyReview ? { ...myReview, ...approvedMyReview } : myReview),
+    [approvedMyReview, myReview],
+  );
+  const publicReviews = useMemo(() => {
+    if (!displayedMyReview?.id || displayedMyReview.status === 'Approved') return reviews;
+    return reviews.filter((review) => review.id !== displayedMyReview.id);
+  }, [displayedMyReview, reviews]);
+  const shouldShowMyReviewCard = displayedMyReview && displayedMyReview.status !== 'Approved';
 
   const loadReviews = useCallback(async () => {
     if (!productId) return;
@@ -425,6 +475,34 @@ export default function ProductReviews({ productId }) {
   useEffect(() => { loadReviews(); }, [loadReviews]);
   useEffect(() => { loadReviewState(); }, [loadReviewState]);
 
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === 'visible') {
+        loadReviews();
+        loadReviewState();
+      }
+    };
+
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+
+    return () => {
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [loadReviews, loadReviewState]);
+
+  useEffect(() => {
+    if (!myReview || displayedMyReview?.status === 'Approved') return undefined;
+
+    const timer = window.setInterval(() => {
+      loadReviews();
+      loadReviewState();
+    }, 15000);
+
+    return () => window.clearInterval(timer);
+  }, [displayedMyReview, loadReviews, loadReviewState, myReview]);
+
   const handleSubmitSuccess = useCallback(() => {
     loadReviews();
     loadReviewState();
@@ -441,18 +519,20 @@ export default function ProductReviews({ productId }) {
       {/* Rating summary */}
       <ReviewSummary summary={summary} reviews={reviews} />
 
+      {shouldShowMyReviewCard && <MyReviewCard review={displayedMyReview} />}
+
       {/* Review form */}
       <ReviewForm
         productId={productId}
         reviewState={reviewState}
         stateLoading={stateLoading}
         isAuthenticated={isAuthenticated}
-        myReview={myReview}
+        myReview={displayedMyReview}
         onSubmitSuccess={handleSubmitSuccess}
       />
 
       {/* Review list */}
-      <ReviewList reviews={reviews} loading={loading} />
+      <ReviewList reviews={publicReviews} loading={loading} />
     </section>
   );
 }

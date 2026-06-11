@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import QuantitySelector from './QuantitySelector.jsx';
-import { formatCurrency, getProductImage, normalizeImageUrl } from '../utils/formatters.js';
+import { formatCurrency, getProductImage } from '../utils/formatters.js';
 
 function CartItemRow({ item, onQuantityChange, onRemove }) {
   const product = item.product || {};
@@ -10,8 +10,7 @@ function CartItemRow({ item, onQuantityChange, onRemove }) {
   const lineTotal = item.lineTotal ?? unitPrice * quantity;
   const stockValue = variant.stockQuantity ?? product.stockQuantity;
   const maxQuantity = stockValue === undefined || stockValue === null ? 99 : Math.max(1, Number(stockValue));
-  const imageUrl = normalizeImageUrl(item.imageUrl) || getProductImage(product);
-  const displayCode = variant.sku || item.skuCode || product.productCode || item.productId || 'N/A';
+  const imageUrl = getProductImage(product);
 
   return (
     <div className="grid gap-4 rounded-[28px] border border-zinc-200 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)] sm:grid-cols-[104px_minmax(0,1fr)] xl:grid-cols-[104px_minmax(0,1fr)_168px_140px_auto] xl:items-center">
@@ -34,7 +33,7 @@ function CartItemRow({ item, onQuantityChange, onRemove }) {
           {(variant.variantName || variant.version || variant.color) && (
             <span>{[variant.variantName, variant.version, variant.color].filter(Boolean).join(' / ')}</span>
           )}
-          <span>Mã: {displayCode}</span>
+          <span>Mã: {product.productCode || item.productId || 'N/A'}</span>
         </div>
         <div className="mt-3 text-sm font-extrabold text-[#d71920]">{formatCurrency(unitPrice)}</div>
       </div>

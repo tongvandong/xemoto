@@ -24,7 +24,7 @@ function FavoritesPage() {
 
   async function addToCart(product) {
     try {
-      const detail = await productApi.getProductById(product.id);
+      const detail = await productApi.getById(product.id);
       if (detail.variants?.length) {
         notify('Vui lòng chọn phiên bản/màu sắc', 'error');
         navigate(`/products/${product.id}`);
@@ -61,9 +61,6 @@ function FavoritesPage() {
                 <FiHeart className="h-7 w-7 fill-current" />
               </div>
               <h2 className="mt-5 text-2xl font-black text-zinc-950">Chưa có sản phẩm yêu thích</h2>
-              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-zinc-600">
-                Nhấn nút trái tim trên sản phẩm để lưu lại những lựa chọn bạn đang cân nhắc.
-              </p>
               <Link
                 className="mt-6 inline-flex min-h-11 items-center justify-center rounded-xl bg-[#d71920] px-6 text-sm font-bold text-white transition hover:bg-[#b9161c]"
                 to="/products"

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
-import { installmentApi } from '../services/api.js';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useNotification } from '../contexts/NotificationContext.jsx';
+import { installmentApi } from '../services/api.js';
 
 const getErrorMessage = (error, fallback) =>
   error?.response?.data?.message || error?.message || fallback;
@@ -41,10 +41,10 @@ export default function InstallmentPage() {
     }));
   }, [params, user]);
 
-  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const set = (key) => (event) => setForm((f) => ({ ...f, [key]: event.target.value }));
 
-  const submit = async (e) => {
-    e.preventDefault();
+  const submit = async (event) => {
+    event.preventDefault();
     if (!form.productName.trim() || !form.customerName.trim() || !form.customerPhone.trim()) {
       notify('Vui lòng nhập sản phẩm, họ tên và số điện thoại.', 'error');
       return;
@@ -69,8 +69,9 @@ export default function InstallmentPage() {
     <div className="mx-auto max-w-3xl px-4 py-10">
       <h1 className="text-2xl font-bold text-zinc-900">Đăng ký tư vấn trả góp</h1>
       <p className="mt-2 text-sm text-zinc-600">
-        Mua xe trả góp được hỗ trợ qua <strong>đối tác tài chính</strong> (Home Credit, FE Credit, HD SAISON…).
-        Bạn để lại thông tin, nhân viên showroom sẽ liên hệ tư vấn hồ sơ, lãi suất và kỳ hạn. Khoản vay và lịch trả hằng tháng do công ty tài chính quản lý.
+        Mua xe trả góp được hỗ trợ qua <strong>đối tác tài chính</strong> như Home Credit, FE Credit, HD SAISON.
+        Bạn để lại thông tin, nhân viên showroom sẽ liên hệ tư vấn hồ sơ, lãi suất và kỳ hạn.
+        Khoản vay và lịch trả hằng tháng do công ty tài chính quản lý.
       </p>
 
       {done ? (
@@ -102,7 +103,7 @@ export default function InstallmentPage() {
           <div>
             <label className="mb-1 block text-sm font-medium text-zinc-700">Đối tác tài chính mong muốn</label>
             <select className="w-full rounded-lg border border-zinc-300 px-3 py-2" value={form.financePartner} onChange={set('financePartner')}>
-              {PARTNERS.map((p) => <option key={p} value={p}>{p}</option>)}
+              {PARTNERS.map((partner) => <option key={partner} value={partner}>{partner}</option>)}
             </select>
           </div>
           <div>
@@ -112,16 +113,16 @@ export default function InstallmentPage() {
           <div>
             <label className="mb-1 block text-sm font-medium text-zinc-700">Kỳ hạn mong muốn (tháng)</label>
             <select className="w-full rounded-lg border border-zinc-300 px-3 py-2" value={form.months} onChange={set('months')}>
-              {MONTHS.map((m) => <option key={m} value={m}>{m} tháng</option>)}
+              {MONTHS.map((month) => <option key={month} value={month}>{month} tháng</option>)}
             </select>
           </div>
           <div className="sm:col-span-2">
             <label className="mb-1 block text-sm font-medium text-zinc-700">Ghi chú</label>
-            <textarea rows="3" className="w-full rounded-lg border border-zinc-300 px-3 py-2" value={form.note} onChange={set('note')} placeholder="Thời gian tiện liên hệ, yêu cầu khác…" />
+            <textarea rows="3" className="w-full rounded-lg border border-zinc-300 px-3 py-2" value={form.note} onChange={set('note')} placeholder="Thời gian tiện liên hệ, yêu cầu khác" />
           </div>
           <div className="sm:col-span-2">
             <button type="submit" disabled={submitting} className="rounded-lg bg-[#d71920] px-6 py-2.5 text-sm font-semibold text-white disabled:opacity-60">
-              {submitting ? 'Đang gửi…' : 'Gửi hồ sơ tư vấn'}
+              {submitting ? 'Đang gửi...' : 'Gửi hồ sơ tư vấn'}
             </button>
           </div>
         </form>

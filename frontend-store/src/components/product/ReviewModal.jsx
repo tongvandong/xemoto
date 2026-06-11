@@ -3,7 +3,7 @@ import { reviewApi } from '../../services/api.js';
 import { FaStar } from 'react-icons/fa';
 import { FiUpload, FiX } from 'react-icons/fi';
 
-export default function ReviewModal({ isOpen, onClose, product, orderId }) {
+export default function ReviewModal({ isOpen, onClose, product, orderId, onSubmitted }) {
   const [rating, setRating] = useState(5);
   const [hoverRating, setHoverRating] = useState(0);
   const [title, setTitle] = useState('');
@@ -53,6 +53,7 @@ export default function ReviewModal({ isOpen, onClose, product, orderId }) {
         orderId,
         image: image || undefined,
       });
+      onSubmitted?.({ productId, orderId });
       setSuccess(true);
       setTimeout(() => {
         onClose();

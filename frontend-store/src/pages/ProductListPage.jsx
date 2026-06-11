@@ -92,6 +92,7 @@ function ProductListPage() {
       categoryId: searchParams.get('categoryId') || '',
       categorySlug: searchParams.get('categorySlug') || '',
       vehicleTypeCategoryId: searchParams.get('vehicleTypeCategoryId') || '',
+      carModelId: searchParams.get('carModelId') || '',
       compatibleCarModelId: searchParams.get('compatibleCarModelId') || '',
       productType: searchParams.get('productType') || '',
       brandId: searchParams.get('brandId') || '',
@@ -161,7 +162,7 @@ function ProductListPage() {
     try {
       const [filtersResponse, productsResponse] = await Promise.all([
         productApi.getFilters(),
-        productApi.getProducts(apiQueryValues),
+        productApi.getAll(apiQueryValues),
       ]);
 
       setFilters(filtersResponse);
@@ -192,7 +193,7 @@ function ProductListPage() {
       return;
     }
 
-    const detail = await productApi.getProductById(product.id);
+    const detail = await productApi.getById(product.id);
     if (detail.variants?.length) {
       notify('Vui lòng chọn phiên bản/màu sắc', 'error');
       navigate(`/products/${product.id}`);
@@ -229,19 +230,24 @@ function ProductListPage() {
   const products = productsData?.items || [];
   const activeCategory = filters?.categories?.find((category) => String(category.id) === String(resolvedCategoryId));
   const activeVehicleType = filters?.categories?.find((category) => String(category.id) === String(queryValues.vehicleTypeCategoryId));
+  const activeCarModel = filters?.carModels?.find((item) => String(item.id || item.Id || item.maDongXe || item.MaDongXe) === String(queryValues.carModelId));
   const activeCompatibleType = filters?.partCompatibleTypes?.find((item) => String(item.id) === String(queryValues.compatibleCarModelId));
   const activeBrand = filters?.brands?.find((brand) => String(brand.id) === String(resolvedBrandId));
   const pageTitle =
     activeVehicleType?.name ||
+    (activeCarModel ? [activeBrand?.name || activeCarModel.brandName, activeCarModel.name || activeCarModel.tenDongXe || activeCarModel.TenDongXe].filter(Boolean).join(' - ') : '') ||
     (activeCompatibleType ? `Phụ tùng cho ${[activeCompatibleType.brandName, activeCompatibleType.name].filter(Boolean).join(' - ')}` : '') ||
     activeCategory?.name ||
     queryValues.productType ||
     activeBrand?.name ||
     'Tất cả sản phẩm';
+  const breadcrumbItems = pageTitle === 'Tất cả sản phẩm'
+    ? [{ label: 'Sản phẩm' }]
+    : [{ label: 'Sản phẩm', to: '/products' }, { label: pageTitle }];
 
   return (
     <>
-      <Breadcrumb items={[{ label: 'Sản phẩm' }, { label: pageTitle }]} />
+      <Breadcrumb items={breadcrumbItems} />
 
       <section className="bg-[linear-gradient(180deg,#f5f6f8_0%,#ffffff_26%)] py-10">
         <div className="mx-auto grid w-full max-w-[1200px] gap-8 px-4 xl:grid-cols-[320px_minmax(0,1fr)]">
@@ -251,6 +257,7 @@ function ProductListPage() {
               ...queryValues,
               categoryId: resolvedCategoryId || queryValues.categoryId,
               vehicleTypeCategoryId: queryValues.vehicleTypeCategoryId,
+              carModelId: queryValues.carModelId,
               compatibleCarModelId: queryValues.compatibleCarModelId,
               brandId: resolvedBrandId || queryValues.brandId,
             }}

@@ -1,7 +1,6 @@
-import { Link } from 'react-router-dom';
 import { FiHeart } from 'react-icons/fi';
 import QuantitySelector from '../QuantitySelector.jsx';
-import { formatCurrency, getProductDiscountPercent } from '../../utils/formatters.js';
+import { formatCurrency, formatDiscountPercent, getProductDiscountPercent } from '../../utils/formatters.js';
 
 export const defaultPromotions = [
   'Áp dụng Phiếu quà tặng / Mã giảm giá theo sản phẩm.',
@@ -10,11 +9,10 @@ export const defaultPromotions = [
 ];
 
 function normalizeText(value) {
-  return String(value ?? '').trim().toLowerCase();
+  return (value || '').trim().toLowerCase();
 }
 
-function buildColorStops(rawName) {
-  const name = String(rawName || '');
+function buildColorStops(name) {
   const palette = {
     bac: '#c7ccd4',
     bạc: '#c7ccd4',
@@ -70,7 +68,6 @@ function ProductInfoBox({
   versionOptions,
   colorOptions,
   availableColorOptions,
-  versionOptionLabel = 'Phiên bản',
   showVersionSelector = true,
   showColorSelector = true,
   colorStatusText = 'Đang cập nhật',
@@ -78,27 +75,23 @@ function ProductInfoBox({
   isFavorite = false,
   onToggleFavorite,
 }) {
-  const versionList = Array.isArray(versionOptions) ? versionOptions : [];
-  const colorList = Array.isArray(colorOptions) ? colorOptions : [];
-  const availableColors = Array.isArray(availableColorOptions) ? availableColorOptions : [];
+  // Giá hiển thị theo biến thể đang chọn (giá thật nằm ở biến thể). Fallback giá tổng hợp của sản phẩm.
   const productBasePrice = Number(product?.basePrice || 0);
   const productSalePrice = Number(product?.salePrice ?? productBasePrice);
-  const variantListPrice = selectedVariant?.listPrice == null ? null : Number(selectedVariant.listPrice);
-  const variantSalePrice = selectedVariant?.salePrice == null ? null : Number(selectedVariant.salePrice);
-  const variantCurrentPrice = selectedVariant?.priceOverride == null ? null : Number(selectedVariant.priceOverride);
-  const sellingPrice = variantSalePrice || variantCurrentPrice || productSalePrice || productBasePrice;
-  const originalPrice = variantListPrice || productBasePrice;
+  const variantBasePrice = selectedVariant?.basePrice == null ? null : Number(selectedVariant.basePrice);
+  const variantSellPrice = selectedVariant?.sellPrice != null && Number(selectedVariant.sellPrice) > 0
+    ? Number(selectedVariant.sellPrice)
+    : (selectedVariant?.salePrice != null ? Number(selectedVariant.salePrice) : null);
+  const originalPrice = variantBasePrice ?? productBasePrice;
+  const sellingPrice = variantSellPrice ?? (originalPrice > 0 ? originalPrice : productSalePrice);
   const formattedSellingPrice = sellingPrice > 0 ? formatCurrency(sellingPrice) : 'Liên hệ';
-  const discountPercent = originalPrice > 0 && sellingPrice > 0 && originalPrice > sellingPrice
-    ? Math.round(((originalPrice - sellingPrice) * 100) / originalPrice)
-    : getProductDiscountPercent(product);
+  const discountPercent = selectedVariant?.discountPercent ?? getProductDiscountPercent(product);
   const hasOriginalPrice = originalPrice > 0 && originalPrice > sellingPrice;
   const stockValue = selectedVariant?.stockQuantity ?? product?.stockQuantity;
   const hasKnownStock = stockValue !== undefined && stockValue !== null;
-  // Biết tồn -> theo số; chưa biết -> cho phép thao tác (backend sẽ chặn nếu thực sự hết khi thêm giỏ).
   const isInStock = hasKnownStock
     ? Number(stockValue) > 0
-    : true;
+    : normalizeText(selectedVariant?.status || product?.status).includes('available');
   const maxQuantity = hasKnownStock ? Math.max(Number(stockValue), 1) : 99;
   return (
     <div className="rounded-2xl border border-zinc-200 bg-white p-5 sm:p-6">
@@ -129,7 +122,7 @@ function ProductInfoBox({
             <div className="text-sm font-semibold text-zinc-500">Giá bán</div>
             {discountPercent && (
               <span className="rounded-full bg-[#d71920] px-3 py-1 text-xs font-extrabold text-white">
-                Giảm {discountPercent}%
+                Giảm {formatDiscountPercent(discountPercent)}%
               </span>
             )}
           </div>
@@ -144,11 +137,11 @@ function ProductInfoBox({
         {showVersionSelector && (
           <div>
             <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="text-base font-bold text-zinc-950">{versionOptionLabel}</h2>
+              <h2 className="text-base font-bold text-zinc-950">Phiên bản</h2>
               {selectedVersion && <span className="text-sm text-zinc-500">{selectedVersion}</span>}
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
-              {versionList.map((option) => {
+              {versionOptions.map((option) => {
                 const active = option === selectedVersion;
 
                 return (
@@ -171,13 +164,12 @@ function ProductInfoBox({
         <div>
           <div className="mb-3 flex items-center justify-between gap-3">
             <h2 className="text-base font-bold text-zinc-950">Màu sắc</h2>
-            <span className="text-sm text-zinc-500">{showColorSelector ? selectedColor || colorStatusText : colorStatusText}</span>
           </div>
           {showColorSelector ? (
             <div className="grid gap-3 sm:grid-cols-2">
-              {colorList.map((option) => {
+              {colorOptions.map((option) => {
                 const active = option === selectedColor;
-                const available = availableColors.includes(option);
+                const available = availableColorOptions.includes(option);
 
                 return (
                   <button
@@ -206,18 +198,6 @@ function ProductInfoBox({
         )}
 
         <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <div className="text-sm font-bold text-zinc-950">Tùy chọn mua nhanh</div>
-              <div className="text-sm text-zinc-500">
-                {selectedVariant?.variantName || [selectedVersion, selectedColor].filter(Boolean).join(' / ') || 'Chọn số lượng để tiếp tục'}
-              </div>
-            </div>
-            <Link className="text-sm font-semibold text-[#d71920]" to="/products">
-              Xem sản phẩm khác
-            </Link>
-          </div>
-
           <div className="flex flex-col gap-3">
             <QuantitySelector value={quantity} onChange={onQuantityChange} max={maxQuantity} />
             <div className="grid gap-3 sm:grid-cols-2">

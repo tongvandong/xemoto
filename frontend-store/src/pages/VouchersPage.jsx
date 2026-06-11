@@ -25,7 +25,7 @@ function VouchersPage() {
     }
     try {
       if (isAuthenticated) {
-        const mine = await voucherApi.getMyVouchers();
+        const mine = await voucherApi.getMine();
         setMyVouchers(Array.isArray(mine) ? mine : []);
       }
     } catch {
@@ -38,7 +38,7 @@ function VouchersPage() {
     loadVouchers();
   }, [isAuthenticated]);
 
-  const savedCodes = new Set(myVouchers.map((v) => String(v.code || '').toUpperCase()));
+  const savedCodes = new Set(myVouchers.map((v) => v.code));
 
   async function handleSave(voucher) {
     if (!isAuthenticated) {
@@ -48,14 +48,10 @@ function VouchersPage() {
 
     setSavingCode(voucher.code);
     try {
-      const result = await voucherApi.saveVoucher(voucher.code);
+      const result = await voucherApi.save(voucher.code);
       if (result.success) {
         notify('Đã nhận voucher thành công!', 'success');
-        setMyVouchers((prev) => (
-          prev.some((item) => String(item.code || '').toUpperCase() === String(voucher.code || '').toUpperCase())
-            ? prev
-            : [...prev, voucher]
-        ));
+        setMyVouchers((prev) => [...prev, voucher]);
       } else {
         notify(result.message || 'Không thể nhận voucher', 'error');
       }
@@ -91,7 +87,6 @@ function VouchersPage() {
               <FiGift className="mr-3 inline-block text-[#f0a327]" />
               Kho Voucher
             </h1>
-            <p className="mt-2 text-sm text-zinc-500">Nhận voucher và sử dụng khi thanh toán để được giảm giá</p>
           </div>
 
           {/* My saved vouchers */}
@@ -122,7 +117,7 @@ function VouchersPage() {
                   <VoucherCard
                     key={voucher.id}
                     voucher={voucher}
-                    saved={savedCodes.has(String(voucher.code || '').toUpperCase())}
+                    saved={savedCodes.has(voucher.code)}
                     saving={savingCode === voucher.code}
                     onSave={() => handleSave(voucher)}
                     getDiscountLabel={getDiscountLabel}

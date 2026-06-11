@@ -1,45 +1,38 @@
+// Three independent order axes:
+//   1. ORDER_STATUS: current business stage of the order
+//   2. SHIPPING_STATUS: fulfillment progress
+//   3. PAYMENT_STATUS: payment collection state
+
 export const ORDER_STATUS_MAP = {
-  AwaitingPayment: 'Chờ xác nhận',
-  Confirmed: 'Chờ xác nhận',
-  Processing: 'Đang giao',
-  Allocated: 'Đang giao',
-  Shipping: 'Đang giao',
-  Delivered: 'Đã giao',
-  Completed: 'Đã giao',
+  AwaitingPayment: 'Chờ thanh toán',
+  Confirmed: 'Đã xác nhận',
   Cancelled: 'Đã hủy',
-  Pending: 'Chờ xác nhận',
-  Checkout: 'Chờ xác nhận',
+  Pending: 'Chờ thanh toán',
+  Checkout: 'Chờ thanh toán',
+  Processing: 'Đã xác nhận',
+  Shipping: 'Đã xác nhận',
+  Delivered: 'Đã xác nhận',
+  Completed: 'Đã xác nhận',
 };
 
 export const SHIPPING_STATUS_MAP = {
-  NotShipped: 'Chưa giao',
-  Preparing: 'Đang chuẩn bị giao',
+  Preparing: 'Đang chuẩn bị hàng',
   Shipping: 'Đang giao',
   Delivered: 'Đã giao',
-  PickupReady: 'Sẵn sàng nhận tại showroom',
-  PickedUp: 'Đã nhận tại showroom',
-  Cancelled: 'Đã hủy giao hàng',
-  AwaitingPickup: 'Chờ lấy hàng',
-  InTransit: 'Đang giao',
 };
 
 export const PAYMENT_STATUS_MAP = {
-  Unpaid: 'Chờ thanh toán',
-  PendingConfirmation: 'Chờ xác nhận chuyển khoản',
+  Unpaid: 'Chưa thanh toán',
+  PartiallyPaid: 'Đã thanh toán một phần',
   Paid: 'Đã thanh toán',
   Refunded: 'Đã hoàn tiền',
-  Failed: 'Thanh toán thất bại',
-  // alias dữ liệu cũ
-  Pending: 'Chờ xác nhận chuyển khoản',
-  DepositPaid: 'Đã đặt cọc (còn nợ)',
-  PartiallyPaid: 'Đã thanh toán một phần',
-  PartiallyRefunded: 'Hoàn tiền một phần',
-  Cancelled: 'Đã hủy thanh toán',
+  Cancelled: 'Đã hủy',
+  Pending: 'Chờ xác nhận',
+  Failed: 'Thất bại',
 };
 
 export const PAYMENT_METHOD_MAP = {
   BankTransfer: 'Chuyển khoản ngân hàng',
-  Cash: 'Tiền mặt',
   Card: 'Thẻ tín dụng/ghi nợ',
   Momo: 'Ví MoMo',
   VNPay: 'VNPay',
@@ -48,51 +41,41 @@ export const PAYMENT_METHOD_MAP = {
 
 export const ORDER_TYPE_MAP = {
   FullPayment: 'Thanh toán toàn bộ',
-  Deposit: 'Đặt cọc',
+  Deposit: 'Đặt cọc trước',
   Installment: 'Trả góp',
 };
 
 export const RECEIVING_METHOD_MAP = {
   Delivery: 'Giao hàng tận nơi',
-  Pickup: 'Nhận tại showroom',
+  Pickup: 'Nhận trực tiếp',
 };
 
 const ORDER_STATUS_COLOR_MAP = {
   AwaitingPayment: 'bg-amber-100 text-amber-700',
-  Confirmed: 'bg-amber-100 text-amber-700',
-  Processing: 'bg-blue-100 text-blue-700',
-  Allocated: 'bg-blue-100 text-blue-700',
-  Shipping: 'bg-blue-100 text-blue-700',
-  Delivered: 'bg-green-100 text-green-700',
-  Completed: 'bg-green-100 text-green-700',
+  Confirmed: 'bg-blue-100 text-blue-700',
   Cancelled: 'bg-red-100 text-red-700',
   Pending: 'bg-amber-100 text-amber-700',
   Checkout: 'bg-amber-100 text-amber-700',
+  Processing: 'bg-blue-100 text-blue-700',
+  Shipping: 'bg-blue-100 text-blue-700',
+  Delivered: 'bg-blue-100 text-blue-700',
+  Completed: 'bg-blue-100 text-blue-700',
 };
 
 const SHIPPING_STATUS_COLOR_MAP = {
-  NotShipped: 'bg-zinc-100 text-zinc-600',
   Preparing: 'bg-amber-100 text-amber-700',
   Shipping: 'bg-blue-100 text-blue-700',
   Delivered: 'bg-green-100 text-green-700',
-  PickupReady: 'bg-sky-100 text-sky-700',
-  PickedUp: 'bg-green-100 text-green-700',
-  Cancelled: 'bg-red-100 text-red-700',
-  AwaitingPickup: 'bg-zinc-100 text-zinc-600',
-  InTransit: 'bg-blue-100 text-blue-700',
 };
 
 const PAYMENT_STATUS_COLOR_MAP = {
   Unpaid: 'bg-zinc-100 text-zinc-700',
-  PendingConfirmation: 'bg-amber-100 text-amber-700',
-  Pending: 'bg-amber-100 text-amber-700',
-  Paid: 'bg-green-100 text-green-700',
-  DepositPaid: 'bg-orange-100 text-orange-700',
   PartiallyPaid: 'bg-orange-100 text-orange-700',
+  Paid: 'bg-green-100 text-green-700',
   Refunded: 'bg-purple-100 text-purple-700',
-  PartiallyRefunded: 'bg-purple-100 text-purple-700',
-  Failed: 'bg-red-100 text-red-700',
   Cancelled: 'bg-zinc-100 text-zinc-700',
+  Pending: 'bg-amber-100 text-amber-700',
+  Failed: 'bg-red-100 text-red-700',
 };
 
 export function getOrderStatusLabel(status) {
@@ -105,6 +88,19 @@ export function getShippingStatusLabel(status) {
 
 export function getPaymentStatusLabel(status) {
   return PAYMENT_STATUS_MAP[status] || status || 'Không xác định';
+}
+
+export function getPaymentStatusContextual(paymentStatus, orderType) {
+  if (paymentStatus === 'PartiallyPaid') {
+    if (orderType === 'Deposit') return 'Đã đặt cọc';
+    if (orderType === 'Installment') return 'Đang trả góp';
+    return 'Đã thanh toán một phần';
+  }
+  if (paymentStatus === 'Paid') {
+    if (orderType === 'Installment') return 'Đã trả góp xong';
+    return 'Đã thanh toán đủ';
+  }
+  return getPaymentStatusLabel(paymentStatus);
 }
 
 export function getPaymentMethodLabel(method) {

@@ -39,7 +39,12 @@ function LoginPage() {
         loading={loading}
         error={error}
         onSubmit={handleSubmit}
-        footer={<p>Chưa có tài khoản? <Link to="/register">Đăng ký</Link></p>}
+        footer={(
+          <div className="space-y-2">
+            <p><Link to="/forgot-password">Quên mật khẩu?</Link></p>
+            <p>Chưa có tài khoản? <Link to="/register">Đăng ký</Link></p>
+          </div>
+        )}
       >
         <label className="flex cursor-pointer items-center gap-3 text-sm font-bold text-zinc-600">
           <input

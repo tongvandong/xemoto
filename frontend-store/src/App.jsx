@@ -9,9 +9,11 @@ import MainLayout from './components/MainLayout.jsx';
 import CartPage from './pages/CartPage.jsx';
 import CheckoutPage from './pages/CheckoutPage.jsx';
 import CheckoutSuccessPage from './pages/CheckoutSuccessPage.jsx';
+import PaymentPage from './pages/PaymentPage.jsx';
 import FavoritesPage from './pages/FavoritesPage.jsx';
 import HomePage from './pages/HomePage.jsx';
 import LoginPage from './pages/LoginPage.jsx';
+import ForgotPasswordPage from './pages/ForgotPasswordPage.jsx';
 import NotFoundPage from './pages/NotFoundPage.jsx';
 import OrderDetailPage from './pages/OrderDetailPage.jsx';
 import OrdersPage from './pages/OrdersPage.jsx';
@@ -19,11 +21,13 @@ import AccountPage from './pages/AccountPage.jsx';
 import ProductDetailPage from './pages/ProductDetailPage.jsx';
 import ProductListPage from './pages/ProductListPage.jsx';
 import RegisterPage from './pages/RegisterPage.jsx';
-import StoreSystemPage from './pages/StoreSystemPage.jsx';
+import FaqPage from './pages/FaqPage.jsx';
 import VouchersPage from './pages/VouchersPage.jsx';
+import ContactPage from './pages/ContactPage.jsx';
+import StoreSystemPage from './pages/StoreSystemPage.jsx';
 import InstallmentPage from './pages/InstallmentPage.jsx';
 
-const authPaths = ['/login', '/register'];
+const authPaths = ['/login', '/register', '/forgot-password'];
 
 function LoadingScreen() {
   return (
@@ -47,16 +51,24 @@ function PublicRoute({ children }) {
   return children;
 }
 
+function AuthPage({ path }) {
+  if (path === '/login') return <LoginPage />;
+  if (path === '/forgot-password') return <ForgotPasswordPage />;
+  return <RegisterPage />;
+}
+
 function AppRoutes() {
   return (
     <Routes>
       <Route element={<MainLayout />}>
         <Route path="/" element={<HomePage />} />
-        <Route path="/he-thong-cua-hang" element={<StoreSystemPage />} />
         <Route path="/products" element={<ProductListPage />} />
         <Route path="/products/:id" element={<ProductDetailPage />} />
         <Route path="/vouchers" element={<VouchersPage />} />
+        <Route path="/he-thong-cua-hang" element={<StoreSystemPage />} />
         <Route path="/tra-gop" element={<InstallmentPage />} />
+        <Route path="/contact" element={<ContactPage />} />
+        <Route path="/faq" element={<FaqPage />} />
         <Route
           path="/cart"
           element={
@@ -78,6 +90,14 @@ function AppRoutes() {
           element={
             <ProtectedRoute>
               <CheckoutPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/checkout/payment"
+          element={
+            <ProtectedRoute>
+              <PaymentPage />
             </ProtectedRoute>
           }
         />
@@ -119,7 +139,7 @@ function AppRoutes() {
             path={path}
             element={
               <PublicRoute>
-                {path === '/login' ? <LoginPage /> : <RegisterPage />}
+                <AuthPage path={path} />
               </PublicRoute>
             }
           />

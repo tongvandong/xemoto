@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { productApi } from '../services/api.js';
 import Breadcrumb from '../components/Breadcrumb.jsx';
 import ErrorState from '../components/ErrorState.jsx';
@@ -39,14 +39,6 @@ function matchesSelection(variant, version, color) {
   return versionMatches && colorMatches;
 }
 
-function getVariantImages(images, variant) {
-  if (!variant?.id || !Array.isArray(images)) {
-    return [];
-  }
-
-  return images.filter((image) => String(image.productVariantId || '') === String(variant.id));
-}
-
 function ProductDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -62,9 +54,16 @@ function ProductDetailPage() {
   const { addItem } = useCart();
   const { isFavorite, toggleFavorite } = useFavorite();
   const { notify } = useNotification();
-  const { data: product, loading, error, run } = useAsync(() => productApi.getProductById(id), [id]);
+  const { data: product, loading, error, run } = useAsync(() => productApi.getById(id), [id]);
 
   const options = useMemo(() => normalizeProductOptions(product), [product]);
+  const detailImages = useMemo(() => {
+    const hasVariantImages = options.images.some((image) => image.productVariantId);
+
+    return hasVariantImages
+      ? options.images.filter((image) => image.productVariantId || !image.isPrimary)
+      : options.images;
+  }, [options.images]);
 
   useEffect(() => {
     async function loadCollections() {
@@ -76,8 +75,8 @@ function ProductDetailPage() {
       }
 
       const requests = [
-        product?.brandId ? productApi.getProducts({ brandId: product.brandId, page: 1, pageSize: 8 }) : Promise.resolve({ items: [] }),
-        product?.categoryId ? productApi.getProducts({ categoryId: product.categoryId, page: 1, pageSize: 8 }) : Promise.resolve({ items: [] }),
+        product?.brandId ? productApi.getAll({ brandId: product.brandId, page: 1, pageSize: 8 }) : Promise.resolve({ items: [] }),
+        product?.categoryId ? productApi.getAll({ categoryId: product.categoryId, page: 1, pageSize: 8 }) : Promise.resolve({ items: [] }),
       ];
 
       try {
@@ -141,19 +140,17 @@ function ProductDetailPage() {
       .map((variant) => variant.color)
       .filter(Boolean);
     const defaultColor = candidateColors[0] || options.colors[0] || '';
-    const variantImages = getVariantImages(options.images, firstInStockVariant);
     const firstImage =
-      variantImages[0] ||
-      options.images.find((image) => {
+      detailImages.find((image) => {
         const colorMatches = defaultColor ? image.color === defaultColor : true;
         const versionMatches = defaultVersion && image.version ? image.version === defaultVersion : true;
         return colorMatches && versionMatches;
-      }) || options.images[0] || null;
+      }) || detailImages[0] || null;
 
     setSelectedVersion(defaultVersion);
     setSelectedColor(defaultColor);
     setSelectedImage(firstImage);
-  }, [product, options]);
+  }, [product, options, detailImages]);
 
   const selectedVariant = useMemo(() => {
     if (!options.variants.length) {
@@ -198,16 +195,11 @@ function ProductDetailPage() {
   }, [availableColorOptions, selectedColor]);
 
   const visibleImages = useMemo(() => {
-    if (!options.images.length) {
+    if (!detailImages.length) {
       return [];
     }
 
-    const selectedVariantImages = getVariantImages(options.images, selectedVariant);
-    if (selectedVariantImages.length) {
-      return selectedVariantImages;
-    }
-
-    const byColor = selectedColor ? options.images.filter((image) => image.color === selectedColor) : [];
+    const byColor = selectedColor ? detailImages.filter((image) => image.color === selectedColor) : [];
     const byColorAndVersion =
       selectedColor && selectedVersion
         ? byColor.filter((image) => !image.version || image.version === selectedVersion)
@@ -222,26 +214,23 @@ function ProductDetailPage() {
     }
 
     if (selectedVersion) {
-      const byVersion = options.images.filter((image) => image.version === selectedVersion);
+      const byVersion = detailImages.filter((image) => image.version === selectedVersion);
       if (byVersion.length) {
         return byVersion;
       }
     }
 
-    return options.images;
-  }, [options.images, selectedColor, selectedVariant, selectedVersion]);
+    return detailImages;
+  }, [detailImages, selectedColor, selectedVersion]);
 
   const galleryImages = useMemo(() => {
-    if (visibleImages.length) {
-      return visibleImages;
-    }
-
-    if (!options.images.length) {
+    if (!detailImages.length) {
       return [];
     }
 
-    return options.images;
-  }, [options.images, visibleImages]);
+    // Giữ nguyên thứ tự ảnh như ban đầu để không bị nhảy vị trí thumbnail khi click (theo yêu cầu user)
+    return detailImages;
+  }, [detailImages]);
 
   useEffect(() => {
     if (!visibleImages.length) {
@@ -273,14 +262,13 @@ function ProductDetailPage() {
     }
 
     const nextImage =
-      getVariantImages(options.images, matchedVariant || fallbackVariant)[0] ||
-      options.images.find((image) => {
+      detailImages.find((image) => {
         const versionMatches = image.version ? image.version === version : true;
         const colorTarget = matchedVariant?.color || fallbackVariant?.color || selectedColor;
         const colorMatches = colorTarget ? image.color === colorTarget : true;
         return versionMatches && colorMatches;
       }) ||
-      options.images.find((image) => (image.version ? image.version === version : false)) ||
+      detailImages.find((image) => (image.version ? image.version === version : false)) ||
       null;
 
     if (nextImage) {
@@ -297,15 +285,14 @@ function ProductDetailPage() {
     }
 
     // Always jump to the FIRST image of the chosen color for a clean carousel reset
-    const colorImages = options.images.filter((image) => image.color === color);
+    const colorImages = detailImages.filter((image) => image.color === color);
     const nextImage =
-      getVariantImages(options.images, matchedVariant)[0] ||
       colorImages.find((image) => {
         const versionMatches = selectedVersion && image.version ? image.version === selectedVersion : true;
         return versionMatches;
       }) ||
       colorImages[0] ||
-      (matchedVariant?.imageUrl ? options.images.find((image) => image.imageUrl === matchedVariant.imageUrl) : null);
+      (matchedVariant?.imageUrl ? detailImages.find((image) => image.imageUrl === matchedVariant.imageUrl) : null);
 
     if (nextImage) {
       setSelectedImage(nextImage);
@@ -405,7 +392,7 @@ function ProductDetailPage() {
       return;
     }
 
-    const detail = await productApi.getProductById(item.id);
+    const detail = await productApi.getById(item.id);
     if (detail.variants?.length) {
       notify('Vui lòng chọn phiên bản/màu sắc', 'error');
       navigate(`/products/${item.id}`);
@@ -432,7 +419,6 @@ function ProductDetailPage() {
 
   const fallbackNotes = options.fallbackNotes;
   const showVersionSelector = options.hasVersionOptions && options.versions.length > 1;
-  const versionOptionLabel = 'Phiên bản';
   const showColorSelector = options.hasColorOptions;
   const colorStatusText = showColorSelector ? selectedColor || 'Đang cập nhật' : 'Đang cập nhật';
 
@@ -440,7 +426,7 @@ function ProductDetailPage() {
     <>
       <Breadcrumb
         items={[
-          { label: 'Sản phẩm bán chạy', to: '/products' },
+          { label: 'Sản phẩm', to: '/products' },
           { label: product?.name || 'Chi tiết sản phẩm' },
         ]}
       />
@@ -470,7 +456,6 @@ function ProductDetailPage() {
                     versionOptions={options.versions}
                     colorOptions={options.colors}
                     availableColorOptions={availableColorOptions}
-                    versionOptionLabel={versionOptionLabel}
                     showVersionSelector={showVersionSelector}
                     showColorSelector={showColorSelector}
                     colorStatusText={colorStatusText}
@@ -478,12 +463,6 @@ function ProductDetailPage() {
                     isFavorite={isFavorite(product)}
                     onToggleFavorite={() => handleToggleFavorite(product)}
                   />
-                  <Link
-                    to={`/tra-gop?productId=${product.id}${(selectedVariant?.skuId || selectedVariant?.id) ? `&skuId=${selectedVariant?.skuId || selectedVariant?.id}` : ''}&product=${encodeURIComponent(product.name || '')}`}
-                    className="flex items-center justify-center gap-2 rounded-xl border border-[#d71920] px-4 py-2.5 text-sm font-semibold text-[#d71920] transition hover:bg-[#d71920] hover:text-white"
-                  >
-                    Mua trả góp qua đối tác tài chính
-                  </Link>
                 </div>
 
                 <div className="space-y-5 lg:hidden xl:block">

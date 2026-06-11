@@ -191,7 +191,15 @@ function normalizeVariant(variant, product) {
     versionSource: inferred.versionSource,
     exteriorColor: valueOf(variant, 'exteriorColor', 'mauSac') || valueOf(raw, 'exteriorColor', 'mauSac') || inferred.color,
     sku: valueOf(variant, 'sku', 'SKU') || valueOf(raw, 'sku', 'SKU'),
-    priceOverride: valueOf(variant, 'priceOverride', 'giaGhiDe') ?? valueOf(raw, 'priceOverride', 'giaGhiDe'),
+    // Giá thật nằm ở biến thể (BIENSANPHAM): GiaGoc (gốc) + GiaKhuyenMai (KM) + GiaBan (giá bán hiệu lực).
+    basePrice: Number(valueOf(variant, 'basePrice', 'giaGoc', 'GiaGoc') ?? valueOf(raw, 'basePrice', 'giaGoc', 'GiaGoc') ?? 0),
+    salePrice: (valueOf(variant, 'salePrice', 'giaKhuyenMai', 'GiaKhuyenMai') ?? valueOf(raw, 'salePrice', 'giaKhuyenMai', 'GiaKhuyenMai')) == null
+      ? null
+      : Number(valueOf(variant, 'salePrice', 'giaKhuyenMai', 'GiaKhuyenMai') ?? valueOf(raw, 'salePrice', 'giaKhuyenMai', 'GiaKhuyenMai')),
+    sellPrice: Number(valueOf(variant, 'sellPrice', 'giaBan', 'GiaBan') ?? valueOf(raw, 'sellPrice', 'giaBan', 'GiaBan') ?? 0),
+    discountPercent: (valueOf(variant, 'discountPercent', 'tyLeGiam', 'TyLeGiam') ?? valueOf(raw, 'discountPercent', 'tyLeGiam', 'TyLeGiam')) == null
+      ? null
+      : Number(valueOf(variant, 'discountPercent', 'tyLeGiam', 'TyLeGiam') ?? valueOf(raw, 'discountPercent', 'tyLeGiam', 'TyLeGiam')),
     stockQuantity: valueOf(variant, 'stockQuantity', 'soLuongTon') ?? valueOf(raw, 'stockQuantity', 'soLuongTon'),
     status: valueOf(variant, 'status', 'trangThai') || valueOf(raw, 'status', 'trangThai'),
     imageUrl: typeof imageValue === 'string' ? imageValue : imageValue?.src || imageValue?.url || '',
@@ -203,7 +211,7 @@ function normalizeImage(image, variants = []) {
   const raw = image?.raw || image;
   const url = valueOf(image, 'imageUrl', 'url', 'src') || valueOf(raw, 'imageUrl', 'url', 'src') || '';
   const altText = valueOf(image, 'altText', 'name', 'title') || '';
-  const productVariantId = valueOf(image, 'productVariantId', 'skuId', 'maBienSanPham') ?? valueOf(raw, 'productVariantId', 'skuId', 'maBienSanPham');
+  const productVariantId = valueOf(image, 'productVariantId', 'maBienSanPham') ?? valueOf(raw, 'productVariantId', 'maBienSanPham');
   const linkedVariant = productVariantId
     ? variants.find((variant) => String(variant.id) === String(productVariantId))
     : null;
@@ -216,6 +224,7 @@ function normalizeImage(image, variants = []) {
     productVariantId,
     imageUrl: url,
     altText,
+    isPrimary: valueOf(image, 'isPrimary', 'laAnhChinh') === true,
     sortOrder: valueOf(image, 'sortOrder') || 0,
     color: inferredColor,
     colorSource: explicitColor ? 'api' : inferredColor ? 'inferred' : 'none',
@@ -242,7 +251,7 @@ export function normalizeProductOptions(product) {
 
     return variantImages.map((image) => ({
       ...(image?.raw || image),
-      productVariantId: valueOf(image, 'productVariantId', 'skuId') ?? parentVariant?.id,
+      productVariantId: valueOf(image, 'productVariantId') ?? parentVariant?.id,
       color: valueOf(image, 'color', 'colorName') || parentVariant?.color,
       version: valueOf(image, 'version') || parentVariant?.version,
     }));
@@ -265,9 +274,9 @@ export function normalizeProductOptions(product) {
     .filter((variant) => variant.imageUrl)
     .map((variant) => ({
       id: `variant-image-${variant.id || variant.imageUrl}`,
-      productVariantId: variant.id,
       imageUrl: variant.imageUrl,
       altText: variant.variantName || product?.name || '',
+      isPrimary: false,
       sortOrder: -1,
       color: variant.color,
       colorSource: variant.color ? variant.colorSource : 'none',

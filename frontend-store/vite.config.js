@@ -16,7 +16,7 @@ export default defineConfig({
           proxy.on('error', (err, req, res) => {
             console.log('Proxy error:', err.message);
             res.writeHead(500, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ message: 'Backend không khả dụng. Đảm bảo API Gateway v2 đang chạy trên port 5100' }));
+            res.end(JSON.stringify({ message: 'Backend khong kha dung. Dam bao API Gateway v2 dang chay tren port 5100' }));
           });
         },
       },

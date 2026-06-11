@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { cartApi } from '../services/api.js';
 import { useAuth } from './AuthContext.jsx';
 import { CART_CHANGED_EVENT } from '../utils/cartEvents.js';
@@ -20,6 +20,9 @@ export function CartProvider({ children }) {
   const [cart, setCart] = useState(emptyCart);
   const [count, setCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [miniCartOpen, setMiniCartOpen] = useState(false);
+  const openMiniCart = useCallback(() => setMiniCartOpen(true), []);
+  const closeMiniCart = useCallback(() => setMiniCartOpen(false), []);
 
   function applyCart(nextCart) {
     const resolvedCart = nextCart || emptyCart;
@@ -30,6 +33,7 @@ export function CartProvider({ children }) {
 
   function resetCart() {
     applyCart(emptyCart);
+    closeMiniCart();
   }
 
   async function refreshCart() {
@@ -40,7 +44,7 @@ export function CartProvider({ children }) {
 
     setLoading(true);
     try {
-      const nextCart = await cartApi.getCart();
+      const nextCart = await cartApi.getMine();
       return applyCart(nextCart);
     } catch (error) {
       if (error.response?.status === 401) {
@@ -54,7 +58,9 @@ export function CartProvider({ children }) {
 
   async function addItem(payload) {
     const nextCart = await cartApi.addItem(payload);
-    return applyCart(nextCart);
+    const appliedCart = applyCart(nextCart);
+    openMiniCart();
+    return appliedCart;
   }
 
   async function updateItem(itemId, quantity) {
@@ -75,7 +81,7 @@ export function CartProvider({ children }) {
   }
 
   async function clearCart() {
-    const nextCart = await cartApi.clearCart();
+    const nextCart = await cartApi.clear();
     return applyCart(nextCart);
   }
 
@@ -115,8 +121,11 @@ export function CartProvider({ children }) {
       removeItem,
       clearCart,
       resetCart,
+      miniCartOpen,
+      openMiniCart,
+      closeMiniCart,
     }),
-    [cart, count, loading],
+    [cart, count, loading, miniCartOpen, openMiniCart, closeMiniCart],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

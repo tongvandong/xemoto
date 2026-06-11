@@ -63,28 +63,17 @@ function buildTabs(product) {
           ),
         ].join('')
       : buildFeatureHtml('Động cơ và công nghệ', 'Thông tin động cơ và công nghệ đang được cập nhật thêm từ hệ thống.');
-  const utilityHtml = [
-    buildFeatureHtml('Tiện ích sử dụng', `${product?.name || 'Sản phẩm'} phù hợp cho nhu cầu di chuyển hằng ngày với khả năng vận hành ổn định và bố trí tiện ích thực dụng.`),
-    buildFeatureHtml('An toàn', `Tình trạng ${product?.status || 'đang cập nhật'} cùng số lượng tồn ${product?.stockQuantity ?? 'liên hệ'} giúp bạn chủ động hơn khi chọn mua.`),
-  ].join('');
   const designHtml = [
     buildFeatureHtml('Thiết kế tổng thể', product?.shortDescription || `${product?.name || 'Sản phẩm'} sở hữu kiểu dáng hiện đại, phù hợp phong cách di chuyển đô thị.`),
     buildFeatureHtml('Màu sắc và nhận diện', `Phiên bản hiện có màu ${product?.exteriorColor || 'đang cập nhật'} và được hoàn thiện theo phong cách đặc trưng của ${product?.brandName || 'thương hiệu'}.`),
   ].join('');
-  const reviewHtml = `
-    <div class="rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 px-5 py-6 text-sm text-zinc-600">
-      Chưa có đánh giá cho sản phẩm này. Bạn có thể liên hệ để được tư vấn thêm trước khi đặt mua.
-    </div>
-  `;
 
   return [
     { id: 'description', title: 'Mô tả sản phẩm', html: descriptionHtml },
     { id: 'specs', title: 'Thông số kỹ thuật', html: specsHtml },
     { id: 'engine', title: 'Động cơ và công nghệ', html: engineHtml },
-    { id: 'utility', title: 'Tiện ích và an toàn', html: utilityHtml },
     { id: 'design', title: 'Thiết kế', html: designHtml },
     { id: 'guide', title: 'Hướng dẫn mua hàng', html: buyGuideHtml },
-    { id: 'reviews', title: 'Đánh giá sản phẩm', html: reviewHtml },
   ];
 }
 

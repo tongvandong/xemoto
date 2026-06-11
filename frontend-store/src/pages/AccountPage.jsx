@@ -11,7 +11,7 @@ import {
   FiSave,
   FiUser,
 } from 'react-icons/fi';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import Breadcrumb from '../components/Breadcrumb.jsx';
 import ErrorState from '../components/ErrorState.jsx';
 import LoadingState from '../components/LoadingState.jsx';
@@ -33,12 +33,15 @@ const emptyProfile = {
 };
 
 const emptyAddress = {
+  id: null,
   fullName: '',
   phoneNumber: '',
   addressLine: '',
   ward: '',
+  district: '',
   province: '',
   note: '',
+  isDefault: false,
 };
 
 const emptyPassword = {
@@ -51,9 +54,9 @@ function normalizeProfile(data = {}) {
   return {
     id: data.id ?? data.userId ?? data.UserId,
     username: data.username ?? data.Username ?? data.email ?? data.Email ?? '',
-    name: data.name ?? data.Name ?? data.fullName ?? data.FullName ?? '',
+    name: data.name ?? data.Name ?? '',
     email: data.email ?? data.Email ?? '',
-    phone: data.phone ?? data.Phone ?? data.phoneNumber ?? data.PhoneNumber ?? '',
+    phone: data.phone ?? data.Phone ?? '',
     created: data.created ?? data.Created ?? '',
   };
 }
@@ -62,14 +65,25 @@ function normalizeAddress(data = {}) {
   const address = data.address || data.Address || data;
 
   return {
-    fullName: address.fullName ?? address.FullName ?? address.recipientName ?? address.RecipientName ?? '',
-    phoneNumber: address.phoneNumber ?? address.PhoneNumber ?? address.phone ?? address.Phone ?? '',
-    addressLine: address.addressLine ?? address.AddressLine ?? address.line ?? address.Line ?? '',
+    id: address.id ?? address.Id ?? address.maDiaChi ?? address.MaDiaChi ?? null,
+    fullName: address.fullName ?? address.FullName ?? '',
+    phoneNumber: address.phoneNumber ?? address.PhoneNumber ?? '',
+    addressLine: address.addressLine ?? address.AddressLine ?? '',
     ward: address.ward ?? address.Ward ?? '',
     district: address.district ?? address.District ?? '',
     province: address.province ?? address.Province ?? '',
     note: address.note ?? address.Note ?? '',
+    isDefault: Boolean(address.isDefault ?? address.IsDefault ?? address.laMacDinh ?? address.LaMacDinh),
   };
+}
+
+function normalizeAddresses(data = []) {
+  const rows = Array.isArray(data) ? data : data.items || data.Items || [];
+  return rows.map(normalizeAddress);
+}
+
+function formatAddress(address) {
+  return [address.addressLine, address.ward, address.district, address.province].filter(Boolean).join(', ');
 }
 
 function getErrorMessage(error, fallback) {
@@ -94,7 +108,7 @@ function validatePassword(form) {
   if (!form.currentPassword) errors.currentPassword = 'Vui lòng nhập mật khẩu hiện tại';
   if (!form.newPassword) errors.newPassword = 'Vui lòng nhập mật khẩu mới';
   else if (form.newPassword.length < 6) errors.newPassword = 'Mật khẩu mới tối thiểu 6 ký tự';
-  if (form.confirmPassword !== form.newPassword) errors.confirmPassword = 'Xác nhận mật khẩu chưa khớp';
+  if (form.confirmPassword !== form.newPassword)   if (form.confirmPassword !== form.newPassword) errors.confirmPassword = 'Xác nhận mật khẩu chưa khớp';
 
   return errors;
 }
@@ -116,9 +130,12 @@ function AccountPage() {
   const { resetCart } = useCart();
   const { notify } = useNotification();
   const navigate = useNavigate();
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState('profile');
   const [profile, setProfile] = useState(emptyProfile);
   const [address, setAddress] = useState(emptyAddress);
+  const [addresses, setAddresses] = useState([]);
+  const [editingAddressId, setEditingAddressId] = useState(null);
   const [password, setPassword] = useState(emptyPassword);
   const [loading, setLoading] = useState(true);
   const [savingProfile, setSavingProfile] = useState(false);
@@ -130,9 +147,10 @@ function AccountPage() {
   const [passwordErrors, setPasswordErrors] = useState({});
 
   const displayName = profile.name || user?.name || user?.username || 'Tài khoản';
+  const defaultAddress = addresses.find((item) => item.isDefault) || addresses[0] || null;
   const addressText = useMemo(
-    () => [address.addressLine, address.ward, address.province].filter(Boolean).join(', '),
-    [address],
+    () => (defaultAddress ? formatAddress(defaultAddress) : ''),
+    [defaultAddress],
   );
 
   async function loadAccount() {
@@ -140,25 +158,30 @@ function AccountPage() {
     setError('');
 
     try {
-      const [profileData, addressData] = await Promise.all([
+      const [profileData, addressesData] = await Promise.all([
         userApi.getProfile(),
-        userApi.getAddress().catch(() => null),
+        userApi.getAddresses().catch(() => []),
       ]);
       const nextProfile = normalizeProfile(profileData);
-      const nextAddress = normalizeAddress(addressData || {});
+      const nextAddresses = normalizeAddresses(addressesData);
+      const nextAddress = nextAddresses.find((item) => item.isDefault) || nextAddresses[0] || {};
 
       setProfile({
         ...emptyProfile,
         ...nextProfile,
       });
+      setAddresses(nextAddresses);
       setAddress({
         fullName: nextAddress.fullName || nextProfile.name || user?.name || '',
         phoneNumber: nextAddress.phoneNumber || nextProfile.phone || '',
         addressLine: nextAddress.addressLine,
         ward: nextAddress.ward,
+        district: nextAddress.district,
         province: nextAddress.province,
         note: nextAddress.note,
+        isDefault: nextAddress.isDefault || nextAddresses.length === 0,
       });
+      setEditingAddressId(nextAddress.id || null);
       updateUser(nextProfile);
     } catch (err) {
       setError(getErrorMessage(err, 'Không thể tải thông tin tài khoản'));
@@ -171,6 +194,13 @@ function AccountPage() {
     loadAccount();
   }, []);
 
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('tab') === 'address') {
+      setActiveTab('address');
+    }
+  }, [location.search]);
+
   function handleProfileChange(event) {
     const { name, value } = event.target;
     setProfile((prev) => ({ ...prev, [name]: value }));
@@ -178,9 +208,72 @@ function AccountPage() {
   }
 
   function handleAddressChange(event) {
-    const { name, value } = event.target;
-    setAddress((prev) => ({ ...prev, [name]: value }));
+    const { name, value, type, checked } = event.target;
+    setAddress((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
     setAddressErrors((prev) => ({ ...prev, [name]: '' }));
+  }
+
+  function startNewAddress() {
+    setEditingAddressId(null);
+    setAddress({
+      ...emptyAddress,
+      fullName: profile.name || user?.name || '',
+      phoneNumber: profile.phone || '',
+      isDefault: addresses.length === 0,
+    });
+    setAddressErrors({});
+  }
+
+  function editAddress(item) {
+    setEditingAddressId(item.id);
+    setAddress({ ...emptyAddress, ...item });
+    setAddressErrors({});
+  }
+
+  async function handleSetDefaultAddress(id) {
+    try {
+      const updated = normalizeAddress(await userApi.setDefaultAddress(id));
+      setAddresses((prev) => {
+        const nextAddresses = prev.map((item) => (
+          String(item.id) === String(updated.id)
+            ? { ...item, ...updated, isDefault: true }
+            : { ...item, isDefault: false }
+        ));
+
+        return nextAddresses.sort((a, b) => {
+          if (String(a.id) === String(updated.id)) return -1;
+          if (String(b.id) === String(updated.id)) return 1;
+          return Number(b.isDefault) - Number(a.isDefault);
+        });
+      });
+      setEditingAddressId(updated.id);
+      setAddress((prev) => ({ ...prev, ...updated, isDefault: true }));
+      notify('Đã đặt địa chỉ mặc định', 'success');
+    } catch (err) {
+      notify(getErrorMessage(err, 'Không thể đặt địa chỉ mặc định'), 'error');
+    }
+  }
+
+  async function handleDeleteAddress(id) {
+    try {
+      await userApi.deleteAddress(id);
+      const wasDefault = addresses.some((item) => String(item.id) === String(id) && item.isDefault);
+      const nextAddresses = addresses
+        .filter((item) => String(item.id) !== String(id))
+        .map((item, index) => ({ ...item, isDefault: wasDefault ? index === 0 : item.isDefault }));
+      setAddresses(nextAddresses);
+      if (String(editingAddressId) === String(id)) {
+        const nextAddress = nextAddresses.find((item) => item.isDefault) || nextAddresses[0];
+        if (nextAddress) {
+          editAddress(nextAddress);
+        } else {
+          startNewAddress();
+        }
+      }
+      notify('Đã xóa địa chỉ nhận hàng', 'success');
+    } catch (err) {
+      notify(getErrorMessage(err, 'Không thể xóa địa chỉ'), 'error');
+    }
   }
 
   function handlePasswordChange(event) {
@@ -234,8 +327,18 @@ function AccountPage() {
 
     setSavingAddress(true);
     try {
-      const updatedAddress = normalizeAddress(await userApi.updateAddress(address));
+      const updatedAddress = normalizeAddress(
+        editingAddressId
+          ? await userApi.updateAddressById(editingAddressId, address)
+          : await userApi.createAddress(address),
+      );
       setAddress((prev) => ({ ...prev, ...updatedAddress }));
+      setEditingAddressId(updatedAddress.id);
+      setAddresses((prev) => {
+        const rest = prev.filter((item) => String(item.id) !== String(updatedAddress.id));
+        const nextRest = updatedAddress.isDefault ? rest.map((item) => ({ ...item, isDefault: false })) : rest;
+        return [updatedAddress, ...nextRest].sort((a, b) => Number(b.isDefault) - Number(a.isDefault));
+      });
       notify('Đã cập nhật địa chỉ nhận hàng', 'success');
     } catch (err) {
       notify(getErrorMessage(err, 'Không thể cập nhật địa chỉ'), 'error');
@@ -246,18 +349,18 @@ function AccountPage() {
 
   return (
     <>
-      <Breadcrumb items={[{ label: 'Tài khoản cá nhân' }]} />
+            <Breadcrumb items={[{ label: 'Tài khoản cá nhân' }]} />
 
       <section className="bg-[linear-gradient(180deg,#f5f6f8_0%,#ffffff_26%)] px-4 py-10">
         <div className="mx-auto w-full max-w-[1200px]">
           <div className="rounded-[30px] border border-zinc-200 bg-white px-6 py-6 shadow-[0_18px_50px_rgba(15,23,42,0.07)]">
             <div className="text-[12px] font-extrabold uppercase tracking-[0.18em] text-zinc-400">Tài khoản</div>
             <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-              <div className="min-w-0">
+              <div>
                 <h1 className="text-[28px] font-black text-zinc-950 sm:text-[34px]">{displayName}</h1>
-                <div className="mt-2 flex min-w-0 flex-wrap gap-x-5 gap-y-2 text-sm font-medium text-zinc-500">
-                  <span className="inline-flex min-w-0 items-center gap-1.5 break-all"><FiMail className="shrink-0" />{profile.email || 'Chưa có email'}</span>
-                  <span className="inline-flex min-w-0 items-center gap-1.5 break-all"><FiPhone className="shrink-0" />{profile.phone || 'Chưa có số điện thoại'}</span>
+                <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2 text-sm font-medium text-zinc-500">
+                  <span className="inline-flex items-center gap-1.5"><FiMail />{profile.email || 'Chưa có email'}</span>
+                  <span className="inline-flex items-center gap-1.5"><FiPhone />{profile.phone || 'Chưa có số điện thoại'}</span>
                 </div>
               </div>
               <button
@@ -336,12 +439,11 @@ function AccountPage() {
                   <Panel
                     eyebrow="Thông tin"
                     title="Cập nhật tài khoản"
-                    description="Thông tin này dùng để liên hệ khi đặt hàng và nhận thông báo từ hệ thống."
                   >
                     <form onSubmit={handleProfileSubmit} className="grid gap-4">
                       <Field label="Họ và tên" name="name" value={profile.name} onChange={handleProfileChange} error={profileErrors.name} icon={FiUser} />
                       <div className="grid gap-4 sm:grid-cols-2">
-                        <Field label="Email" name="email" type="email" value={profile.email} onChange={handleProfileChange} error={profileErrors.email} icon={FiMail} readOnly />
+                        <Field label="Email" name="email" type="email" value={profile.email} onChange={handleProfileChange} error={profileErrors.email} icon={FiMail} />
                         <Field label="Số điện thoại" name="phone" type="tel" value={profile.phone} onChange={handleProfileChange} error={profileErrors.phone} icon={FiPhone} placeholder="0123456789" />
                       </div>
                       <Actions saving={savingProfile} label="Lưu thông tin" />
@@ -353,7 +455,6 @@ function AccountPage() {
                   <Panel
                     eyebrow="Bảo mật"
                     title="Đổi mật khẩu"
-                    description="Sau khi đổi mật khẩu, bạn tiếp tục đăng nhập bằng mật khẩu mới ở các lần sau."
                   >
                     <form onSubmit={handlePasswordSubmit} className="grid gap-4">
                       <Field label="Mật khẩu hiện tại" name="currentPassword" type="password" value={password.currentPassword} onChange={handlePasswordChange} error={passwordErrors.currentPassword} icon={FiLock} />
@@ -370,8 +471,39 @@ function AccountPage() {
                   <Panel
                     eyebrow="Nhận hàng"
                     title="Địa chỉ mặc định"
-                    description="Địa chỉ này được dùng làm gợi ý khi bạn thanh toán đơn hàng mới."
                   >
+                    <div className="mb-5 grid gap-3">
+                      {addresses.length > 0 ? addresses.map((item) => (
+                        <div key={item.id} className={`rounded-2xl border p-4 ${String(editingAddressId) === String(item.id) ? 'border-[#d71920] bg-red-50/40' : 'border-zinc-200 bg-zinc-50'}`}>
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2 text-sm font-black text-zinc-950">
+                                <span>{item.fullName}</span>
+                                <span className="text-zinc-400">|</span>
+                                <span>{item.phoneNumber}</span>
+                                {item.isDefault && <span className="rounded-full bg-[#d71920] px-2 py-0.5 text-[11px] font-extrabold text-white">Mặc định</span>}
+                              </div>
+                              <div className="mt-1 text-sm leading-6 text-zinc-600">{formatAddress(item)}</div>
+                              {item.note && <div className="mt-1 text-xs text-zinc-400">{item.note}</div>}
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              <button type="button" onClick={() => editAddress(item)} className="rounded-full border border-zinc-300 px-3 py-1.5 text-xs font-extrabold text-zinc-700 transition hover:border-[#d71920] hover:text-[#d71920]">Sửa</button>
+                              {!item.isDefault && <button type="button" onClick={() => handleSetDefaultAddress(item.id)} className="rounded-full border border-zinc-300 px-3 py-1.5 text-xs font-extrabold text-zinc-700 transition hover:border-[#d71920] hover:text-[#d71920]">Đặt mặc định</button>}
+                              <button type="button" onClick={() => handleDeleteAddress(item.id)} className="rounded-full border border-red-200 px-3 py-1.5 text-xs font-extrabold text-red-600 transition hover:bg-red-50">Xóa</button>
+                            </div>
+                          </div>
+                        </div>
+                      )) : (
+                        <div className="rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-5 text-sm font-medium text-zinc-500">
+                                                    Bạn chưa có địa chỉ nhận hàng. Thêm địa chỉ để dùng ở bước thanh toán.
+                        </div>
+                      )}
+
+                      <button type="button" onClick={startNewAddress} className="inline-flex min-h-11 w-fit items-center justify-center rounded-full border border-[#d71920] px-5 text-sm font-extrabold text-[#d71920] transition hover:bg-red-50">
+                        Thêm địa chỉ mới
+                      </button>
+                    </div>
+
                     <form onSubmit={handleAddressSubmit} className="grid gap-4">
                       <div className="grid gap-4 sm:grid-cols-2">
                         <Field label="Tên người nhận" name="fullName" value={address.fullName} onChange={handleAddressChange} error={addressErrors.fullName} icon={FiUser} />
@@ -409,7 +541,7 @@ function Panel({ eyebrow, title, description, children }) {
   );
 }
 
-function Field({ label, name, value, onChange, error, type = 'text', icon: Icon, placeholder, multiline, readOnly = false }) {
+function Field({ label, name, value, onChange, error, type = 'text', icon: Icon, placeholder, multiline }) {
   const inputClass = `min-h-12 w-full rounded-2xl border bg-zinc-50 px-4 text-sm text-zinc-900 outline-none transition placeholder:text-zinc-400 focus:border-[#d71920] focus:bg-white focus:ring-2 focus:ring-[#d71920]/10 ${
     Icon ? 'pl-11' : ''
   } ${error ? 'border-red-300' : 'border-zinc-200'}`;
@@ -434,9 +566,8 @@ function Field({ label, name, value, onChange, error, type = 'text', icon: Icon,
             type={type}
             value={value}
             onChange={onChange}
-            readOnly={readOnly}
             placeholder={placeholder}
-            className={`${inputClass} ${readOnly ? 'cursor-not-allowed text-zinc-500' : ''}`}
+            className={inputClass}
           />
         )}
       </span>

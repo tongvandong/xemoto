@@ -44,11 +44,13 @@ function ProductFilters({ filters, values, onChange }) {
     if (name === 'categoryId') {
       nextValues.categorySlug = '';
       nextValues.vehicleTypeCategoryId = '';
+      nextValues.carModelId = '';
       nextValues.compatibleCarModelId = '';
       nextValues.productType = '';
     }
 
     if (name === 'vehicleTypeCategoryId') {
+      nextValues.carModelId = '';
       nextValues.compatibleCarModelId = '';
       nextValues.productType = '';
     }
@@ -60,6 +62,7 @@ function ProductFilters({ filters, values, onChange }) {
 
     if (name === 'brandId') {
       nextValues.brandSlug = '';
+      nextValues.carModelId = '';
     }
 
     onChange(nextValues);
@@ -192,6 +195,7 @@ function ProductFilters({ filters, values, onChange }) {
               categoryId: '',
               categorySlug: '',
               vehicleTypeCategoryId: '',
+              carModelId: '',
               compatibleCarModelId: '',
               productType: '',
               brandId: '',

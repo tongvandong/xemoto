@@ -28,6 +28,29 @@ img {
   max-width: 100%;
 }
 
+/* ===== Home Hero Slider ===== */
+
+.home-hero-slider {
+  position: relative;
+}
+
+.home-hero-slider .swiper {
+  width: 100%;
+}
+
+.home-hero-slider .swiper-pagination-bullet {
+  width: 10px;
+  height: 10px;
+  background: rgba(255, 255, 255, 0.78);
+  opacity: 1;
+}
+
+.home-hero-slider .swiper-pagination-bullet-active {
+  width: 28px;
+  border-radius: 999px;
+  background: #d71920;
+}
+
 button,
 input,
 select,
