@@ -78,13 +78,13 @@ const currencyInWords = (amount) => {
 /**
  * Build and print a Vietnamese motorcycle-instalment sales contract for an order.
  * Uses window.print() — user saves as PDF. No extra dependencies.
+ * Trả về true nếu mở được cửa sổ in, false nếu bị chặn pop-up (caller tự hiển thị thông báo).
  */
 export function printInstallmentApplication(order, plan) {
-  if (!plan) return;
+  if (!plan) return false;
   const w = window.open('', '_blank', 'width=900,height=700');
   if (!w) {
-    alert('Trình duyệt đã chặn cửa sổ in. Vui lòng cho phép pop-up rồi thử lại.');
-    return;
+    return false;
   }
 
   const firstItem = (order?.items || [])[0] || {};
@@ -112,7 +112,7 @@ export function printInstallmentApplication(order, plan) {
 <html lang="vi">
 <head>
   <meta charset="utf-8" />
-  <title>Hợp đồng mua bán xe trả góp - #${escapeHtml(order?.orderCode || order?.id || '')}</title>
+  <title>Hợp đồng mua bán xe trả góp — #${escapeHtml(order?.orderCode || order?.id || '')}</title>
   <style>
     * { box-sizing: border-box; }
     body { font-family: 'Times New Roman', serif; color: #000; padding: 40px 50px; font-size: 13pt; line-height: 1.5; max-width: 800px; margin: 0 auto; }
@@ -224,4 +224,5 @@ export function printInstallmentApplication(order, plan) {
 
   w.document.write(html);
   w.document.close();
+  return true;
 }

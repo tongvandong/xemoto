@@ -149,22 +149,22 @@ export const getStoredUser = () => {
 };
 
 export const normalizeLoginResponse = (data) => {
-  const user = data?.user || data?.User || data;
-  const roles = user?.roles || user?.Roles || [];
-  const role = data?.role || data?.Role || roles[0];
+  const user = data?.user || data;
+  const roles = user?.roles || [];
+  const role = data?.role || roles[0];
 
   return {
-    token: data?.token || data?.Token,
-    userId: data?.userId || data?.UserId || user?.id || user?.Id,
-    username: data?.username || data?.Username || user?.email || user?.Email,
-    name: data?.name || data?.Name || user?.hoTen || user?.HoTen,
-    email: data?.email || data?.Email || user?.email || user?.Email,
-    phone: data?.phone || data?.Phone || user?.soDienThoai || user?.SoDienThoai,
+    token: data?.token,
+    userId: data?.userId || user?.id,
+    username: data?.username || user?.email,
+    name: data?.name || user?.fullName,
+    email: data?.email || user?.email,
+    phone: data?.phoneNumber || data?.phone || user?.phoneNumber,
     role,
     roles,
-    userType: data?.userType ?? data?.UserType,
-    expiresIn: data?.expiresIn || data?.ExpiresIn,
-    expiresAt: data?.expiresAt || data?.ExpiresAt,
+    userType: data?.userType,
+    expiresIn: data?.expiresIn,
+    expiresAt: data?.expiresAt,
     raw: data,
   };
 };

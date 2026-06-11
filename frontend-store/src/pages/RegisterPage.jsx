@@ -41,7 +41,7 @@ function RegisterPage() {
           { name: 'lastName', label: 'Họ', type: 'text', required: true, placeholder: 'Họ' },
           { name: 'firstName', label: 'Tên', type: 'text', required: true, placeholder: 'Tên' },
           { name: 'email', label: 'Email', type: 'email', required: true, placeholder: 'Email' },
-          { name: 'phone', label: 'Số điện thoại', type: 'tel', required: true, placeholder: 'Số điện thoại' },
+          { name: 'phone', label: 'Số điện thoại', type: 'tel', required: true, placeholder: 'Số điện thoại', pattern: '0[0-9]{9}', title: 'Số điện thoại phải đúng 10 số và bắt đầu bằng 0' },
           { name: 'password', label: 'Mật khẩu', type: 'password', required: true, minLength: 6, placeholder: 'Mật khẩu' },
         ]}
         submitLabel="Đăng ký"

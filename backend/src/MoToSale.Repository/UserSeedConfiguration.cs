@@ -1,10 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using MoToSale.Common;
 using MoToSale.Common.Auth;
-using MoToSale.Common.Helpers;
 using MoToSale.Entities.Identity;
 
-namespace MoToSale.Repository.Seeds;
+namespace MoToSale.Repository;
 
 /// <summary>Seed tai khoan demo de test phan quyen, cham soc khach hang va dia chi giao nhan.</summary>
 public static class UserSeedConfiguration

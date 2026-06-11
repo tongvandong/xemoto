@@ -7,6 +7,28 @@ export function formatCurrency(value) {
   }).format(amount);
 }
 
+// Định dạng ngày dùng chung cho toàn storefront (tránh mỗi nơi tự gọi toLocaleDateString với option khác nhau).
+export function formatDate(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+// Định dạng ngày + giờ dùng chung.
+export function formatDateTime(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 export function normalizeImageUrl(url) {
   if (!url) {
     return '';

@@ -55,6 +55,12 @@ function FloatingActions() {
               className="absolute inset-0 rounded-full shadow-[0_14px_30px_rgba(15,23,42,0.22)] transition group-hover:shadow-[0_18px_38px_rgba(15,23,42,0.28)]"
               aria-hidden="true"
             />
+            <span
+              className="pointer-events-none absolute right-[calc(100%+10px)] top-1/2 hidden -translate-y-1/2 whitespace-nowrap rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-bold text-white opacity-0 shadow-lg transition-opacity duration-200 group-hover:opacity-100 sm:block"
+              aria-hidden="true"
+            >
+              {item.label}
+            </span>
             <Icon className={`relative ${item.iconClassName}`} />
           </a>
         );

@@ -2,7 +2,6 @@
 using System.Text;
 using MoToSale.Common;
 using MoToSale.Common.Auth;
-using MoToSale.Common.Helpers;
 using MoToSale.DTO.Auth;
 using MoToSale.Entities.Identity;
 using MoToSale.Repository.Identity;

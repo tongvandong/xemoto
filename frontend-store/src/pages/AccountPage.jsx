@@ -50,35 +50,36 @@ const emptyPassword = {
   confirmPassword: '',
 };
 
+// Backend /users/me trả UserResponse: id, fullName, email, phoneNumber, roles.
 function normalizeProfile(data = {}) {
   return {
-    id: data.id ?? data.userId ?? data.UserId,
-    username: data.username ?? data.Username ?? data.email ?? data.Email ?? '',
-    name: data.name ?? data.Name ?? '',
-    email: data.email ?? data.Email ?? '',
-    phone: data.phone ?? data.Phone ?? '',
-    created: data.created ?? data.Created ?? '',
+    id: data.id,
+    username: data.email ?? '',
+    name: data.fullName ?? '',
+    email: data.email ?? '',
+    phone: data.phoneNumber ?? '',
+    created: '',
   };
 }
 
-function normalizeAddress(data = {}) {
-  const address = data.address || data.Address || data;
-
+// Backend AddressDto: id, recipientName, phone, line, ward, district, province, isDefault.
+// Form trong trang dùng tên fullName/phoneNumber/addressLine nên map 1-1 ở đây.
+function normalizeAddress(address = {}) {
   return {
-    id: address.id ?? address.Id ?? address.maDiaChi ?? address.MaDiaChi ?? null,
-    fullName: address.fullName ?? address.FullName ?? '',
-    phoneNumber: address.phoneNumber ?? address.PhoneNumber ?? '',
-    addressLine: address.addressLine ?? address.AddressLine ?? '',
-    ward: address.ward ?? address.Ward ?? '',
-    district: address.district ?? address.District ?? '',
-    province: address.province ?? address.Province ?? '',
-    note: address.note ?? address.Note ?? '',
-    isDefault: Boolean(address.isDefault ?? address.IsDefault ?? address.laMacDinh ?? address.LaMacDinh),
+    id: address.id ?? null,
+    fullName: address.recipientName ?? '',
+    phoneNumber: address.phone ?? '',
+    addressLine: address.line ?? '',
+    ward: address.ward ?? '',
+    district: address.district ?? '',
+    province: address.province ?? '',
+    note: '',
+    isDefault: Boolean(address.isDefault),
   };
 }
 
 function normalizeAddresses(data = []) {
-  const rows = Array.isArray(data) ? data : data.items || data.Items || [];
+  const rows = Array.isArray(data) ? data : data.items || [];
   return rows.map(normalizeAddress);
 }
 
@@ -108,7 +109,7 @@ function validatePassword(form) {
   if (!form.currentPassword) errors.currentPassword = 'Vui lòng nhập mật khẩu hiện tại';
   if (!form.newPassword) errors.newPassword = 'Vui lòng nhập mật khẩu mới';
   else if (form.newPassword.length < 6) errors.newPassword = 'Mật khẩu mới tối thiểu 6 ký tự';
-  if (form.confirmPassword !== form.newPassword)   if (form.confirmPassword !== form.newPassword) errors.confirmPassword = 'Xác nhận mật khẩu chưa khớp';
+  if (form.confirmPassword !== form.newPassword) errors.confirmPassword = 'Xác nhận mật khẩu chưa khớp';
 
   return errors;
 }
@@ -349,7 +350,7 @@ function AccountPage() {
 
   return (
     <>
-            <Breadcrumb items={[{ label: 'Tài khoản cá nhân' }]} />
+      <Breadcrumb items={[{ label: 'Tài khoản cá nhân' }]} />
 
       <section className="bg-[linear-gradient(180deg,#f5f6f8_0%,#ffffff_26%)] px-4 py-10">
         <div className="mx-auto w-full max-w-[1200px]">
@@ -495,7 +496,7 @@ function AccountPage() {
                         </div>
                       )) : (
                         <div className="rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-5 text-sm font-medium text-zinc-500">
-                                                    Bạn chưa có địa chỉ nhận hàng. Thêm địa chỉ để dùng ở bước thanh toán.
+                          Bạn chưa có địa chỉ nhận hàng. Thêm địa chỉ để dùng ở bước thanh toán.
                         </div>
                       )}
 

@@ -1,7 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using MoToSale.APIService.Models;
-using MoToSale.APIService.Services;
+using MoToSale.APIService.Uploads;
 using MoToSale.Common.Auth;
 using MoToSale.DTO.Catalog;
 using MoToSale.Services.Catalog;

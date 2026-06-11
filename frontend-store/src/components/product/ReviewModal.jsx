@@ -16,7 +16,7 @@ export default function ReviewModal({ isOpen, onClose, product, orderId, onSubmi
 
   if (!isOpen || !product) return null;
 
-  const productId = product.productId || product.id || product.maSanPham || product.MaSanPham;
+  const productId = product.productId || product.id;
   const productName = product.productNameSnapshot || product.productName || product.name || 'Sản phẩm';
   const displayRating = hoverRating > 0 ? hoverRating : rating;
 

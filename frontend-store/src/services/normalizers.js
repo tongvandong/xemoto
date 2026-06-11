@@ -1,7 +1,6 @@
-// Lớp chuẩn hóa dữ liệu (backend trả nhiều kiểu key -> gom về 1 shape ổn định cho UI).
-// - Mapper nghiệp vụ phía API: đơn hàng, thanh toán, voucher, yêu thích, đánh giá, địa chỉ.
-// - Helper dùng chung: field (lấy theo key ưu tiên), toQuery (đổi param UI -> query backend), listOf.
-// - Re-export normalizer sản phẩm/giỏ/danh mục từ productMappers.js để api.js có 1 nguồn import duy nhất.
+// Map dữ liệu nghiệp vụ (đơn hàng, thanh toán, voucher, yêu thích, đánh giá) từ backend xemoto sang shape UI.
+// Backend luôn trả JSON camelCase nên đọc THẲNG đúng tên trường backend, không dò nhiều alias.
+// Re-export normalizer sản phẩm/giỏ/danh mục từ productMappers.js để api.js chỉ import 1 nguồn.
 import { normalizeImageUrl } from '../utils/formatters.js';
 import {
   normalizeCart,
@@ -11,131 +10,140 @@ import {
   normalizeProductList,
 } from '../utils/productMappers.js';
 
-// Lấy giá trị đầu tiên không null/undefined theo danh sách key ưu tiên.
-export const field = (source, ...keys) => {
-  for (const key of keys) {
-    if (source?.[key] !== undefined && source?.[key] !== null) {
-      return source[key];
-    }
-  }
-  return undefined;
-};
+const toNumber = (value) => Number(value || 0);
+
+// Lấy mảng items từ response (backend bọc danh sách trong { items: [...] } hoặc trả thẳng mảng).
+export const listOf = (data) => (Array.isArray(data) ? data : data?.items || []);
+
+// ===== Đơn hàng =====
+// Backend OrderDetail/OrderListItem: code, orderStatus, paymentStatus, fulfillmentStatus, grandTotal,
+//   discountTotal, shippingRecipient/Phone/Email/Address, lines[], histories[], payments[]...
+// OrderLineDto/OrderLineSummaryDto: skuId, productId, productName, skuCode, unitPrice, qty, lineTotal.
+const mapOrderLine = (line) => ({
+  id: line.id,
+  productId: line.productId,
+  productVariantId: line.skuId,
+  productNameSnapshot: line.productName,
+  skuSnapshot: line.skuCode,
+  unitPrice: toNumber(line.unitPrice),
+  quantity: toNumber(line.qty),
+  lineTotal: toNumber(line.lineTotal),
+});
 
 export const mapOrder = (raw = {}) => {
-  const items = field(raw, 'items', 'Items') || [];
-  const vouchers = field(raw, 'vouchers', 'Vouchers') || [];
+  const lines = raw.lines || [];
+  const payments = raw.payments || [];
 
   return {
-    ...raw,
-    id: field(raw, 'id', 'Id', 'maDonHang', 'MaDonHang'),
-    orderCode: field(raw, 'orderCode', 'OrderCode', 'maDonHangKinhDoanh', 'MaDonHangKinhDoanh'),
-    userId: field(raw, 'userId', 'UserId', 'maNguoiDung', 'MaNguoiDung'),
-    cartId: field(raw, 'cartId', 'CartId', 'maGioHang', 'MaGioHang'),
-    shippingFullName: field(raw, 'shippingFullName', 'ShippingFullName', 'hoTenNhanHang', 'HoTenNhanHang'),
-    shippingPhoneNumber: field(raw, 'shippingPhoneNumber', 'ShippingPhoneNumber', 'soDienThoaiNhanHang', 'SoDienThoaiNhanHang'),
-    shippingEmail: field(raw, 'shippingEmail', 'ShippingEmail', 'emailNhanHang', 'EmailNhanHang'),
-    shippingAddressLine: field(raw, 'shippingAddressLine', 'ShippingAddressLine', 'diaChiNhanHang', 'DiaChiNhanHang'),
-    subtotal: Number(field(raw, 'subtotal', 'Subtotal', 'tongTienHang', 'TongTienHang') || 0),
-    discountAmount: Number(field(raw, 'discountAmount', 'DiscountAmount', 'tienGiam', 'TienGiam') || 0),
-    shippingFee: Number(field(raw, 'shippingFee', 'ShippingFee', 'phiVanChuyen', 'PhiVanChuyen') || 0),
-    totalAmount: Number(field(raw, 'totalAmount', 'TotalAmount', 'tongThanhToan', 'TongThanhToan') || 0),
-    orderStatus: field(raw, 'orderStatus', 'OrderStatus', 'trangThaiDonHang', 'TrangThaiDonHang'),
-    paymentStatus: field(raw, 'paymentStatus', 'PaymentStatus', 'trangThaiThanhToan', 'TrangThaiThanhToan'),
-    shippingStatus: field(raw, 'shippingStatus', 'ShippingStatus', 'trangThaiVanChuyen', 'TrangThaiVanChuyen'),
-    receivingMethod: field(raw, 'receivingMethod', 'ReceivingMethod', 'phuongThucNhanHang', 'PhuongThucNhanHang'),
-    paymentMethod: field(raw, 'paymentMethod', 'PaymentMethod', 'phuongThucThanhToan', 'PhuongThucThanhToan', 'phuongThuc', 'PhuongThuc'),
-    orderType: field(raw, 'orderType', 'OrderType', 'loaiDonHang', 'LoaiDonHang'),
-    depositAmount: Number(field(raw, 'depositAmount', 'DepositAmount', 'tienDatCoc', 'TienDatCoc') || 0),
-    remainingAmount: Number(field(raw, 'remainingAmount', 'RemainingAmount', 'soTienConLai', 'SoTienConLai') || 0),
-    note: field(raw, 'note', 'Note', 'ghiChu', 'GhiChu'),
-    createdAt: field(raw, 'createdAt', 'CreatedAt', 'ngayTao', 'NgayTao'),
-    updatedAt: field(raw, 'updatedAt', 'UpdatedAt', 'ngayCapNhat', 'NgayCapNhat'),
-    items: items.map((item) => ({
-      ...item,
-      id: field(item, 'id', 'Id', 'maChiTietDonHang', 'MaChiTietDonHang'),
-      productId: field(item, 'productId', 'ProductId', 'maSanPham', 'MaSanPham'),
-      productVariantId: field(item, 'productVariantId', 'ProductVariantId', 'maBienSanPham', 'MaBienSanPham'),
-      productNameSnapshot: field(item, 'productNameSnapshot', 'ProductNameSnapshot', 'tenSanPhamSnapshot', 'TenSanPhamSnapshot'),
-      skuSnapshot: field(item, 'skuSnapshot', 'SkuSnapshot', 'skuSnapshot', 'SKUSnapshot'),
-      unitPrice: Number(field(item, 'unitPrice', 'UnitPrice', 'donGia', 'DonGia') || 0),
-      quantity: Number(field(item, 'quantity', 'Quantity', 'soLuong', 'SoLuong') || 0),
-      lineTotal: Number(field(item, 'lineTotal', 'LineTotal', 'thanhTien', 'ThanhTien') || 0),
-    })),
-    vouchers: vouchers.map((voucher) => ({
-      ...voucher,
-      voucherCodeSnapshot: field(voucher, 'voucherCodeSnapshot', 'VoucherCodeSnapshot', 'maVoucherCodeSnapshot', 'MaVoucherCodeSnapshot'),
-      discountAmount: Number(field(voucher, 'discountAmount', 'DiscountAmount', 'soTienGiam', 'SoTienGiam') || 0),
-      discountTypeSnapshot: field(voucher, 'discountTypeSnapshot', 'DiscountTypeSnapshot', 'loaiGiamGiaSnapshot', 'LoaiGiamGiaSnapshot'),
-      discountValueSnapshot: Number(field(voucher, 'discountValueSnapshot', 'DiscountValueSnapshot', 'giaTriGiamSnapshot', 'GiaTriGiamSnapshot') || 0),
-    })),
+    id: raw.id,
+    orderCode: raw.code,
+    userId: raw.userId,
+    customerName: raw.customerName,
+    shippingFullName: raw.shippingRecipient,
+    shippingPhoneNumber: raw.shippingPhone,
+    shippingEmail: raw.shippingEmail,
+    shippingAddressLine: raw.shippingAddress,
+    receivingMethod: raw.receivingMethod,
+    paymentMethod: raw.paymentMethod,
+    orderType: raw.orderType,
+    subtotal: toNumber(raw.subtotal),
+    discountAmount: toNumber(raw.discountTotal),
+    shippingFee: toNumber(raw.shippingFee),
+    totalAmount: toNumber(raw.grandTotal),
+    depositAmount: toNumber(raw.depositAmount),
+    remainingAmount: toNumber(raw.remainingAmount),
+    orderStatus: raw.orderStatus,
+    paymentStatus: raw.paymentStatus,
+    shippingStatus: raw.fulfillmentStatus,
+    note: raw.note,
+    fulfillmentNote: raw.fulfillmentNote,
+    pickupAppointmentAt: raw.pickupAppointmentAt,
+    createdAt: raw.placedAt,
+    items: lines.map(mapOrderLine),
+    payments: payments.map(mapPayment),
+    histories: raw.histories || [],
+    vouchers: [],
   };
 };
 
+// ===== Thanh toán =====
+// PaymentDto/OrderPaymentDto: id, code, orderId, paymentType, amount, method, status, transactionRef, paidAt
 export const mapPayment = (raw = {}) => ({
-  ...raw,
-  id: field(raw, 'id', 'Id', 'maThanhToan', 'MaThanhToan'),
-  paymentCode: field(raw, 'paymentCode', 'PaymentCode', 'maThanhToanKinhDoanh', 'MaThanhToanKinhDoanh'),
-  orderId: field(raw, 'orderId', 'OrderId', 'maDonHang', 'MaDonHang'),
-  orderCode: field(raw, 'orderCode', 'OrderCode', 'maDonHangKinhDoanh', 'MaDonHangKinhDoanh'),
-  amount: Number(field(raw, 'amount', 'Amount', 'soTien', 'SoTien') || 0),
-  paymentMethod: field(raw, 'paymentMethod', 'PaymentMethod', 'phuongThuc', 'PhuongThuc'),
-  paymentStatus: field(raw, 'paymentStatus', 'PaymentStatus', 'trangThai', 'TrangThai'),
-  transactionRef: field(raw, 'transactionRef', 'TransactionRef', 'maGiaoDich', 'MaGiaoDich'),
-  paidAt: field(raw, 'paidAt', 'PaidAt', 'daThanhToanLuc', 'DaThanhToanLuc'),
-  createdAt: field(raw, 'createdAt', 'CreatedAt', 'ngayTao', 'NgayTao'),
+  id: raw.id,
+  paymentCode: raw.code,
+  orderId: raw.orderId,
+  paymentType: raw.paymentType,
+  amount: toNumber(raw.amount),
+  paymentMethod: raw.method,
+  paymentStatus: raw.status,
+  transactionRef: raw.transactionRef,
+  paidAt: raw.paidAt,
+  // Backend chỉ trả paidAt (thời điểm xác nhận thu tiền); UI hiển thị chung qua createdAt.
+  createdAt: raw.paidAt,
 });
 
+// ===== Voucher =====
+// VoucherDto: id, code, description, discountType, discountValue, maxDiscount, minOrderValue,
+//   usageLimit, perUserLimit, usedCount, startAt, endAt, status
 export const mapVoucher = (raw = {}) => ({
-  ...raw,
-  id: field(raw, 'id', 'Id', 'maVoucher', 'MaVoucher'),
-  code: field(raw, 'code', 'Code', 'maVoucherCode', 'MaVoucherCode'),
-  description: field(raw, 'description', 'Description', 'moTa', 'MoTa'),
-  discountType: field(raw, 'discountType', 'DiscountType', 'loaiGiamGia', 'LoaiGiamGia'),
-  discountValue: Number(field(raw, 'discountValue', 'DiscountValue', 'giaTriGiam', 'GiaTriGiam') || 0),
-  maxDiscountValue: field(raw, 'maxDiscountValue', 'MaxDiscountValue', 'giaTriGiamToiDa', 'GiaTriGiamToiDa'),
-  minOrderValue: Number(field(raw, 'minOrderValue', 'MinOrderValue', 'giaTriDonToiThieu', 'GiaTriDonToiThieu') || 0),
+  id: raw.id,
+  code: raw.code,
+  description: raw.description,
+  discountType: raw.discountType,
+  discountValue: toNumber(raw.discountValue),
+  maxDiscountValue: raw.maxDiscount,
+  minOrderValue: toNumber(raw.minOrderValue),
+  usageLimit: raw.usageLimit,
+  perUserLimit: raw.perUserLimit,
+  usedCount: raw.usedCount,
+  startAt: raw.startAt,
+  endAt: raw.endAt,
+  status: raw.status,
 });
 
-export const mapFavorite = (raw = {}) => {
-  const product = normalizeProduct(field(raw, 'product', 'Product') || raw);
-  return {
-    ...raw,
-    userId: field(raw, 'userId', 'UserId', 'maNguoiDung', 'MaNguoiDung'),
-    productId: field(raw, 'productId', 'ProductId', 'maSanPham', 'MaSanPham') || product?.id,
-    createdAt: field(raw, 'createdAt', 'CreatedAt', 'ngayTao', 'NgayTao'),
-    product,
-  };
-};
+// ===== Yêu thích =====
+// FavoriteDto: id, userId, productId, createdDate, product (ProductDetail/null)
+export const mapFavorite = (raw = {}) => ({
+  id: raw.id,
+  userId: raw.userId,
+  productId: raw.productId,
+  createdAt: raw.createdDate,
+  product: raw.product ? normalizeProduct(raw.product) : null,
+});
 
+// ===== Đánh giá =====
+// ProductReviewItem: id, rating, title, comment, userName, createdDate
 export const mapReview = (raw = {}) => ({
-  ...raw,
-  id: field(raw, 'id', 'Id', 'maDanhGia', 'MaDanhGia'),
-  productId: field(raw, 'productId', 'ProductId', 'maSanPham', 'MaSanPham'),
-  userId: field(raw, 'userId', 'UserId', 'maNguoiDung', 'MaNguoiDung'),
-  userName: field(raw, 'userName', 'UserName', 'tenNguoiDung', 'TenNguoiDung'),
-  orderId: field(raw, 'orderId', 'OrderId', 'maDonHang', 'MaDonHang'),
-  rating: Number(field(raw, 'rating', 'Rating', 'diem', 'Diem') || 0),
-  title: field(raw, 'title', 'Title', 'tieuDe', 'TieuDe'),
-  comment: field(raw, 'comment', 'Comment', 'noiDung', 'NoiDung'),
-  imageUrl: normalizeImageUrl(field(raw, 'imageUrl', 'ImageUrl', 'hinhAnhUrl', 'HinhAnhUrl')),
-  status: field(raw, 'status', 'Status', 'trangThai', 'TrangThai'),
-  createdAt: field(raw, 'createdAt', 'CreatedAt', 'ngayTao', 'NgayTao'),
-  updatedAt: field(raw, 'updatedAt', 'UpdatedAt', 'ngayCapNhat', 'NgayCapNhat'),
+  id: raw.id,
+  rating: toNumber(raw.rating),
+  title: raw.title,
+  comment: raw.comment,
+  userName: raw.userName,
+  imageUrl: normalizeImageUrl(raw.imageUrl),
+  createdAt: raw.createdDate,
 });
 
-// Đóng gói payload đánh giá thành multipart/form-data theo đúng tên field backend.
-export const buildReviewForm = (payload = {}) => {
-  const form = new FormData();
-  form.append('Diem', payload.rating ?? payload.diem);
-  form.append('NoiDung', payload.comment ?? payload.noiDung ?? '');
-  if (payload.productId ?? payload.maSanPham) form.append('MaSanPham', payload.productId ?? payload.maSanPham);
-  if (payload.orderId ?? payload.maDonHang) form.append('MaDonHang', payload.orderId ?? payload.maDonHang);
-  if (payload.title ?? payload.tieuDe) form.append('TieuDe', payload.title ?? payload.tieuDe);
-  if (payload.image) form.append('Image', payload.image);
-  return form;
-};
+// Payload tạo/sửa đánh giá: backend nhận JSON CreateReviewRequest { rating, title, comment, orderId }.
+export const buildReviewPayload = (payload = {}) => ({
+  rating: payload.rating,
+  title: payload.title ?? null,
+  comment: payload.comment ?? '',
+  orderId: payload.orderId ?? null,
+});
 
-// Chuyển param UI (sortBy, categoryId...) sang tên query backend (MaDanhMuc, SortBy...).
+// ===== Địa chỉ nhận hàng =====
+// Đóng gói payload địa chỉ theo tên trường backend mong đợi.
+export const mapAddressBody = (data) => ({
+  recipientName: data.fullName,
+  phone: data.phoneNumber,
+  line: data.addressLine,
+  ward: data.ward,
+  district: data.district,
+  province: data.province,
+  note: data.note,
+});
+
+// Chuyển param UI (sortBy, categoryId...) sang tên query backend (CategoryId, SortBy...).
 export const toQuery = (params = {}) => {
   const sortMap = {
     'price-asc': { SortBy: 'price', SortDescending: false },
@@ -180,21 +188,6 @@ export const toQuery = (params = {}) => {
   );
 };
 
-// Lấy mảng items từ response (backend có thể trả mảng trực tiếp hoặc bọc trong items/Items).
-export const listOf = (data) => (Array.isArray(data) ? data : data?.items || data?.Items || []);
-
-// Đóng gói payload địa chỉ nhận hàng theo đúng tên field backend.
-export const mapAddressBody = (data) => ({
-  recipientName: data.fullName,
-  phone: data.phoneNumber,
-  line: data.addressLine,
-  ward: data.ward,
-  district: data.district,
-  province: data.province,
-  note: data.note,
-});
-
-// Re-export normalizer sản phẩm/giỏ/danh mục để api.js dùng 1 nguồn import duy nhất.
 export {
   normalizeCart,
   normalizeCategory,

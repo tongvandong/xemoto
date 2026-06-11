@@ -1,4 +1,4 @@
-namespace MoToSale.APIService.Models;
+namespace MoToSale.APIService.Uploads;
 
 public class UploadFileRequest
 {
