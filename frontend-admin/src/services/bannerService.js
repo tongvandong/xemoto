@@ -44,9 +44,7 @@ const bannerService = {
   update: (id, data) => api.put(`/content/home-banners/${id}`, mapPayload(data)),
   delete: (id) => api.delete(`/content/home-banners/${id}`),
   uploadImage: async (formData) => {
-    const response = await api.post('/content/home-banners/image', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    const response = await api.post('/content/home-banners/image', formData);
     response.data = { ...response.data, urlAnh: response.data?.urlAnh ?? response.data?.url ?? response.data?.imageUrl };
     return response;
   },

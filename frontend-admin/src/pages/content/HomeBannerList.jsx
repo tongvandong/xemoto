@@ -80,7 +80,7 @@ const HomeBannerList = () => {
         setForm((prev) => ({ ...prev, urlAnh: url }));
       }
     } catch (err) {
-      alert('Tải ảnh thất bại!');
+      alert(err.response?.data?.message || 'Tải ảnh thất bại!');
       console.error(err);
     } finally {
       setUploading(false);
