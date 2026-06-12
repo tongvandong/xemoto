@@ -211,12 +211,12 @@ public partial class CatalogService
             s.SalePrice ?? s.ListPrice)).ToList();
     }
 
-    private static ProductListItem MapListItem(Product p, string? manufacturerName, int stockTotal)
+    private static ProductListItem MapListItem(Product p, string? manufacturerName, int stockTotal, int totalReviews = 0, double averageRating = 0)
     {
         var sku = p.Skus.OrderBy(s => s.SalePrice ?? s.ListPrice).FirstOrDefault();
         var image = p.Images.OrderByDescending(i => i.IsPrimary).ThenBy(i => i.SortOrder).FirstOrDefault();
         return new ProductListItem(p.Id, p.Code, p.Name, p.Slug, p.CategoryId, p.BrandId, p.VehicleModelId, p.Kind,
-            p.IsFeatured, p.IsHotDeal, sku?.ListPrice ?? 0, sku?.SalePrice, image?.Url, p.ManufacturerId, manufacturerName, stockTotal, p.Status);
+            p.IsFeatured, p.IsHotDeal, sku?.ListPrice ?? 0, sku?.SalePrice, image?.Url, p.ManufacturerId, manufacturerName, stockTotal, p.Status, totalReviews, averageRating);
     }
 
     private static ProductDetail MapDetail(Product p, string? manufacturerName) => new(

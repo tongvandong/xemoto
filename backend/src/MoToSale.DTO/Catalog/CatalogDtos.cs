@@ -38,7 +38,8 @@ public record SaveManufacturerRequest(string Name, string? LogoUrl, string? Desc
 public record ProductListItem(
     int Id, string Code, string Name, string Slug, int CategoryId, int? BrandId, int? VehicleModelId, int Kind,
     bool IsFeatured, bool IsHotDeal, decimal ListPrice, decimal? SalePrice, string? MainImageUrl,
-    int? ManufacturerId, string? ManufacturerName, int StockTotal, int Status);
+    int? ManufacturerId, string? ManufacturerName, int StockTotal, int Status,
+    int TotalReviews = 0, double AverageRating = 0);
 
 public record ProductDetail(
     int Id, string Code, string Name, string Slug, int CategoryId, int? BrandId, int? VehicleModelId,
