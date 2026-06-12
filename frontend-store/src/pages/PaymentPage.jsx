@@ -17,6 +17,7 @@ function PaymentPage() {
   const [paymentInfo, setPaymentInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState(false);
+  const [claiming, setClaiming] = useState(false);
   const timerRef = useRef(null);
 
   const load = useCallback(async () => {
@@ -67,6 +68,21 @@ function PaymentPage() {
   }, [order, orderId, navigate]);
 
   const amountDue = Number(paymentInfo?.soTienCanThanhToan ?? 0);
+  const isAwaitingTransferConfirmation = order?.paymentStatus === 'PendingConfirmation';
+
+  async function handleClaimTransfer() {
+    if (!orderId || isAwaitingTransferConfirmation) return;
+    setClaiming(true);
+    try {
+      await orderApi.claimTransfer(orderId);
+      notify('Đã gửi thông báo chuyển khoản. Cửa hàng sẽ kiểm tra và xác nhận thanh toán.', 'success');
+      await load();
+    } catch (err) {
+      notify(err?.response?.data?.message || err?.message || 'Không thể gửi thông báo chuyển khoản.', 'error');
+    } finally {
+      setClaiming(false);
+    }
+  }
 
   async function handleCancel() {
     if (!window.confirm('Bạn có chắc muốn hủy đơn hàng này?')) return;
@@ -135,8 +151,16 @@ function PaymentPage() {
               )}
               <div className="mt-5 flex items-center justify-center gap-2 text-xs font-semibold text-zinc-400">
                 <FiLoader className="h-3.5 w-3.5 animate-spin" />
-                Đang chờ cửa hàng xác nhận thanh toán...
+                {isAwaitingTransferConfirmation ? 'Cửa hàng đang kiểm tra giao dịch chuyển khoản...' : 'Sau khi chuyển khoản, hãy bấm nút bên dưới để cửa hàng xác nhận.'}
               </div>
+              <button
+                type="button"
+                onClick={handleClaimTransfer}
+                disabled={claiming || isAwaitingTransferConfirmation || !paymentInfo.daCauHinhNganHang}
+                className="mt-5 flex min-h-12 w-full items-center justify-center rounded-full bg-[#d71920] px-6 text-sm font-extrabold uppercase tracking-[0.08em] text-white transition hover:bg-[#b9151b] disabled:cursor-not-allowed disabled:bg-zinc-300"
+              >
+                {isAwaitingTransferConfirmation ? 'Đã báo chuyển khoản' : claiming ? 'Đang gửi...' : 'Tôi đã chuyển khoản'}
+              </button>
             </div>
           )}
 

@@ -51,6 +51,7 @@ function OrderDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [cancelling, setCancelling] = useState(false);
+  const [claimingTransfer, setClaimingTransfer] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [reviewProduct, setReviewProduct] = useState(null);
@@ -100,6 +101,20 @@ function OrderDetailPage() {
       setError(err?.response?.data?.message || err?.message || 'Hủy đơn thất bại');
     } finally {
       setCancelling(false);
+    }
+  }
+
+  async function handleClaimTransfer() {
+    if (!id || order?.paymentStatus === 'PendingConfirmation') return;
+    setClaimingTransfer(true);
+    try {
+      await orderApi.claimTransfer(id);
+      notify('Đã gửi thông báo chuyển khoản. Cửa hàng sẽ kiểm tra và xác nhận thanh toán.', 'success');
+      await fetchOrder();
+    } catch (err) {
+      notify(err?.response?.data?.message || err?.message || 'Không thể gửi thông báo chuyển khoản.', 'error');
+    } finally {
+      setClaimingTransfer(false);
     }
   }
 
@@ -159,6 +174,7 @@ function OrderDetailPage() {
   const plan = order.traGop;
   const amountDue = Number(paymentInfo?.soTienCanThanhToan ?? 0);
   const showPaymentBox = order.orderStatus !== 'Cancelled' && order.paymentStatus !== 'Paid' && amountDue > 0;
+  const isAwaitingTransferConfirmation = order.paymentStatus === 'PendingConfirmation';
   const installmentTerms = plan?.terms || [];
   const paidInstallmentCount = installmentTerms.filter((term) => term.trangThai === 'Paid').length;
   const nextInstallmentTerm = installmentTerms.find((term) => term.trangThai === 'Pending');
@@ -212,6 +228,14 @@ function OrderDetailPage() {
                       <span className="text-zinc-500">Số tiền cần thanh toán</span>
                       <strong className="text-xl font-black text-[#d71920]">{formatCurrency(amountDue)}</strong>
                     </div>
+                    <button
+                      type="button"
+                      onClick={handleClaimTransfer}
+                      disabled={claimingTransfer || isAwaitingTransferConfirmation}
+                      className="mt-4 flex min-h-11 w-full items-center justify-center rounded-full bg-[#d71920] px-5 text-sm font-extrabold uppercase tracking-[0.08em] text-white transition hover:bg-[#b9151b] disabled:cursor-not-allowed disabled:bg-zinc-300"
+                    >
+                      {isAwaitingTransferConfirmation ? 'Đã báo chuyển khoản' : claimingTransfer ? 'Đang gửi...' : 'Tôi đã chuyển khoản'}
+                    </button>
                   </div>
                 </div>
               ) : (
