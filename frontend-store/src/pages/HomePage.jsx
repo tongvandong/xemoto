@@ -276,16 +276,19 @@ function HomePage() {
       </section>
 
       <section id="deal-noi-bat" className="scroll-mt-32 bg-zinc-50 px-4 py-10 sm:py-12">
-        <div className="mx-auto flex w-full max-w-[1200px] flex-col items-center gap-4">
-          <div className="flex items-center justify-center gap-3">
-            <SectionTitle title="Deal nổi bật" center className="mb-0" />
-            <FiAward className="h-7 w-7 text-[#d71920]" aria-hidden="true" />
+        <div className="mx-auto w-full max-w-[1200px] space-y-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <SectionTitle
+              kicker="Hot deal"
+              title="Deal nổi bật"
+              className="mb-0"
+            />
+            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-red-100 bg-white px-4 py-2 text-xs font-extrabold uppercase tracking-[0.12em] text-[#d71920] shadow-sm">
+              <FiAward className="h-4 w-4" aria-hidden="true" />
+              Giá tốt mỗi ngày
+            </div>
           </div>
-          <div className="inline-flex min-h-11 items-center gap-3 rounded-full bg-gradient-to-r from-[#d71920] to-[#171717] px-5 text-xs font-extrabold uppercase tracking-[0.12em] text-white">
-            <span>Hot deal</span>
-            <strong className="text-[13px]">Giá tốt mỗi ngày</strong>
-          </div>
-          <div className="w-full">{renderProductsBlock(dealProducts, 'Chưa có deal nổi bật.')}</div>
+          {renderProductsBlock(dealProducts, 'Chưa có deal nổi bật.')}
         </div>
       </section>
 
