@@ -65,8 +65,8 @@ public class InventoryController : ControllerBase
     [HttpGet("movements")]
     public async Task<IActionResult> GetMovements([FromQuery] int? skuId)
     {
-        var items = await _inventory.GetMovementsAsync(skuId);
-        return Ok(new { items });
+        List<StockMovementDto> items = await _inventory.GetMovementsAsync(skuId);
+        return Ok(new ItemsResponse<StockMovementDto> { Items = items });
     }
 
     [HttpGet("documents")]
@@ -174,15 +174,15 @@ public class InventoryController : ControllerBase
     [HttpGet("holds")]
     public async Task<IActionResult> GetHolds()
     {
-        var items = await _inventory.GetHoldsAsync();
-        return Ok(new { items });
+        List<HoldDto> items = await _inventory.GetHoldsAsync();
+        return Ok(new ItemsResponse<HoldDto> { Items = items });
     }
 
     [HttpGet("adjustments")]
     public async Task<IActionResult> GetAdjustments([FromQuery] int? skuId)
     {
-        var items = await _inventory.GetMovementsAsync(skuId);
-        return Ok(new { items });
+        List<StockMovementDto> items = await _inventory.GetMovementsAsync(skuId);
+        return Ok(new ItemsResponse<StockMovementDto> { Items = items });
     }
 
     [HttpPost("adjust")]

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   FiClock,
   FiFacebook,
@@ -11,9 +11,9 @@ import {
 } from 'react-icons/fi';
 import Breadcrumb from '../components/Breadcrumb.jsx';
 import { useNotification } from '../contexts/NotificationContext.jsx';
-import { contentApi } from '../services/api.js';
+import { contentApi, shopApi } from '../services/api.js';
 
-const contactProfile = {
+const defaultContactProfile = {
   owner: 'Phạm Tiến Dũng',
   phone: '0392757286',
   zalo: '0392757286',
@@ -24,36 +24,36 @@ const contactProfile = {
   hours: '08:00 - 21:00, tất cả các ngày trong tuần',
 };
 
-const contactCards = [
+const buildContactCards = (profile) => [
   {
     label: 'Hotline tư vấn',
-    value: contactProfile.phone,
+    value: profile.phone,
     description: 'Gọi trực tiếp để được hỗ trợ chọn xe, phụ tùng và lịch bảo dưỡng.',
-    href: `tel:${contactProfile.phone}`,
+    href: `tel:${profile.phone}`,
     icon: FiPhoneCall,
     tone: 'bg-[#d71920] text-white',
   },
   {
     label: 'Zalo',
-    value: contactProfile.zalo,
+    value: profile.zalo,
     description: 'Nhắn Zalo để gửi hình xe, nhận báo giá nhanh và trao đổi lịch hẹn.',
-    href: `https://zalo.me/${contactProfile.zalo}`,
+    href: `https://zalo.me/${profile.zalo}`,
     icon: FiMessageCircle,
     tone: 'bg-[#0a7cff] text-white',
   },
   {
     label: 'Facebook',
-    value: 'Phạm Tiến Dũng',
+    value: profile.owner,
     description: 'Theo dõi cập nhật sản phẩm, chương trình ưu đãi và phản hồi khách hàng.',
-    href: contactProfile.facebook,
+    href: profile.facebook,
     icon: FiFacebook,
     tone: 'bg-[#1877f2] text-white',
   },
   {
     label: 'Email',
-    value: contactProfile.email,
+    value: profile.email,
     description: 'Gửi yêu cầu chi tiết, báo giá số lượng hoặc thông tin bảo hành.',
-    href: `mailto:${contactProfile.email}`,
+    href: `mailto:${profile.email}`,
     icon: FiMail,
     tone: 'bg-zinc-950 text-white',
   },
@@ -82,10 +82,47 @@ const initialForm = {
   message: '',
 };
 
+function mapShowroomToContactProfile(showroom) {
+  return {
+    ...defaultContactProfile,
+    owner: showroom.contactName || showroom.name || defaultContactProfile.owner,
+    phone: showroom.phoneNumber || defaultContactProfile.phone,
+    zalo: showroom.zaloPhone || showroom.phoneNumber || defaultContactProfile.zalo,
+    facebook: showroom.facebookUrl || defaultContactProfile.facebook,
+    messenger: showroom.messengerUrl || defaultContactProfile.messenger,
+    email: showroom.email || defaultContactProfile.email,
+    address: showroom.address || defaultContactProfile.address,
+    hours: showroom.openingHours || defaultContactProfile.hours,
+  };
+}
+
 function ContactPage() {
   const { notify } = useNotification();
+  const [contactProfile, setContactProfile] = useState(defaultContactProfile);
   const [form, setForm] = useState(initialForm);
   const [submitting, setSubmitting] = useState(false);
+  const contactCards = buildContactCards(contactProfile);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadContactProfile() {
+      try {
+        const showroom = await shopApi.getShowroomProfile();
+        if (!cancelled && showroom?.isActive !== false) {
+          setContactProfile(mapShowroomToContactProfile(showroom));
+        }
+      } catch {
+        // Keep static fallback contact information when settings cannot be loaded.
+      }
+    }
+
+    loadContactProfile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function handleChange(event) {
     const { name, value } = event.target;

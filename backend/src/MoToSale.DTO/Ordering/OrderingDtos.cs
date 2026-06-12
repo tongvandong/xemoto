@@ -81,3 +81,10 @@ public record WarrantyHistoryDto(int Id, string? FromStatus, string ToStatus, st
 public record WarrantyDetailDto(WarrantyDto Warranty, IEnumerable<WarrantyHistoryDto> Histories);
 public record SaveWarrantyRequest(int? OrderId, int? SkuId, int? CustomerId, string ProductSnapshot, string? SerialNumber, DateTime? StartAt, int Months, string? Note, string? CustomerName = null, string? CustomerPhone = null, string? FrameNumber = null, string? EngineNumber = null, string? ReportedIssue = null, decimal? EstimatedCost = null);
 public record UpdateWarrantyStatusRequest(string Status, string? Note = null, decimal? ActualCost = null);
+
+public class PaymentClaimResponse
+{
+    public int Id { get; set; }
+
+    public string Status { get; set; } = string.Empty;
+}

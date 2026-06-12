@@ -367,10 +367,14 @@ export const contentApi = {
 };
 
 export const shopApi = {
+  async getShowroomProfile() {
+    const data = await api.get('/showrooms').then(responseData);
+    return (Array.isArray(data) ? data : data?.items || (data ? [data] : []))[0] || {};
+  },
+
   async getPaymentInfo() {
     try {
-      const data = await api.get('/showrooms').then(responseData);
-      const s = (Array.isArray(data) ? data : data?.items || (data ? [data] : []))[0] || {};
+      const s = await shopApi.getShowroomProfile();
       return {
         storeName: s.name,
         bankName: s.bankName || '',

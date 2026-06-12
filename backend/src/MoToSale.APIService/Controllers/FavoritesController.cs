@@ -1,6 +1,7 @@
 ﻿using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using MoToSale.DTO.Catalog;
 using MoToSale.Services.Catalog;
 
 namespace MoToSale.APIService.Controllers;
@@ -18,7 +19,11 @@ public class FavoritesController : ControllerBase
     private int CurrentUserId => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
     [HttpGet]
-    public async Task<IActionResult> Mine() => Ok(new { items = await _favorites.GetMineAsync(CurrentUserId) });
+    public async Task<IActionResult> Mine()
+    {
+        List<FavoriteDto> favorites = await _favorites.GetMineAsync(CurrentUserId);
+        return Ok(new ItemsResponse<FavoriteDto> { Items = favorites });
+    }
 
     [HttpPost("{productId:int}")]
     public async Task<IActionResult> Add(int productId) => Ok(await _favorites.AddAsync(CurrentUserId, productId));

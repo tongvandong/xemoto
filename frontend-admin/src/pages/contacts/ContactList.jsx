@@ -3,7 +3,7 @@ import contactService from '../../services/contactService';
 import { formatDate } from '../../utils/formatDate';
 
 const CONTACT_STATUS = {
-  Pending: { label: 'Chờ xử lý', color: 'warning' },
+  New: { label: 'Chờ xử lý', color: 'warning' },
   Processed: { label: 'Đã xử lý', color: 'success' },
 };
 
@@ -39,7 +39,7 @@ const ContactList = () => {
         setTotalPages(1);
       } else {
         setContacts(data.items || data.data || []);
-        setTotalPages(data.totalPages || Math.ceil((data.total || 0) / pageSize) || 1);
+        setTotalPages(data.totalPages || Math.ceil(((data.totalItems ?? data.total) || 0) / pageSize) || 1);
       }
     } catch (err) {
       setError('Không thể tải danh sách liên hệ.');
@@ -53,9 +53,16 @@ const ContactList = () => {
     fetchContacts();
   }, [fetchContacts]);
 
-  const handleViewDetail = (item) => {
+  const handleViewDetail = async (item) => {
     setDetailItem(item);
     setShowDetail(true);
+
+    try {
+      const response = await contactService.getById(item.id);
+      setDetailItem(response.data);
+    } catch {
+      // Keep the row data visible if the detail endpoint is unavailable.
+    }
   };
 
   const handleMarkProcessed = async (id) => {
@@ -63,7 +70,7 @@ const ContactList = () => {
       await contactService.markProcessed(id);
       fetchContacts();
       if (detailItem && detailItem.id === id) {
-        setDetailItem(prev => ({ ...prev, trangThai: 'Processed', status: 'Processed' }));
+        setDetailItem(prev => ({ ...prev, trangThai: 'Processed', status: 'Processed', contactStatus: 'Processed' }));
       }
     } catch (err) {
       alert('Đánh dấu đã xử lý thất bại!');
@@ -156,13 +163,13 @@ const ContactList = () => {
                             <td className="table-col-code">{c.soDienThoai || c.phone || '-'}</td>
                             <td className="table-col-text">{c.email || '-'}</td>
                             <td className="table-col-status">{c.loaiYeuCau || c.type || '-'}</td>
-                            <td className="table-col-status">{getStatusBadge(c.trangThai || c.status)}</td>
-                            <td className="table-col-date">{formatDate(c.ngayTao || c.createdAt)}</td>
+                            <td className="table-col-status">{getStatusBadge(c.trangThai || c.status || c.contactStatus)}</td>
+                            <td className="table-col-date">{formatDate(c.ngayTao || c.createdDate || c.createdAt)}</td>
                             <td className="table-col-actions">
                               <button className="btn btn-xs btn-info mr-1" onClick={() => handleViewDetail(c)} title="Xem chi tiết">
                                 <i className="fas fa-eye"></i>
                               </button>
-                              {(c.trangThai || c.status) !== 'Processed' && (
+                              {(c.trangThai || c.status || c.contactStatus) !== 'Processed' && (
                                 <button className="btn btn-xs btn-success" onClick={() => handleMarkProcessed(c.id)} title="Đánh dấu đã xử lý">
                                   <i className="fas fa-check"></i>
                                 </button>
@@ -231,21 +238,21 @@ const ContactList = () => {
                     </tr>
                     <tr>
                       <th>Trạng thái:</th>
-                      <td>{getStatusBadge(detailItem.trangThai || detailItem.status)}</td>
+                      <td>{getStatusBadge(detailItem.trangThai || detailItem.status || detailItem.contactStatus)}</td>
                     </tr>
                     <tr>
                       <th>Ngày tạo:</th>
-                      <td>{formatDate(detailItem.ngayTao || detailItem.createdAt)}</td>
+                      <td>{formatDate(detailItem.ngayTao || detailItem.createdDate || detailItem.createdAt)}</td>
                     </tr>
                     <tr>
                       <th>Nội dung:</th>
-                      <td style={{ whiteSpace: 'pre-wrap' }}>{detailItem.noiDung || detailItem.content || detailItem.message || '-'}</td>
+                      <td style={{ whiteSpace: 'pre-wrap' }}>{detailItem.noiDung || detailItem.body || detailItem.content || detailItem.message || '-'}</td>
                     </tr>
                   </tbody>
                 </table>
               </div>
               <div className="modal-footer">
-                {(detailItem.trangThai || detailItem.status) !== 'Processed' && (
+                {(detailItem.trangThai || detailItem.status || detailItem.contactStatus) !== 'Processed' && (
                   <button className="btn btn-success" onClick={() => handleMarkProcessed(detailItem.id)}>
                     <i className="fas fa-check mr-1"></i> Đánh dấu đã xử lý
                   </button>

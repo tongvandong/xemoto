@@ -13,6 +13,14 @@ public record ApproveInstallmentApplicationRequest(
 
 public record RejectInstallmentApplicationRequest(string? Note);
 
+// Kết quả duyệt hồ sơ trả góp: id hồ sơ + id đơn bán được tạo.
+public class ApproveInstallmentApplicationResponse
+{
+    public int Id { get; set; }
+
+    public int OrderId { get; set; }
+}
+
 public record InstallmentApplicationDto(
     int Id, string Code, int? CustomerId, string CustomerName, string CustomerPhone, string? CustomerEmail,
     int? ProductId, int? SkuId, string ProductSnapshot, string? FinancePartner, decimal DownPayment, int Months,

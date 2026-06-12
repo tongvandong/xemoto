@@ -2,6 +2,7 @@
 using MoToSale.Common;
 using MoToSale.DTO.Common;
 using MoToSale.DTO.Inventory;
+using MoToSale.Entities.Catalog;
 using MoToSale.Entities.Inventory;
 using MoToSale.Repository.EFCore;
 
@@ -64,100 +65,13 @@ public class InventoryRepository : Repository<InventoryItem>, IInventoryReposito
 
     public async Task<PagingResponse<InventoryItemDto>> SearchAsync(InventorySearchRequest request)
     {
-        var query =
-            from inventory in Set.AsNoTracking()
-            join sku in Context.Skus.AsNoTracking() on inventory.SkuId equals sku.Id
-            join product in Context.Products.AsNoTracking() on sku.ProductId equals product.Id
-            select new { inventory, sku, product };
+        IQueryable<InventoryRow> query = BuildSearchQuery();
 
-        if (request.LowStockOnly == true)
-        {
-            query = query.Where(row => row.inventory.OnHand - row.inventory.Reserved <= row.inventory.ReorderPoint);
-        }
-
-        if (request.HasHold == true)
-        {
-            query = query.Where(row => row.inventory.Reserved > 0);
-        }
-
-        if (request.StockStatus == "OutOfStock")
-        {
-            query = query.Where(row => row.inventory.OnHand - row.inventory.Reserved <= 0);
-        }
-
-        if (request.StockStatus == "LowStock")
-        {
-            query = query.Where(row =>
-                row.inventory.OnHand - row.inventory.Reserved > 0
-                && row.inventory.OnHand - row.inventory.Reserved <= row.inventory.ReorderPoint);
-        }
-
-        if (request.StockStatus == "InStock")
-        {
-            query = query.Where(row => row.inventory.OnHand - row.inventory.Reserved > row.inventory.ReorderPoint);
-        }
-
-        if (!string.IsNullOrWhiteSpace(request.Keyword))
-        {
-            string keyword = request.Keyword;
-            query = query.Where(row =>
-                row.product.Name.Contains(keyword)
-                || row.sku.SkuCode.Contains(keyword));
-        }
-
-        bool sortDescending = string.Equals(request.SortDirection, "desc", StringComparison.OrdinalIgnoreCase);
-        string sortBy = (request.SortBy ?? string.Empty).ToLowerInvariant();
-
-        if (sortBy == "onhand")
-        {
-            if (sortDescending)
-            {
-                query = query.OrderByDescending(row => row.inventory.OnHand);
-            }
-            else
-            {
-                query = query.OrderBy(row => row.inventory.OnHand);
-            }
-        }
-        else if (sortBy == "reserved")
-        {
-            if (sortDescending)
-            {
-                query = query.OrderByDescending(row => row.inventory.Reserved);
-            }
-            else
-            {
-                query = query.OrderBy(row => row.inventory.Reserved);
-            }
-        }
-        else if (sortBy == "available")
-        {
-            if (sortDescending)
-            {
-                query = query.OrderByDescending(row => row.inventory.OnHand - row.inventory.Reserved);
-            }
-            else
-            {
-                query = query.OrderBy(row => row.inventory.OnHand - row.inventory.Reserved);
-            }
-        }
-        else if (sortBy == "product")
-        {
-            if (sortDescending)
-            {
-                query = query.OrderByDescending(row => row.product.Name);
-            }
-            else
-            {
-                query = query.OrderBy(row => row.product.Name);
-            }
-        }
-        else
-        {
-            query = query
-                .OrderBy(row => row.product.Name)
-                .ThenBy(row => row.sku.SkuCode);
-        }
+        query = ApplyLowStockFilter(query, request);
+        query = ApplyHoldFilter(query, request);
+        query = ApplyStockStatusFilter(query, request);
+        query = ApplyKeywordFilter(query, request);
+        query = ApplySorting(query, request);
 
         int totalItems = await query.CountAsync();
 
@@ -182,6 +96,131 @@ public class InventoryRepository : Repository<InventoryItem>, IInventoryReposito
             PageSize = request.PageSize,
             TotalItems = totalItems
         };
+    }
+
+    // Row trung gian cho join tồn kho - SKU - sản phẩm; dùng member-init để EF Core
+    // dịch query y hệt anonymous type. Tên thuộc tính viết thường có chủ đích
+    // để các biểu thức row.inventory/row.sku/row.product giữ nguyên văn như cũ.
+    private sealed class InventoryRow
+    {
+        public InventoryItem inventory { get; init; } = null!;
+        public Sku sku { get; init; } = null!;
+        public Product product { get; init; } = null!;
+    }
+
+    private IQueryable<InventoryRow> BuildSearchQuery()
+    {
+        return
+            from inventory in Set.AsNoTracking()
+            join sku in Context.Skus.AsNoTracking() on inventory.SkuId equals sku.Id
+            join product in Context.Products.AsNoTracking() on sku.ProductId equals product.Id
+            select new InventoryRow { inventory = inventory, sku = sku, product = product };
+    }
+
+    private static IQueryable<InventoryRow> ApplyLowStockFilter(IQueryable<InventoryRow> query, InventorySearchRequest request)
+    {
+        if (request.LowStockOnly == true)
+        {
+            query = query.Where(row => row.inventory.OnHand - row.inventory.Reserved <= row.inventory.ReorderPoint);
+        }
+
+        return query;
+    }
+
+    private static IQueryable<InventoryRow> ApplyHoldFilter(IQueryable<InventoryRow> query, InventorySearchRequest request)
+    {
+        if (request.HasHold == true)
+        {
+            query = query.Where(row => row.inventory.Reserved > 0);
+        }
+
+        return query;
+    }
+
+    private static IQueryable<InventoryRow> ApplyStockStatusFilter(IQueryable<InventoryRow> query, InventorySearchRequest request)
+    {
+        if (request.StockStatus == "OutOfStock")
+        {
+            query = query.Where(row => row.inventory.OnHand - row.inventory.Reserved <= 0);
+        }
+
+        if (request.StockStatus == "LowStock")
+        {
+            query = query.Where(row =>
+                row.inventory.OnHand - row.inventory.Reserved > 0
+                && row.inventory.OnHand - row.inventory.Reserved <= row.inventory.ReorderPoint);
+        }
+
+        if (request.StockStatus == "InStock")
+        {
+            query = query.Where(row => row.inventory.OnHand - row.inventory.Reserved > row.inventory.ReorderPoint);
+        }
+
+        return query;
+    }
+
+    private static IQueryable<InventoryRow> ApplyKeywordFilter(IQueryable<InventoryRow> query, InventorySearchRequest request)
+    {
+        if (!string.IsNullOrWhiteSpace(request.Keyword))
+        {
+            string keyword = request.Keyword;
+            query = query.Where(row =>
+                row.product.Name.Contains(keyword)
+                || row.sku.SkuCode.Contains(keyword));
+        }
+
+        return query;
+    }
+
+    private static IQueryable<InventoryRow> ApplySorting(IQueryable<InventoryRow> query, InventorySearchRequest request)
+    {
+        bool sortDescending = string.Equals(request.SortDirection, "desc", StringComparison.OrdinalIgnoreCase);
+        string sortBy = (request.SortBy ?? string.Empty).ToLowerInvariant();
+
+        if (sortBy == "onhand")
+        {
+            if (sortDescending)
+            {
+                return query.OrderByDescending(row => row.inventory.OnHand);
+            }
+
+            return query.OrderBy(row => row.inventory.OnHand);
+        }
+
+        if (sortBy == "reserved")
+        {
+            if (sortDescending)
+            {
+                return query.OrderByDescending(row => row.inventory.Reserved);
+            }
+
+            return query.OrderBy(row => row.inventory.Reserved);
+        }
+
+        if (sortBy == "available")
+        {
+            if (sortDescending)
+            {
+                return query.OrderByDescending(row => row.inventory.OnHand - row.inventory.Reserved);
+            }
+
+            return query.OrderBy(row => row.inventory.OnHand - row.inventory.Reserved);
+        }
+
+        if (sortBy == "product")
+        {
+            if (sortDescending)
+            {
+                return query.OrderByDescending(row => row.product.Name);
+            }
+
+            return query.OrderBy(row => row.product.Name);
+        }
+
+        // mặc định: ổn định theo tên sản phẩm rồi mã SKU
+        return query
+            .OrderBy(row => row.product.Name)
+            .ThenBy(row => row.sku.SkuCode);
     }
 
     public async Task<InventorySummary> GetSummaryAsync()

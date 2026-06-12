@@ -21,8 +21,8 @@ public class OperationsController : ControllerBase
     [HttpGet("settings")]
     public async Task<IActionResult> GetSettings()
     {
-        var items = await _settings.GetSettingsAsync();
-        return Ok(new { items });
+        List<SettingDto> items = await _settings.GetSettingsAsync();
+        return Ok(new ItemsResponse<SettingDto> { Items = items });
     }
 
     [Authorize(Roles = RoleConstant.Admin)]

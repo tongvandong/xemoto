@@ -93,3 +93,15 @@ public record UpdateProductRequest(
     string? ShortDescription, string? Description, bool IsFeatured, bool IsHotDeal,
     decimal ListPrice, decimal? SalePrice, int Status,
     int? ManufacturerId = null);
+
+public class ProductImageUploadResponse
+{
+    public int Id { get; set; }
+
+    public string Url { get; set; } = string.Empty;
+}
+
+public class ProductReviewResponse
+{
+    public ProductReviewItem Review { get; set; } = null!;
+}

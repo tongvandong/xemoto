@@ -14,8 +14,8 @@ public partial class ContentController
     [HttpGet("posts/public")]
     public async Task<IActionResult> PublicPosts()
     {
-        var posts = await _content.GetPublishedPostsAsync();
-        return Ok(new { items = posts });
+        List<PostListItem> posts = await _content.GetPublishedPostsAsync();
+        return Ok(new ItemsResponse<PostListItem> { Items = posts });
     }
 
     [Authorize(Roles = StaffRoles)]

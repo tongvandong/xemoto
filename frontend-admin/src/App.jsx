@@ -19,6 +19,10 @@ const InventoryView = lazy(() => import('./pages/inventory/InventoryView'));
 const StockDocumentList = lazy(() => import('./pages/inventory/StockDocumentList'));
 const UserList = lazy(() => import('./pages/users/UserList'));
 const CustomerList = lazy(() => import('./pages/customers/CustomerList'));
+const HomeBannerList = lazy(() => import('./pages/content/HomeBannerList'));
+const FaqList = lazy(() => import('./pages/faq/FaqList'));
+const ContactList = lazy(() => import('./pages/contacts/ContactList'));
+const PostList = lazy(() => import('./pages/posts/PostList'));
 const ReportsPage = lazy(() => import('./pages/reports/ReportsPage'));
 const AuditLogList = lazy(() => import('./pages/audit/AuditLogList'));
 const WarrantyList = lazy(() => import('./pages/warranties/WarrantyList'));
@@ -95,6 +99,12 @@ function AppRoutes() {
       <Route path="/users" element={<ProtectedRoute roles={['Admin']}><MainLayout><UserList /></MainLayout></ProtectedRoute>} />
       <Route path="/customers" element={<ProtectedRoute><MainLayout><CustomerList /></MainLayout></ProtectedRoute>} />
       <Route path="/warranties" element={<ProtectedRoute><MainLayout><WarrantyList /></MainLayout></ProtectedRoute>} />
+
+      {/* Storefront content */}
+      <Route path="/home-banners" element={<ProtectedRoute><MainLayout><HomeBannerList /></MainLayout></ProtectedRoute>} />
+      <Route path="/faq" element={<ProtectedRoute><MainLayout><FaqList /></MainLayout></ProtectedRoute>} />
+      <Route path="/contacts" element={<ProtectedRoute><MainLayout><ContactList /></MainLayout></ProtectedRoute>} />
+      <Route path="/posts" element={<ProtectedRoute><MainLayout><PostList /></MainLayout></ProtectedRoute>} />
 
       {/* Reports */}
       <Route path="/reports" element={<ProtectedRoute><MainLayout><ReportsPage /></MainLayout></ProtectedRoute>} />

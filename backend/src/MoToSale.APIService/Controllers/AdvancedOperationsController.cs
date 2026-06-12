@@ -60,8 +60,8 @@ public class AdvancedOperationsController : ControllerBase
     [HttpGet("returns")]
     public async Task<IActionResult> Returns([FromQuery] string? status)
     {
-        var items = await _service.GetReturnsAsync(status);
-        return Ok(new { items });
+        List<SalesReturnDto> items = await _service.GetReturnsAsync(status);
+        return Ok(new ItemsResponse<SalesReturnDto> { Items = items });
     }
 
     [HttpGet("returns/{id:int}")]
@@ -150,22 +150,22 @@ public class AdvancedOperationsController : ControllerBase
     [HttpGet("refunds")]
     public async Task<IActionResult> Refunds([FromQuery] int? orderId)
     {
-        var items = await _service.GetRefundsAsync(orderId);
-        return Ok(new { items });
+        List<RefundDto> items = await _service.GetRefundsAsync(orderId);
+        return Ok(new ItemsResponse<RefundDto> { Items = items });
     }
 
     [HttpGet("receivables")]
     public async Task<IActionResult> Receivables()
     {
-        var items = await _service.GetReceivablesAsync();
-        return Ok(new { items });
+        List<OrderReceivableDto> items = await _service.GetReceivablesAsync();
+        return Ok(new ItemsResponse<OrderReceivableDto> { Items = items });
     }
 
     [HttpGet("shifts")]
     public async Task<IActionResult> Shifts([FromQuery] DateTime? from, [FromQuery] DateTime? to, [FromQuery] int? staffUserId)
     {
-        var items = await _service.GetShiftsAsync(from, to, staffUserId);
-        return Ok(new { items });
+        List<StaffShiftDto> items = await _service.GetShiftsAsync(from, to, staffUserId);
+        return Ok(new ItemsResponse<StaffShiftDto> { Items = items });
     }
 
     [Authorize(Roles = RoleConstant.Admin)]

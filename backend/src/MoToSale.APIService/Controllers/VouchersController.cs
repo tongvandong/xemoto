@@ -32,8 +32,8 @@ public class VouchersController : ControllerBase
     [HttpGet("available")]
     public async Task<IActionResult> Available()
     {
-        var items = await _vouchers.GetAvailableAsync();
-        return Ok(new { items });
+        List<VoucherDto> items = await _vouchers.GetAvailableAsync();
+        return Ok(new ItemsResponse<VoucherDto> { Items = items });
     }
 
     [Authorize(Roles = StaffRoles)]

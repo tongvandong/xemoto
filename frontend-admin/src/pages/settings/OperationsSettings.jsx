@@ -4,8 +4,15 @@ import { useAuth } from '../../contexts/AuthContext';
 
 const DEFAULT_SETTINGS = [
   ['StoreName', 'Tên cửa hàng'],
+  ['ContactName', 'Người liên hệ hiển thị ở storefront'],
   ['Hotline', 'Hotline'],
+  ['ZaloPhone', 'Số Zalo hiển thị ở storefront'],
+  ['StoreEmail', 'Email hiển thị ở storefront'],
   ['Address', 'Địa chỉ'],
+  ['StoreHours', 'Giờ mở cửa hiển thị ở storefront'],
+  ['FacebookUrl', 'Link Facebook'],
+  ['MessengerUrl', 'Link Messenger'],
+  ['YoutubeUrl', 'Link YouTube'],
   ['DefaultLowStockThreshold', 'Ngưỡng tồn thấp mặc định'],
   ['DepositPolicy', 'Chính sách đặt cọc'],
   ['CancelPolicy', 'Chính sách hủy đơn'],

@@ -1,4 +1,4 @@
-﻿using MoToSale.Common;
+using MoToSale.Common;
 using MoToSale.DTO.Common;
 using MoToSale.DTO.Ordering;
 using MoToSale.Entities.Ordering;
@@ -6,7 +6,7 @@ using MoToSale.Repository.Ordering;
 
 namespace MoToSale.Services.Ordering;
 
-public class VoucherService : IVoucherService
+public partial class VoucherService : IVoucherService
 {
     private const string AmountDiscount = "Amount";
     private const string PercentDiscount = "Percent";
@@ -29,20 +29,6 @@ public class VoucherService : IVoucherService
             PageSize = page.PageSize,
             TotalItems = page.TotalItems,
         };
-    }
-
-    public async Task<List<VoucherDto>> GetAvailableAsync()
-    {
-        DateTime now = DateTime.UtcNow;
-        var allVouchers = await _vouchers.GetAllAsync();
-
-        return allVouchers
-            .Where(voucher => VoucherCanBeShownToCustomer(voucher, now))
-            .OrderBy(voucher => voucher.MinOrderValue)
-            .ThenByDescending(voucher => voucher.DiscountType == AmountDiscount ? voucher.DiscountValue : 0)
-            .ThenByDescending(voucher => voucher.DiscountType == PercentDiscount ? voucher.DiscountValue : 0)
-            .Select(Map)
-            .ToList();
     }
 
     public async Task<VoucherDto?> GetAsync(int id)
@@ -121,25 +107,6 @@ public class VoucherService : IVoucherService
         await _vouchers.SaveChangesAsync();
     }
 
-    public async Task<VoucherValidationResult> ValidateAsync(string code, decimal subtotal)
-    {
-        string normalizedCode = code.Trim().ToUpperInvariant();
-        var voucher = await _vouchers.GetByCodeAsync(normalizedCode);
-        if (voucher == null)
-        {
-            return new VoucherValidationResult(false, "Mã không tồn tại.", 0, null);
-        }
-
-        var invalidReason = GetVoucherInvalidReason(voucher, subtotal, DateTime.UtcNow);
-        if (invalidReason != null)
-        {
-            return new VoucherValidationResult(false, invalidReason, 0, null);
-        }
-
-        decimal discount = CalculateDiscount(voucher, subtotal);
-        return new VoucherValidationResult(true, null, decimal.Round(discount, 2), Map(voucher));
-    }
-
     private static void ValidateVoucherRequest(SaveVoucherRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Code))
@@ -190,96 +157,6 @@ public class VoucherService : IVoucherService
         {
             throw new VoucherException("Voucher phần trăm chỉ được giảm từ 1 đến 100%.");
         }
-    }
-
-    private static bool VoucherCanBeShownToCustomer(Voucher voucher, DateTime now)
-    {
-        if (voucher.Status != (int)EntityStatus.Active)
-        {
-            return false;
-        }
-
-        if (voucher.DiscountType == PercentDiscount && voucher.DiscountValue > 100)
-        {
-            return false;
-        }
-
-        if (voucher.StartAt.HasValue && voucher.StartAt > now)
-        {
-            return false;
-        }
-
-        if (voucher.EndAt.HasValue && voucher.EndAt < now)
-        {
-            return false;
-        }
-
-        if (voucher.UsageLimit.HasValue && voucher.UsedCount >= voucher.UsageLimit.Value)
-        {
-            return false;
-        }
-
-        return true;
-    }
-
-    private static string? GetVoucherInvalidReason(Voucher voucher, decimal subtotal, DateTime now)
-    {
-        if (voucher.Status != (int)EntityStatus.Active)
-        {
-            return "Voucher ngừng hoạt động.";
-        }
-
-        if (voucher.DiscountType == PercentDiscount && voucher.DiscountValue > 100)
-        {
-            return "Voucher không hợp lệ.";
-        }
-
-        if (voucher.StartAt.HasValue && now < voucher.StartAt)
-        {
-            return "Voucher chưa bắt đầu.";
-        }
-
-        if (voucher.EndAt.HasValue && now > voucher.EndAt)
-        {
-            return "Voucher đã hết hạn.";
-        }
-
-        if (voucher.UsageLimit.HasValue && voucher.UsedCount >= voucher.UsageLimit)
-        {
-            return "Voucher đã hết lượt.";
-        }
-
-        if (subtotal < voucher.MinOrderValue)
-        {
-            return $"Đơn tối thiểu {voucher.MinOrderValue:n0}đ.";
-        }
-
-        return null;
-    }
-
-    private static decimal CalculateDiscount(Voucher voucher, decimal subtotal)
-    {
-        decimal discount;
-        if (voucher.DiscountType == AmountDiscount)
-        {
-            discount = voucher.DiscountValue;
-        }
-        else
-        {
-            discount = subtotal * voucher.DiscountValue / 100m;
-        }
-
-        if (voucher.MaxDiscount.HasValue && discount > voucher.MaxDiscount)
-        {
-            discount = voucher.MaxDiscount.Value;
-        }
-
-        if (discount > subtotal)
-        {
-            discount = subtotal;
-        }
-
-        return discount;
     }
 
     private static Voucher CreateVoucherEntity(SaveVoucherRequest request, string code, string discountType)

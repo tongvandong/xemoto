@@ -42,8 +42,8 @@ public class StorefrontReviewsController : ControllerBase
     [HttpGet("products/{productId:int}/reviews")]
     public async Task<IActionResult> List(int productId)
     {
-        var items = await _reviews.GetProductReviewsAsync(productId);
-        return Ok(new { items });
+        List<ProductReviewItem> items = await _reviews.GetProductReviewsAsync(productId);
+        return Ok(new ItemsResponse<ProductReviewItem> { Items = items });
     }
 
     [AllowAnonymous]
@@ -68,8 +68,8 @@ public class StorefrontReviewsController : ControllerBase
     {
         try
         {
-            var review = await _reviews.CreateProductReviewAsync(productId, CurrentUserId, request);
-            return Ok(new { review });
+            ProductReviewItem review = await _reviews.CreateProductReviewAsync(productId, CurrentUserId, request);
+            return Ok(new ProductReviewResponse { Review = review });
         }
         catch (CatalogException ex)
         {
@@ -83,8 +83,8 @@ public class StorefrontReviewsController : ControllerBase
     {
         try
         {
-            var review = await _reviews.UpdateMyProductReviewAsync(productId, CurrentUserId, request);
-            return Ok(new { review });
+            ProductReviewItem review = await _reviews.UpdateMyProductReviewAsync(productId, CurrentUserId, request);
+            return Ok(new ProductReviewResponse { Review = review });
         }
         catch (CatalogException ex)
         {

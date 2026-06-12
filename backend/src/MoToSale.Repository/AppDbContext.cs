@@ -1,6 +1,4 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using MoToSale.Common;
-using MoToSale.Common.Auth;
 using MoToSale.Entities.Audit;
 using MoToSale.Entities.Catalog;
 using MoToSale.Entities.Identity;
@@ -9,7 +7,7 @@ using MoToSale.Entities.Inventory;
 using MoToSale.Entities.Ordering;
 using MoToSale.Entities.Operations;
 using MoToSale.Entities.Payments;
-using System.Text.Json;
+using MoToSale.Repository.Configurations;
 
 namespace MoToSale.Repository;
 
@@ -18,18 +16,26 @@ public partial class AppDbContext : DbContext
 {
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
+    public override int SaveChanges()
+    {
+        return SaveChanges(acceptAllChangesOnSuccess: true);
+    }
+
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
-        EnsureAppendOnlyStockLedger();
-        CaptureAuditLogs();
+        PrepareSaveChanges();
         return base.SaveChanges(acceptAllChangesOnSuccess);
     }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
-        EnsureAppendOnlyStockLedger();
-        CaptureAuditLogs();
-        return base.SaveChangesAsync(cancellationToken);
+        return SaveChangesAsync(acceptAllChangesOnSuccess: true, cancellationToken);
+    }
+
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        PrepareSaveChanges();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
 
     public DbSet<User> Users => Set<User>();
@@ -94,101 +100,33 @@ public partial class AppDbContext : DbContext
     public DbSet<MoToSale.Entities.SystemConfig.Setting> Settings => Set<MoToSale.Entities.SystemConfig.Setting>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
+    private void PrepareSaveChanges()
+    {
+        EnsureAppendOnlyStockLedger();
+        CaptureAuditLogs();
+    }
+
     private void EnsureAppendOnlyStockLedger()
     {
         if (ChangeTracker.Entries<StockMovement>().Any(x => x.State is EntityState.Modified or EntityState.Deleted))
         {
-            throw new InvalidOperationException("Stock movements are append-only and cannot be updated or deleted.");
-        }
-    }
-
-    private void CaptureAuditLogs()
-    {
-        var now = DateTime.UtcNow;
-        var entries = ChangeTracker.Entries<BaseEntity>()
-            .Where(x => x.Entity is not AuditLog && x.State is (EntityState.Added or EntityState.Modified or EntityState.Deleted))
-            .ToList();
-
-        foreach (var entry in entries)
-        {
-            var oldValues = entry.State == EntityState.Added
-                ? null
-                : entry.Properties.ToDictionary(x => x.Metadata.Name, x => x.OriginalValue);
-            var newValues = entry.State == EntityState.Deleted
-                ? null
-                : entry.Properties.ToDictionary(x => x.Metadata.Name, x => x.CurrentValue);
-            AuditLogs.Add(new AuditLog
-            {
-                Entity = entry.Metadata.ClrType.Name,
-                EntityId = entry.Entity.Id.ToString(),
-                Action = entry.State.ToString(),
-                OldValueJson = oldValues is null ? null : JsonSerializer.Serialize(oldValues),
-                NewValueJson = newValues is null ? null : JsonSerializer.Serialize(newValues),
-                At = now,
-                CreatedDate = now,
-            });
+            throw new InvalidOperationException("Sổ kho chỉ được ghi thêm, không được sửa hoặc xóa dòng đã phát sinh.");
         }
     }
 
     protected override void OnModelCreating(ModelBuilder b)
     {
         base.OnModelCreating(b);
-        ConfigureCatalog(b);
-        ConfigureInventory(b);
-        ConfigureOrdering(b);
-        ConfigurePayments(b);
-        ConfigureContent(b);
-        ConfigureReviewWarranty(b);
-        ConfigureAdvancedOperations(b);
-        ConfigureBusinessOperations(b);
-        ConfigureSystem(b);
-        ConfigureAudit(b);
-
-        b.Entity<User>(e =>
-        {
-            e.ToTable("Users");
-            e.Property(x => x.FullName).HasMaxLength(150).IsRequired();
-            e.Property(x => x.Email).HasMaxLength(255).IsRequired();
-            e.Property(x => x.PhoneNumber).HasMaxLength(20);
-            e.Property(x => x.PasswordHash).HasMaxLength(500).IsRequired();
-            e.Property(x => x.CareNote).HasMaxLength(1000);
-            e.Property(x => x.CreatedDate).HasColumnType("datetime2(0)");
-            e.Property(x => x.UpdatedDate).HasColumnType("datetime2(0)");
-            e.HasIndex(x => x.Email).IsUnique();
-        });
-
-        b.Entity<Role>(e =>
-        {
-            e.ToTable("Roles");
-            e.Property(x => x.Code).HasMaxLength(30).IsRequired();
-            e.Property(x => x.Name).HasMaxLength(100).IsRequired();
-            e.HasIndex(x => x.Code).IsUnique();
-
-            e.HasData(
-                new Role { Id = 1, Code = RoleConstant.Admin, Name = "Quản trị viên", Status = (int)EntityStatus.Active },
-                new Role { Id = 2, Code = RoleConstant.Staff, Name = "Nhân viên", Status = (int)EntityStatus.Active },
-                new Role { Id = 3, Code = RoleConstant.Customer, Name = "Khách hàng", Status = (int)EntityStatus.Active });
-        });
-
-        b.Entity<UserRole>(e =>
-        {
-            e.ToTable("UserRoles");
-            e.HasKey(x => new { x.UserId, x.RoleId });
-            e.HasOne(x => x.User).WithMany(u => u.UserRoles).HasForeignKey(x => x.UserId);
-            e.HasOne(x => x.Role).WithMany(r => r.UserRoles).HasForeignKey(x => x.RoleId);
-        });
-
-        b.Entity<Address>(e =>
-        {
-            e.ToTable("Addresses");
-            e.Property(x => x.RecipientName).HasMaxLength(150).IsRequired();
-            e.Property(x => x.Phone).HasMaxLength(20).IsRequired();
-            e.Property(x => x.Line).HasMaxLength(255).IsRequired();
-            e.Property(x => x.Ward).HasMaxLength(100);
-            e.Property(x => x.District).HasMaxLength(100);
-            e.Property(x => x.Province).HasMaxLength(100);
-            e.HasOne(x => x.User).WithMany(u => u.Addresses).HasForeignKey(x => x.UserId);
-        });
+        IdentityConfiguration.Configure(b);
+        CatalogConfiguration.Configure(b);
+        InventoryConfiguration.Configure(b);
+        OrderingConfiguration.Configure(b);
+        PaymentConfiguration.Configure(b);
+        ContentConfiguration.Configure(b);
+        ReviewWarrantyConfiguration.Configure(b);
+        AdvancedOperationsConfiguration.Configure(b);
+        BusinessOperationsConfiguration.Configure(b);
+        SystemConfiguration.Configure(b);
+        AuditConfiguration.Configure(b);
     }
-
 }

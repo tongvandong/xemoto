@@ -1,8 +1,46 @@
 import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { brandAssets } from '../assets/siteData.js';
 import { FaFacebookF, FaYoutube, FaInstagram, FaTiktok } from 'react-icons/fa';
+import { shopApi } from '../services/api.js';
 
 function Footer() {
+  const [profile, setProfile] = useState({
+    contactName: 'Phạm Tiến Dũng',
+    phoneNumber: '0392757286',
+    zaloPhone: '0392757286',
+    email: 'phamtiendung2k5hc@gmail.com',
+    address: '236 Hoàng Quốc Việt, phường Nghĩa Đô, TP Hà Nội',
+    facebookUrl: 'https://web.facebook.com/pham.dung.224360',
+    youtubeUrl: 'https://www.youtube.com/',
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadProfile() {
+      try {
+        const showroom = await shopApi.getShowroomProfile();
+        if (!cancelled && showroom?.isActive !== false) {
+          setProfile((current) => ({ ...current, ...showroom }));
+        }
+      } catch {
+        // Keep static fallback contact information when settings cannot be loaded.
+      }
+    }
+
+    loadProfile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const phone = profile.phoneNumber || profile.hotline || '';
+  const zalo = profile.zaloPhone || phone;
+  const facebook = profile.facebookUrl || 'https://web.facebook.com/pham.dung.224360';
+  const youtube = profile.youtubeUrl || 'https://www.youtube.com/';
+
   return (
     <footer className="bg-[#151515] text-white">
       <div className="mx-auto grid w-full max-w-[1200px] gap-10 px-4 py-12 md:grid-cols-2 xl:grid-cols-[2fr_1fr_1fr_1.4fr]">
@@ -23,10 +61,10 @@ function Footer() {
           </p>
 
           <ul className="mt-4 space-y-2 text-sm text-zinc-300">
-            <li>Địa chỉ: 236 Hoàng Quốc Việt, phường Nghĩa Đô, TP Hà Nội</li>
-            <li>Email: phamtiendung2k5hc@gmail.com</li>
-            <li>Liên hệ: Phạm Tiến Dũng</li>
-            <li>Hotline/Zalo: 0392757286</li>
+            <li>Địa chỉ: {profile.address}</li>
+            <li>Email: {profile.email}</li>
+            <li>Liên hệ: {profile.contactName || profile.name}</li>
+            <li>Hotline/Zalo: {phone}{zalo && zalo !== phone ? ` / ${zalo}` : ''}</li>
           </ul>
         </div>
 
@@ -84,10 +122,10 @@ function Footer() {
 
           <div className="mt-5 flex gap-2" aria-label="Mạng xã hội">
             {[
-              { id: 'f', icon: <FaFacebookF />, href: 'https://web.facebook.com/pham.dung.224360' },
-              { id: 'yt', icon: <FaYoutube />, href: 'https://www.youtube.com/' },
-              { id: 'ig', icon: <FaInstagram />, href: 'mailto:phamtiendung2k5hc@gmail.com' },
-              { id: 'tk', icon: <FaTiktok />, href: 'https://zalo.me/0392757286' },
+              { id: 'f', icon: <FaFacebookF />, href: facebook },
+              { id: 'yt', icon: <FaYoutube />, href: youtube },
+              { id: 'ig', icon: <FaInstagram />, href: `mailto:${profile.email}` },
+              { id: 'tk', icon: <FaTiktok />, href: `https://zalo.me/${zalo}` },
             ].map((item) => (
               <a
                 href={item.href}

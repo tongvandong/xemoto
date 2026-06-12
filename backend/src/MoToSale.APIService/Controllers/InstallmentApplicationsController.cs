@@ -67,7 +67,10 @@ public class InstallmentApplicationsController : ControllerBase
     [HttpGet]
     [Authorize(Roles = $"{RoleConstant.Admin},{RoleConstant.Staff}")]
     public async Task<IActionResult> List([FromQuery] string? status)
-        => Ok(new { items = await _service.GetAllAsync(status) });
+    {
+        List<InstallmentApplicationDto> items = await _service.GetAllAsync(status);
+        return Ok(new ItemsResponse<InstallmentApplicationDto> { Items = items });
+    }
 
     [HttpPost("{id:int}/approve")]
     [Authorize(Roles = $"{RoleConstant.Admin},{RoleConstant.Staff}")]
@@ -84,7 +87,7 @@ public class InstallmentApplicationsController : ControllerBase
                 CurrentUserId,
                 CurrentActorName);
 
-            return Ok(new { id, orderId });
+            return Ok(new ApproveInstallmentApplicationResponse { Id = id, OrderId = orderId });
         }
         catch (InstallmentException ex) { return BadRequest(new MessageResponse { Message = ex.Message }); }
     }
