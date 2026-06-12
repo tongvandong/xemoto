@@ -354,7 +354,7 @@ function Header() {
             <div className="flex shrink-0 items-center gap-3">
               <Link className="group relative inline-grid h-11 w-11 place-items-center rounded-full text-[#111] transition duration-300 hover:bg-zinc-100 hover:text-[#d71920]" to="/favorites" aria-label="Yêu thích">
                 <FiHeart className="h-7 w-7" />
-                <span className="absolute right-0 top-1 grid h-[18px] w-[18px] place-items-center rounded-full bg-[#d71920] text-[11px] font-extrabold text-white">
+                <span className="absolute -right-0.5 top-0.5 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-[#d71920] px-1 text-[11px] font-extrabold leading-none text-white ring-2 ring-white">
                   {favoriteCount}
                 </span>
               </Link>
@@ -362,7 +362,7 @@ function Header() {
                 <Link className="group relative inline-grid h-11 w-11 place-items-center rounded-full text-[#111] transition duration-300 hover:bg-zinc-100 hover:text-[#d71920]" to="/vouchers" aria-label="Voucher">
                   <RiDiscountPercentLine className="h-7 w-7" />
                   {voucherCount > 0 && (
-                    <span className="absolute right-0 top-1 grid h-[18px] w-[18px] place-items-center rounded-full bg-[#d71920] text-[11px] font-extrabold text-white">
+                    <span className="absolute -right-0.5 top-0.5 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-[#d71920] px-1 text-[11px] font-extrabold leading-none text-white ring-2 ring-white">
                       {voucherCount}
                     </span>
                   )}
@@ -376,7 +376,7 @@ function Header() {
               <div ref={cartMenuRef} className="relative">
                 <Link className="group relative inline-grid h-11 w-11 place-items-center rounded-full text-[#111] transition duration-300 hover:bg-zinc-100 hover:text-[#d71920]" to="/cart" aria-label="Giỏ hàng">
                   <FiShoppingCart className="h-7 w-7" />
-                  <span className="absolute right-0 top-1 grid h-[18px] w-[18px] place-items-center rounded-full bg-[#d71920] text-[11px] font-extrabold text-white">
+                  <span className="absolute -right-0.5 top-0.5 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-[#d71920] px-1 text-[11px] font-extrabold leading-none text-white ring-2 ring-white">
                     {cartCount}
                   </span>
                 </Link>

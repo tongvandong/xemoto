@@ -10,25 +10,28 @@ function QuantitySelector({ value, onChange, min = 1, max = 99 }) {
   }
 
   return (
-    <div className="inline-grid h-[52px] grid-cols-[48px_72px_48px] overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-[0_12px_28px_rgba(15,23,42,0.08)]">
+    <div className="inline-grid h-[52px] grid-cols-[48px_72px_48px] overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-[0_12px_28px_rgba(15,23,42,0.08)] transition focus-within:border-[#d71920] focus-within:shadow-[0_12px_28px_rgba(215,25,32,0.14)]">
       <button
         type="button"
-        className="bg-zinc-100 text-lg font-black text-zinc-900 transition hover:bg-zinc-200"
+        aria-label="Giảm số lượng"
+        className="bg-zinc-100 text-lg font-black text-zinc-900 transition hover:bg-zinc-200 active:bg-zinc-300"
         onClick={() => setNextValue((value || min) - 1)}
       >
-        -
+        −
       </button>
       <input
         type="number"
         min={min}
         max={max}
+        aria-label="Số lượng"
         className="w-full bg-white text-center text-base font-bold text-zinc-900 outline-none"
         value={value}
         onChange={(event) => setNextValue(event.target.value)}
       />
       <button
         type="button"
-        className="bg-zinc-100 text-lg font-black text-zinc-900 transition hover:bg-zinc-200"
+        aria-label="Tăng số lượng"
+        className="bg-zinc-100 text-lg font-black text-zinc-900 transition hover:bg-zinc-200 active:bg-zinc-300"
         onClick={() => setNextValue((value || min) + 1)}
       >
         +

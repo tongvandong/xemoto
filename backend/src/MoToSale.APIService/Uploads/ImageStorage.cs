@@ -1,4 +1,4 @@
-namespace MoToSale.APIService.Services;
+namespace MoToSale.APIService.Uploads;
 
 public interface IImageStorage
 {

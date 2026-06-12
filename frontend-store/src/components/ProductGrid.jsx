@@ -8,7 +8,12 @@ function ProductGrid({
   onToggleFavorite,
 }) {
   if (!products.length) {
-    return <div className="rounded-2xl border border-dashed border-zinc-300 bg-white px-6 py-10 text-center text-zinc-500">{emptyMessage}</div>;
+    return (
+      <div className="ui-fade-in flex flex-col items-center rounded-2xl border border-dashed border-zinc-300 bg-zinc-50/60 px-6 py-12 text-center">
+        <span className="grid h-12 w-12 place-items-center rounded-full bg-white text-2xl shadow-sm" aria-hidden="true">🔍</span>
+        <p className="mt-4 text-sm font-semibold text-zinc-500">{emptyMessage}</p>
+      </div>
+    );
   }
 
   return (

@@ -1,5 +1,5 @@
 const inputClassName =
-  'min-h-12 rounded-2xl border border-zinc-200 bg-zinc-50 px-4 text-sm text-zinc-900 outline-none transition focus:border-[#d71920] focus:bg-white';
+  'min-h-12 rounded-2xl border border-zinc-200 bg-zinc-50 px-4 text-sm text-zinc-900 outline-none transition placeholder:text-zinc-400 hover:border-zinc-300 focus:border-[#d71920] focus:bg-white focus:shadow-[0_0_0_4px_rgba(215,25,32,0.08)]';
 
 function normalizeText(value = '') {
   return String(value)
@@ -187,7 +187,7 @@ function ProductFilters({ filters, values, onChange }) {
 
         <button
           type="button"
-          className="inline-flex min-h-12 w-full items-center justify-center rounded-full border border-zinc-200 bg-zinc-950 px-5 text-sm font-extrabold text-white transition hover:bg-[#d71920]"
+          className="inline-flex min-h-12 w-full items-center justify-center rounded-full border border-zinc-200 bg-zinc-950 px-5 text-sm font-extrabold text-white transition hover:bg-[#d71920] hover:shadow-[0_12px_24px_rgba(215,25,32,0.25)] active:scale-[0.99]"
           onClick={() =>
             onChange({
               ...values,

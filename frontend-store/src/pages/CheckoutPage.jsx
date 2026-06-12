@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { FiLoader } from 'react-icons/fi';
 import { Link, useNavigate } from 'react-router-dom';
 import { orderApi, userApi, voucherApi } from '../services/api.js';
@@ -9,7 +9,7 @@ import { formatCurrency } from '../utils/formatters.js';
 
 const RECEIVING_METHODS = [
   { value: 'Delivery', label: 'Giao hàng tận nơi' },
-  { value: 'Pickup', label: 'Nháº­n trá»±c tiáº¿p' },
+  { value: 'Pickup', label: 'Nhận trực tiếp' },
 ];
 
 const ORDER_TYPES = [
@@ -72,17 +72,19 @@ function getCartVoucherContext(items) {
   };
 }
 
-function normalizeAddress(data = {}) {
+// Backend AddressDto: id, recipientName, phone, line, ward, district, province, isDefault.
+// Form trong trang dùng tên fullName/phoneNumber/addressLine nên map 1-1 ở đây.
+function normalizeAddress(address = {}) {
   return {
-    id: data.id ?? data.Id ?? data.maDiaChi ?? data.MaDiaChi,
-    fullName: data.fullName ?? data.FullName ?? data.hoTenNhanHang ?? data.HoTenNhanHang ?? '',
-    phoneNumber: data.phoneNumber ?? data.PhoneNumber ?? data.soDienThoaiNhanHang ?? data.SoDienThoaiNhanHang ?? '',
-    addressLine: data.addressLine ?? data.AddressLine ?? data.diaChiNhanHang ?? data.DiaChiNhanHang ?? '',
-    ward: data.ward ?? data.Ward ?? data.phuongXa ?? data.PhuongXa ?? '',
-    district: data.district ?? data.District ?? data.quanHuyen ?? data.QuanHuyen ?? '',
-    province: data.province ?? data.Province ?? data.tinhThanh ?? data.TinhThanh ?? '',
-    note: data.note ?? data.Note ?? data.ghiChu ?? data.GhiChu ?? '',
-    isDefault: Boolean(data.isDefault ?? data.IsDefault ?? data.laMacDinh ?? data.LaMacDinh),
+    id: address.id,
+    fullName: address.recipientName ?? '',
+    phoneNumber: address.phone ?? '',
+    addressLine: address.line ?? '',
+    ward: address.ward ?? '',
+    district: address.district ?? '',
+    province: address.province ?? '',
+    note: '',
+    isDefault: Boolean(address.isDefault),
   };
 }
 
@@ -113,8 +115,8 @@ function validateForm(form, totalAmount) {
   if (form.orderType === 'Installment') {
     const down = Number(form.depositAmount);
     const minDown = Math.round((totalAmount * INSTALLMENT_MIN_DOWN_PERCENT) / 100);
-    if (!down || down < minDown) errors.depositAmount = `Tráº£ trÆ°á»›c tá»‘i thiá»ƒu ${INSTALLMENT_MIN_DOWN_PERCENT}% (${formatCurrency(minDown)})`;
-    else if (down >= totalAmount) errors.depositAmount = 'Tiá»n tráº£ trÆ°á»›c pháº£i nhá» hÆ¡n tá»•ng tiá»n';
+    if (!down || down < minDown) errors.depositAmount = `Trả trước tối thiểu ${INSTALLMENT_MIN_DOWN_PERCENT}% (${formatCurrency(minDown)})`;
+    else if (down >= totalAmount) errors.depositAmount = 'Tiền trả trước phải nhỏ hơn tổng tiền';
     if (!INSTALLMENT_TERMS.includes(Number(form.installmentTerm))) errors.installmentTerm = 'Vui lòng chọn kỳ hạn trả góp';
     if (!form.installmentBorrowerName.trim()) errors.installmentBorrowerName = 'Vui lòng nhập họ tên người vay';
     if (!/^[0-9]{9,15}$/.test(form.installmentIdNumber.trim())) errors.installmentIdNumber = 'Số CCCD/CMND không hợp lệ';
@@ -375,7 +377,7 @@ function CheckoutPage() {
         setVoucherDiscount(0);
       }
     } catch (err) {
-      setVoucherError(err?.message || 'Lá»—i kiá»ƒm tra voucher');
+      setVoucherError(err?.message || 'Lỗi kiểm tra voucher');
       setAppliedVoucher(null);
       setVoucherDiscount(0);
     } finally {
@@ -466,7 +468,7 @@ function CheckoutPage() {
 
       <section className="bg-[linear-gradient(180deg,#f5f6f8_0%,#ffffff_26%)] px-4 py-10">
         <div className="mx-auto grid w-full max-w-[1200px] gap-8 lg:grid-cols-[minmax(0,1fr)_380px]">
-          {/* â”€â”€ Left: Shipping Form â”€â”€ */}
+          {/* ── Left: Shipping Form ── */}
           <form onSubmit={handleSubmit} className="space-y-5" id="checkout-form">
             <div className="rounded-[30px] border border-zinc-200 bg-white px-6 py-6 shadow-[0_18px_50px_rgba(15,23,42,0.07)]">
               <div className="text-[12px] font-extrabold uppercase tracking-[0.18em] text-zinc-400">Thanh toán</div>
@@ -635,9 +637,9 @@ function CheckoutPage() {
                   <h3 className="text-xs font-extrabold uppercase tracking-wider text-zinc-400">Thông tin cá nhân</h3>
                   <div className="mt-3 grid gap-4 sm:grid-cols-2">
                     <Field label="Họ và tên người vay *" id="installmentBorrowerName" name="installmentBorrowerName" value={form.installmentBorrowerName} onChange={handleChange} error={fieldErrors.installmentBorrowerName} placeholder="Nguyễn Văn A" />
-                    <Field label="Sá»‘ CCCD/CMND *" id="installmentIdNumber" name="installmentIdNumber" value={form.installmentIdNumber} onChange={handleChange} error={fieldErrors.installmentIdNumber} placeholder="0123456789" />
+                    <Field label="Số CCCD/CMND *" id="installmentIdNumber" name="installmentIdNumber" value={form.installmentIdNumber} onChange={handleChange} error={fieldErrors.installmentIdNumber} placeholder="0123456789" />
                     <Field label="Ngày cấp CCCD *" id="installmentIdIssueDate" name="installmentIdIssueDate" value={form.installmentIdIssueDate} onChange={handleChange} error={fieldErrors.installmentIdIssueDate} type="date" />
-                    <Field label="NÆ¡i cáº¥p CCCD *" id="installmentIdIssuePlace" name="installmentIdIssuePlace" value={form.installmentIdIssuePlace} onChange={handleChange} error={fieldErrors.installmentIdIssuePlace} placeholder="VD: Cá»¥c CS QLHC vá» TTXH" />
+                    <Field label="Nơi cấp CCCD *" id="installmentIdIssuePlace" name="installmentIdIssuePlace" value={form.installmentIdIssuePlace} onChange={handleChange} error={fieldErrors.installmentIdIssuePlace} placeholder="VD: Cục CS QLHC về TTXH" />
                     <Field label="Ngày sinh" id="installmentBirthDate" name="installmentBirthDate" value={form.installmentBirthDate} onChange={handleChange} type="date" />
                     <Field label="Số điện thoại người vay *" id="installmentPhone" name="installmentPhone" value={form.installmentPhone} onChange={handleChange} error={fieldErrors.installmentPhone} placeholder="0912345678" type="tel" />
                   </div>
@@ -685,14 +687,14 @@ function CheckoutPage() {
             </div>
           </form>
 
-          {/* â”€â”€ Right: Order Summary â”€â”€ */}
+          {/* ── Right: Order Summary ── */}
           <aside className="space-y-5 lg:sticky lg:top-28 lg:self-start">
             <div className="rounded-[28px] border border-zinc-200 bg-white p-6 shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
               <h2 className="text-[22px] font-black text-zinc-950">Đơn hàng của bạn</h2>
 
               <div className="mt-5 max-h-[340px] space-y-3 overflow-y-auto pr-1">
                 {items.map((item) => {
-                  const name = item.product?.name || item.productName || 'Sáº£n pháº©m';
+                  const name = item.product?.name || item.productName || 'Sản phẩm';
                   const variant = item.productVariant || {};
                   const variantName = variant.variantName || [variant.version, variant.color].filter(Boolean).join(' / ') || item.variantName || '';
                   const price = item.unitPrice || item.product?.salePrice || item.product?.basePrice || 0;
@@ -737,7 +739,7 @@ function CheckoutPage() {
                             <span className="text-2xl">🎫</span>
                             <div className="flex-1 min-w-0">
                               <div className="text-sm font-bold text-[#d71920]">{v.code}</div>
-                              <div className="text-xs text-zinc-600">{v.description || `Giáº£m ${v.discountType === 'Percent' ? v.discountValue + '%' : formatCurrency(v.discountValue)}`}</div>
+                              <div className="text-xs text-zinc-600">{v.description || `Giảm ${v.discountType === 'Percent' ? v.discountValue + '%' : formatCurrency(v.discountValue)}`}</div>
                             </div>
                             <button
                               type="button"
@@ -802,7 +804,7 @@ function CheckoutPage() {
                 )}
                 {voucherDiscount > 0 && (
                   <div className="flex items-center justify-between text-sm text-green-600">
-                    <span>Giáº£m voucher</span>
+                    <span>Giảm voucher</span>
                     <strong className="font-bold">-{formatCurrency(voucherDiscount)}</strong>
                   </div>
                 )}
@@ -819,7 +821,7 @@ function CheckoutPage() {
                   </>
                 )}
                 <div className="flex items-center justify-between pt-2 text-[#d71920]">
-                  <span className="text-sm font-extrabold uppercase tracking-[0.08em]">Tá»•ng cá»™ng</span>
+                  <span className="text-sm font-extrabold uppercase tracking-[0.08em]">Tổng cộng</span>
                   <strong className="text-[24px] font-black">{formatCurrency(totalAmount)}</strong>
                 </div>
               </div>
@@ -844,7 +846,7 @@ function CheckoutPage() {
   );
 }
 
-/* â”€â”€ Reusable Radio Pill â”€â”€ */
+/* ── Reusable Radio Pill ── */
 function RadioPill({ name, value, label, checked, onChange }) {
   return (
     <label className={`flex cursor-pointer items-center gap-2 rounded-full border px-5 py-2.5 text-sm font-bold transition ${checked ? 'border-[#d71920] bg-red-50 text-[#d71920]' : 'border-zinc-200 bg-zinc-50 text-zinc-600 hover:border-zinc-300'}`}>
@@ -857,7 +859,7 @@ function RadioPill({ name, value, label, checked, onChange }) {
   );
 }
 
-/* â”€â”€ Reusable Field Component â”€â”€ */
+/* ── Reusable Field Component ── */
 function Field({ label, id, name, value, onChange, error, placeholder, type = 'text', multiline }) {
   const baseClass = 'w-full rounded-xl border bg-zinc-50 px-4 py-3 text-sm text-zinc-900 outline-none transition placeholder:text-zinc-400 focus:border-[#d71920] focus:ring-2 focus:ring-[#d71920]/20';
   const errorClass = error ? 'border-red-300' : 'border-zinc-200';

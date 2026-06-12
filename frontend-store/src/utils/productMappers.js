@@ -1,50 +1,53 @@
+// Map dữ liệu sản phẩm/danh mục/giỏ hàng từ backend xemoto (MoToSale) sang shape UI dùng.
+// Backend luôn trả JSON camelCase nên ở đây đọc THẲNG đúng tên trường, không dò nhiều alias.
+// Tên trường backend tham chiếu:
+//   ProductListItem: id, code, name, slug, categoryId, brandId, vehicleModelId, kind,
+//                    isFeatured, isHotDeal, listPrice, salePrice, mainImageUrl, stockTotal, status
+//   ProductDetail:   ...id/code/name/slug/categoryId/brandId..., shortDescription, description, skus[], images[]
+//   SkuDto:          id, skuCode, variantName, color, version, listPrice, salePrice, status, available
+//   ProductImageDto: id, skuId, url, alt, isPrimary, sortOrder
 import { normalizeImageUrl } from './formatters.js';
 
-function valueOf(source, camelKey, pascalKey = camelKey[0].toUpperCase() + camelKey.slice(1), ...aliases) {
-  for (const key of [camelKey, pascalKey, ...aliases]) {
-    if (source?.[key] !== undefined && source?.[key] !== null) {
-      return source[key];
-    }
-  }
+const toNumber = (value) => Number(value || 0);
 
-  return undefined;
-}
-
-function normalizeVariant(raw) {
-  if (!raw) {
+// Một SKU (biến thể) từ backend -> shape biến thể UI dùng.
+function normalizeVariant(sku) {
+  if (!sku) {
     return null;
   }
 
-  const images = valueOf(raw, 'images') || [];
+  const listPrice = toNumber(sku.listPrice);
+  const salePrice = sku.salePrice == null ? null : Number(sku.salePrice);
+  const sellPrice = salePrice != null && salePrice > 0 ? salePrice : listPrice;
 
   return {
-    id: valueOf(raw, 'id', 'Id', 'maBienSanPham', 'MaBienSanPham'),
-    productId: valueOf(raw, 'productId', 'ProductId', 'maSanPham', 'MaSanPham'),
-    variantName: valueOf(raw, 'variantName', 'VariantName', 'tenBienThe', 'TenBienThe') || '',
-    sku: valueOf(raw, 'sku', 'SKU') || '',
-    // Giá thật nằm ở biến thể: basePrice = GiaGoc, salePrice = GiaKhuyenMai, sellPrice = GiaBan (hiệu lực).
-    basePrice: Number(valueOf(raw, 'basePrice', 'BasePrice', 'listPrice', 'ListPrice', 'giaGoc', 'GiaGoc') || 0),
-    salePrice: valueOf(raw, 'salePrice', 'SalePrice', 'giaKhuyenMai', 'GiaKhuyenMai') == null ? null : Number(valueOf(raw, 'salePrice', 'SalePrice', 'giaKhuyenMai', 'GiaKhuyenMai')),
-    sellPrice: Number(valueOf(raw, 'sellPrice', 'SellPrice', 'listPrice', 'ListPrice', 'giaBan', 'GiaBan') || 0),
-    discountPercent: valueOf(raw, 'discountPercent', 'DiscountPercent', 'tyLeGiam', 'TyLeGiam') == null ? null : Number(valueOf(raw, 'discountPercent', 'DiscountPercent', 'tyLeGiam', 'TyLeGiam')),
-    stockQuantity: valueOf(raw, 'stockQuantity', 'StockQuantity', 'soLuongTon', 'SoLuongTon'),
-    status: valueOf(raw, 'status', 'Status', 'trangThai', 'TrangThai'),
-    version: valueOf(raw, 'version', 'Version', 'phienBan', 'PhienBan'),
-    color: valueOf(raw, 'color', 'Color', 'mauSac', 'MauSac') || valueOf(raw, 'exteriorColor'),
-    exteriorColor: valueOf(raw, 'exteriorColor') || valueOf(raw, 'color', 'Color', 'mauSac', 'MauSac'),
-    interiorColor: valueOf(raw, 'interiorColor'),
-    images: images
-      .map((image) => ({
-        id: valueOf(image, 'id', 'Id', 'maAnhSanPham', 'MaAnhSanPham'),
-        productVariantId: valueOf(image, 'productVariantId', 'ProductVariantId', 'maBienSanPham', 'MaBienSanPham') ?? valueOf(raw, 'id', 'Id', 'maBienSanPham', 'MaBienSanPham'),
-        imageUrl: normalizeImageUrl(valueOf(image, 'imageUrl', 'ImageUrl', 'urlAnh', 'UrlAnh') || valueOf(image, 'url')),
-        altText: valueOf(image, 'altText'),
-        isPrimary: valueOf(image, 'isPrimary', 'IsPrimary', 'laAnhChinh', 'LaAnhChinh'),
-        sortOrder: valueOf(image, 'sortOrder', 'SortOrder', 'thuTuHienThi', 'ThuTuHienThi') || 0,
-        raw: image,
-      }))
-      .filter((image) => image.imageUrl),
-    raw,
+    id: sku.id,
+    variantName: sku.variantName || '',
+    sku: sku.skuCode || '',
+    // basePrice = giá niêm yết; sellPrice = giá bán hiệu lực (KM nếu có, không thì niêm yết).
+    basePrice: listPrice,
+    salePrice,
+    sellPrice,
+    stockQuantity: sku.available,
+    status: sku.status,
+    version: sku.version,
+    color: sku.color,
+    exteriorColor: sku.color,
+    images: [],
+    raw: sku,
+  };
+}
+
+// Một ảnh sản phẩm từ backend -> shape ảnh UI dùng.
+function normalizeImage(image) {
+  return {
+    id: image.id,
+    productVariantId: image.skuId,
+    imageUrl: normalizeImageUrl(image.url),
+    altText: image.alt,
+    isPrimary: image.isPrimary,
+    sortOrder: image.sortOrder || 0,
+    raw: image,
   };
 }
 
@@ -53,188 +56,150 @@ export function normalizeProduct(raw) {
     return null;
   }
 
-  const images = valueOf(raw, 'images') || valueOf(raw, 'productImages') || valueOf(raw, 'anh', 'Anh') || [];
-  const variants = valueOf(raw, 'variants') || valueOf(raw, 'productVariants') || valueOf(raw, 'bienThe', 'BienThe') || [];
-  const brand = valueOf(raw, 'brand');
-  const category = valueOf(raw, 'category');
+  const images = (raw.images || []).map(normalizeImage).filter((image) => image.imageUrl);
+  // Chi tiết sản phẩm trả biến thể trong "skus"; danh sách sản phẩm thì không có biến thể.
+  const variants = (raw.skus || []).map(normalizeVariant).filter(Boolean);
+
+  // ===== Tính giá & tồn cho cấp sản phẩm =====
+  // - Trang danh sách: backend đã có sẵn listPrice/salePrice/stockTotal ở cấp sản phẩm.
+  // - Trang chi tiết: giá/tồn nằm trong từng SKU, gom lại để hiển thị "Từ {giá thấp nhất}".
+  const sellPricesFromVariants = variants
+    .map((variant) => (variant.sellPrice > 0 ? variant.sellPrice : variant.basePrice))
+    .filter((price) => price > 0);
+  const listPricesFromVariants = variants
+    .map((variant) => variant.basePrice)
+    .filter((price) => price > 0);
+
+  const topListPrice = toNumber(raw.listPrice);
+  const topSellPrice = raw.salePrice != null && Number(raw.salePrice) > 0 ? Number(raw.salePrice) : topListPrice;
+
+  const minSellPrice = sellPricesFromVariants.length ? Math.min(...sellPricesFromVariants) : topSellPrice;
+  const maxSellPrice = sellPricesFromVariants.length ? Math.max(...sellPricesFromVariants) : topSellPrice;
+  const baseListPrice = listPricesFromVariants.length ? Math.min(...listPricesFromVariants) : topListPrice;
+
+  let totalStock = toNumber(raw.stockTotal);
+  if (variants.length) {
+    totalStock = 0;
+    for (const variant of variants) {
+      totalStock += toNumber(variant.stockQuantity);
+    }
+  }
 
   return {
-    id: valueOf(raw, 'id', 'Id', 'maSanPham', 'MaSanPham'),
-    productCode: valueOf(raw, 'productCode', 'ProductCode', 'maSanPhamKinhDoanh', 'MaSanPhamKinhDoanh'),
-    name: valueOf(raw, 'name', 'Name', 'tenSanPham', 'TenSanPham') || '',
-    slug: valueOf(raw, 'slug'),
-    categoryId: valueOf(raw, 'categoryId', 'CategoryId', 'maDanhMuc', 'MaDanhMuc'),
-    categoryName: category?.name || category?.Name || valueOf(raw, 'categoryName', 'CategoryName', 'tenDanhMuc', 'TenDanhMuc'),
-    brandId: valueOf(raw, 'brandId', 'BrandId', 'maHangXe', 'MaHangXe'),
-    brandName: brand?.name || brand?.Name || valueOf(raw, 'brandName', 'BrandName', 'tenHang', 'TenHang'),
-    carModelId: valueOf(raw, 'carModelId', 'CarModelId', 'maDongXe', 'MaDongXe'),
-    carModelName: valueOf(raw, 'carModelName', 'CarModelName', 'tenDongXe', 'TenDongXe') || valueOf(valueOf(raw, 'carModel'), 'name'),
-    productType: valueOf(raw, 'productType', 'ProductType', 'loaiSanPham', 'LoaiSanPham'),
-    shortDescription: valueOf(raw, 'shortDescription', 'ShortDescription', 'moTaNgan', 'MoTaNgan'),
-    description: valueOf(raw, 'description', 'Description', 'moTa', 'MoTa'),
-    // Giá tổng hợp từ biến thể: minPrice = giá bán thấp nhất ("Từ {minPrice}"); basePrice = giá gốc tương ứng (gạch ngang).
-    minPrice: Number(valueOf(raw, 'minPrice', 'MinPrice', 'listPrice', 'ListPrice', 'giaThapNhat', 'GiaThapNhat', 'giaBan', 'GiaBan') || 0),
-    maxPrice: Number(valueOf(raw, 'maxPrice', 'MaxPrice', 'listPrice', 'ListPrice', 'giaCaoNhat', 'GiaCaoNhat') || 0),
-    basePrice: Number(valueOf(raw, 'giaGocThapNhat', 'GiaGocThapNhat', 'minBasePrice', 'basePrice', 'BasePrice', 'listPrice', 'ListPrice', 'giaGoc', 'GiaGoc') || 0),
-    salePrice: valueOf(raw, 'giaThapNhat', 'GiaThapNhat', 'salePrice', 'SalePrice', 'listPrice', 'ListPrice', 'giaKhuyenMai', 'GiaKhuyenMai', 'giaBan', 'GiaBan') == null ? null : Number(valueOf(raw, 'giaThapNhat', 'GiaThapNhat', 'salePrice', 'SalePrice', 'listPrice', 'ListPrice', 'giaKhuyenMai', 'GiaKhuyenMai', 'giaBan', 'GiaBan')),
-    discountPercent: valueOf(raw, 'discountPercent', 'DiscountPercent', 'tyLeGiam', 'TyLeGiam') == null ? null : Number(valueOf(raw, 'discountPercent', 'DiscountPercent', 'tyLeGiam', 'TyLeGiam')),
-    variantCount: Number(valueOf(raw, 'variantCount', 'soBienThe', 'SoBienThe') || 0),
-    stockQuantity: valueOf(raw, 'stockQuantity', 'StockQuantity', 'stockTotal', 'StockTotal', 'tongTon', 'TongTon', 'soLuongTon', 'SoLuongTon'),
-    mainImageUrl: normalizeImageUrl(valueOf(raw, 'mainImageUrl', 'MainImageUrl', 'anhChinhUrl', 'AnhChinhUrl')),
-    status: valueOf(raw, 'status', 'Status', 'trangThaiSanPham', 'TrangThaiSanPham'),
-    isActive: valueOf(raw, 'isActive', 'IsActive', 'dangHoatDong', 'DangHoatDong') !== false,
-    averageRating: Number(valueOf(raw, 'averageRating', 'AverageRating', 'diemTrungBinh', 'DiemTrungBinh') || 0),
-    totalReviews: Number(valueOf(raw, 'totalReviews', 'TotalReviews', 'tongDanhGia', 'TongDanhGia') || 0),
-    mainColor: valueOf(raw, 'mainColor'),
-    motorcycleType: valueOf(raw, 'motorcycleType'),
-    engineCapacity: valueOf(raw, 'engineCapacity'),
-    power: valueOf(raw, 'power'),
-    torque: valueOf(raw, 'torque'),
-    fuelTankCapacity: valueOf(raw, 'fuelTankCapacity'),
-    frontBrake: valueOf(raw, 'frontBrake'),
-    rearBrake: valueOf(raw, 'rearBrake'),
-    hasAbs: valueOf(raw, 'hasAbs'),
-    weight: valueOf(raw, 'weight'),
-    seatHeight: valueOf(raw, 'seatHeight'),
-    origin: valueOf(raw, 'origin'),
-    warrantyMonths: valueOf(raw, 'warrantyMonths'),
-    condition: valueOf(raw, 'condition'),
-    year: valueOf(raw, 'year'),
-    mileage: valueOf(raw, 'mileage'),
-    exteriorColor: valueOf(raw, 'exteriorColor'),
-    transmission: valueOf(raw, 'transmission'),
-    fuelType: valueOf(raw, 'fuelType'),
-    engine: valueOf(raw, 'engine'),
-    interiorColor: valueOf(raw, 'interiorColor'),
-    seats: valueOf(raw, 'seats'),
-    driveType: valueOf(raw, 'driveType'),
-    vin: valueOf(raw, 'vin'),
-    licensePlate: valueOf(raw, 'licensePlate'),
-    images: images
-      .map((image) => ({
-        id: valueOf(image, 'id', 'Id', 'maAnhSanPham', 'MaAnhSanPham'),
-        productVariantId: valueOf(image, 'productVariantId', 'ProductVariantId', 'maBienSanPham', 'MaBienSanPham'),
-        imageUrl: normalizeImageUrl(valueOf(image, 'imageUrl', 'ImageUrl', 'urlAnh', 'UrlAnh') || valueOf(image, 'url')),
-        altText: valueOf(image, 'altText'),
-        isPrimary: valueOf(image, 'isPrimary', 'IsPrimary', 'laAnhChinh', 'LaAnhChinh'),
-        sortOrder: valueOf(image, 'sortOrder', 'SortOrder', 'thuTuHienThi', 'ThuTuHienThi') || 0,
-        raw: image,
-      }))
-      .filter((image) => image.imageUrl),
-    variants: variants.map(normalizeVariant).filter(Boolean),
+    id: raw.id,
+    productCode: raw.code,
+    name: raw.name || '',
+    slug: raw.slug,
+    categoryId: raw.categoryId,
+    categoryName: raw.categoryName,
+    brandId: raw.brandId,
+    brandName: raw.brandName,
+    carModelId: raw.vehicleModelId,
+    kind: raw.kind,
+    shortDescription: raw.shortDescription,
+    description: raw.description,
+    isFeatured: raw.isFeatured,
+    isHotDeal: raw.isHotDeal,
+    manufacturerId: raw.manufacturerId,
+    manufacturerName: raw.manufacturerName,
+    // Giá tổng hợp: minPrice = giá bán thấp nhất ("Từ {minPrice}"); basePrice = giá niêm yết (gạch ngang).
+    minPrice: minSellPrice,
+    maxPrice: maxSellPrice,
+    basePrice: baseListPrice,
+    salePrice: minSellPrice > 0 ? minSellPrice : null,
+    discountPercent: null,
+    variantCount: variants.length,
+    stockQuantity: totalStock,
+    mainImageUrl: normalizeImageUrl(raw.mainImageUrl),
+    status: raw.status,
+    isActive: raw.status !== 0,
+    averageRating: 0,
+    totalReviews: 0,
+    images,
+    variants,
     raw,
   };
 }
 
 export function normalizeProductList(response) {
-  const rawItems = Array.isArray(response) ? response : response?.items || response?.Items || [];
-  const pageSize = response?.pageSize || response?.PageSize || rawItems.length;
-  const totalCount = response?.totalCount || response?.TotalCount || response?.totalItems || response?.TotalItems || rawItems.length;
+  const rawItems = Array.isArray(response) ? response : response?.items || [];
+  const pageSize = response?.pageSize || rawItems.length;
+  const totalCount = response?.totalItems ?? response?.totalCount ?? rawItems.length;
 
   return {
     items: rawItems.map(normalizeProduct).filter(Boolean),
     totalCount,
-    page: response?.page || response?.Page || 1,
+    page: response?.page || 1,
     pageSize,
-    totalPages: response?.totalPages || response?.TotalPages || Math.max(1, Math.ceil(totalCount / Math.max(pageSize, 1))),
+    totalPages: response?.totalPages || Math.max(1, Math.ceil(totalCount / Math.max(pageSize, 1))),
   };
 }
 
+// CategoryDto: id, parentId, name, slug, kind, sortOrder, status
 export function normalizeCategory(raw) {
   return {
-    id: valueOf(raw, 'id', 'Id', 'maDanhMuc', 'MaDanhMuc'),
-    name: valueOf(raw, 'name', 'Name', 'tenDanhMuc', 'TenDanhMuc') || '',
-    slug: valueOf(raw, 'slug'),
-    parentCategoryId: valueOf(raw, 'parentCategoryId', 'ParentCategoryId', 'maDanhMucCha', 'MaDanhMucCha'),
-    description: valueOf(raw, 'description', 'Description', 'moTa', 'MoTa'),
-    image: normalizeImageUrl(valueOf(raw, 'image', 'Image', 'imageUrl', 'ImageUrl', 'hinhAnhUrl', 'HinhAnhUrl', 'anhDaiDienUrl', 'AnhDaiDienUrl') || ''),
-    sortOrder: valueOf(raw, 'sortOrder', 'SortOrder', 'thuTuHienThi', 'ThuTuHienThi') || 0,
-    isActive: valueOf(raw, 'isActive', 'IsActive', 'dangHoatDong', 'DangHoatDong') !== false,
+    id: raw.id,
+    name: raw.name || '',
+    slug: raw.slug,
+    parentCategoryId: raw.parentId,
+    kind: raw.kind,
+    image: normalizeImageUrl(raw.imageUrl || ''),
+    sortOrder: raw.sortOrder || 0,
+    isActive: raw.status !== 0,
   };
 }
 
+// /products/filters trả: categories[], brands[], carModels[], partCompatibleTypes[]
 export function normalizeFilters(response) {
   return {
-    categories: (response?.categories || response?.Categories || []).map(normalizeCategory),
-    brands: (response?.brands || response?.Brands || []).map((brand) => ({
-      id: valueOf(brand, 'id', 'Id', 'maHangXe', 'MaHangXe'),
-      name: valueOf(brand, 'name', 'Name', 'tenHang', 'TenHang') || '',
+    categories: (response?.categories || []).map(normalizeCategory),
+    brands: (response?.brands || []).map((brand) => ({
+      id: brand.id,
+      name: brand.name || '',
     })),
-    carModels: response?.carModels || response?.CarModels || [],
-    partCompatibleTypes: (response?.partCompatibleTypes || response?.PartCompatibleTypes || []).map((item) => ({
-      id: valueOf(item, 'id', 'Id', 'maDongXe', 'MaDongXe'),
-      name: valueOf(item, 'name', 'Name', 'tenDongXe', 'TenDongXe') || '',
-      brandId: valueOf(item, 'brandId', 'BrandId', 'maHangXe', 'MaHangXe'),
-      brandName: valueOf(item, 'brandName', 'BrandName', 'tenHang', 'TenHang') || '',
+    carModels: response?.carModels || [],
+    partCompatibleTypes: (response?.partCompatibleTypes || []).map((item) => ({
+      id: item.id,
+      name: item.name || '',
+      brandId: item.brandId,
+      brandName: item.brandName || '',
     })),
   };
 }
 
+// CartDto: id, items[], totalItems, subtotal
+// CartItemDto: id, productId, skuId, skuCode, productName, qty, unitPrice, lineTotal, imageUrl
 export function normalizeCart(response) {
-  const items = response?.items || response?.Items || [];
-  const normalizedItems = items.map((item) => {
-    const quantity = Number(valueOf(item, 'quantity', 'Quantity', 'soLuong', 'SoLuong') || 1);
-    const unitPrice = Number(valueOf(item, 'unitPrice', 'UnitPrice', 'donGia', 'DonGia') || 0);
-    const lineTotal = Number(valueOf(item, 'lineTotal', 'LineTotal', 'thanhTien', 'ThanhTien') || unitPrice * quantity);
-    // Backend CartItemDto trả biến thể dạng phẳng (tenBienThe/SKU), không có object lồng.
-    const variantName = valueOf(item, 'variantName', 'VariantName', 'tenBienThe', 'TenBienThe') || '';
-    const sku = valueOf(item, 'sku', 'SKU') || '';
-    const itemImageUrl = normalizeImageUrl(valueOf(
-      item,
-      'mainImageUrl',
-      'MainImageUrl',
-      'anhChinhUrl',
-      'AnhChinhUrl',
-      'imageUrl',
-      'ImageUrl',
-      'urlAnh',
-      'UrlAnh',
-    ));
-    const normalizedProduct = normalizeProduct(valueOf(item, 'product'));
-    const fallbackProduct = {
-      id: valueOf(item, 'productId', 'ProductId', 'maSanPham', 'MaSanPham'),
-      name: valueOf(item, 'productName', 'ProductName', 'tenSanPham', 'TenSanPham') || '',
-      mainImageUrl: itemImageUrl,
-      images: itemImageUrl ? [{ imageUrl: itemImageUrl, isPrimary: true }] : [],
-    };
-    const product = normalizedProduct
-      ? {
-        ...normalizedProduct,
-        mainImageUrl: normalizedProduct.mainImageUrl || itemImageUrl,
-        images: normalizedProduct.images?.length
-          ? normalizedProduct.images
-          : (itemImageUrl ? [{ imageUrl: itemImageUrl, isPrimary: true }] : []),
-      }
-      : fallbackProduct;
+  const rawItems = response?.items || [];
+  const items = rawItems.map((item) => {
+    const quantity = toNumber(item.qty);
+    const unitPrice = toNumber(item.unitPrice);
+    const lineTotal = item.lineTotal != null ? Number(item.lineTotal) : unitPrice * quantity;
+    const imageUrl = normalizeImageUrl(item.imageUrl);
 
     return {
-      id: valueOf(item, 'id', 'Id', 'maChiTietGioHang', 'MaChiTietGioHang'),
-      cartId: valueOf(item, 'cartId', 'CartId', 'maGioHang', 'MaGioHang'),
-      productId: valueOf(item, 'productId', 'ProductId', 'maSanPham', 'MaSanPham'),
-      productVariantId: valueOf(item, 'productVariantId', 'ProductVariantId', 'maBienSanPham', 'MaBienSanPham'),
+      id: item.id,
+      productId: item.productId,
+      productVariantId: item.skuId,
       quantity,
       unitPrice,
       lineTotal,
-      product,
-      variantName,
-      sku,
-      productVariant: normalizeVariant(valueOf(item, 'productVariant')) || (variantName || sku
-        ? {
-          id: valueOf(item, 'productVariantId', 'ProductVariantId', 'maBienSanPham', 'MaBienSanPham'),
-          variantName,
-          sku,
-        }
-        : null),
+      sku: item.skuCode || '',
+      variantName: '',
+      product: {
+        id: item.productId,
+        name: item.productName || '',
+        mainImageUrl: imageUrl,
+        images: imageUrl ? [{ imageUrl, isPrimary: true }] : [],
+      },
+      productVariant: item.skuCode ? { id: item.skuId, sku: item.skuCode, variantName: '' } : null,
     };
   });
 
   return {
-    ...response,
-    id: valueOf(response, 'id', 'Id', 'maGioHang', 'MaGioHang'),
-    userId: valueOf(response, 'userId', 'UserId', 'maNguoiDung', 'MaNguoiDung'),
-    status: valueOf(response, 'status', 'Status', 'trangThai', 'TrangThai'),
-    items: normalizedItems,
-    totalItems: Number(valueOf(response, 'totalItems', 'TotalItems', 'tongSoLuong', 'TongSoLuong') ?? normalizedItems.reduce((sum, item) => sum + item.quantity, 0)),
-    subtotal: Number(valueOf(response, 'subtotal', 'Subtotal', 'tongTienHang', 'TongTienHang') ?? normalizedItems.reduce((sum, item) => sum + item.lineTotal, 0)),
+    id: response?.id,
+    items,
+    totalItems: response?.totalItems != null ? Number(response.totalItems) : items.reduce((sum, item) => sum + item.quantity, 0),
+    subtotal: response?.subtotal != null ? Number(response.subtotal) : items.reduce((sum, item) => sum + item.lineTotal, 0),
   };
 }

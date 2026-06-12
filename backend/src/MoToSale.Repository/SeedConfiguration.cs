@@ -1,13 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using MoToSale.Common;
-using MoToSale.Common.Helpers;
 using MoToSale.Entities.Catalog;
 using MoToSale.Entities.Content;
 using MoToSale.Entities.Identity;
 using MoToSale.Entities.Inventory;
 using MoToSale.Entities.Ordering;
 using MoToSale.Entities.Payments;
-using MoToSale.Repository.Seeds;
 
 namespace MoToSale.Repository;
 

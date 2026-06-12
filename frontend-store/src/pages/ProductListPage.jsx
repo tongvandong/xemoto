@@ -283,7 +283,19 @@ function ProductListPage() {
               </div>
             </div>
 
-            {loading && <LoadingState />}
+            {loading && (
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4" aria-hidden="true">
+                {Array.from({ length: 8 }).map((_, index) => (
+                  <div key={index} className="overflow-hidden rounded-2xl border border-zinc-200 bg-white p-4">
+                    <div className="ui-skeleton aspect-square w-full" />
+                    <div className="ui-skeleton mt-4 h-3 w-1/3" />
+                    <div className="ui-skeleton mt-3 h-4 w-5/6" />
+                    <div className="ui-skeleton mt-3 h-5 w-1/2" />
+                    <div className="ui-skeleton mt-4 h-10 w-full !rounded-xl" />
+                  </div>
+                ))}
+              </div>
+            )}
             {error && <ErrorState message={error.message} onRetry={load} />}
 
             {!loading && !error && (
@@ -300,10 +312,11 @@ function ProductListPage() {
                         <button
                           key={page}
                           type="button"
-                          className={`inline-flex h-11 min-w-11 items-center justify-center rounded-full px-4 text-sm font-bold transition ${
+                          aria-current={isActive ? 'page' : undefined}
+                          className={`inline-flex h-11 min-w-11 items-center justify-center rounded-full px-4 text-sm font-bold transition active:scale-95 ${
                             isActive
                               ? 'bg-[#111111] text-white shadow-[0_16px_30px_rgba(15,23,42,0.18)]'
-                              : 'border border-zinc-200 bg-white text-zinc-700 hover:border-zinc-950 hover:text-zinc-950'
+                              : 'border border-zinc-200 bg-white text-zinc-700 hover:border-zinc-950 hover:bg-zinc-50 hover:text-zinc-950'
                           }`}
                           onClick={() => updateFilters({ ...queryValues, page })}
                         >

@@ -5,7 +5,7 @@ import { orderApi, reviewApi } from '../services/api.js';
 import Breadcrumb from '../components/Breadcrumb.jsx';
 import LoadingState from '../components/LoadingState.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
-import { formatCurrency } from '../utils/formatters.js';
+import { formatCurrency, formatDate, formatDateTime } from '../utils/formatters.js';
 import ReviewModal from '../components/product/ReviewModal.jsx';
 import {
   getOrderStatusLabel, getOrderStatusColor,
@@ -13,6 +13,12 @@ import {
   getPaymentStatusColor, getPaymentStatusContextual,
   getOrderTypeLabel,
 } from '../utils/statusMappings.js';
+import {
+  isOrderReviewable,
+  getOrderItems,
+  getReviewableOrderItems,
+  hasReviewableItems,
+} from '../utils/reviewEligibility.js';
 
 function StatusBadge({ label, colorClass }) {
   return (
@@ -26,13 +32,7 @@ function formatOrderTime(value, now) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return 'Chưa cập nhật';
 
-  const absoluteTime = date.toLocaleDateString('vi-VN', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const absoluteTime = formatDateTime(value);
   const diffMs = now.getTime() - date.getTime();
 
   if (diffMs < 0) return absoluteTime;
@@ -72,7 +72,7 @@ function OrdersPage() {
       awaitingList.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
       setAwaitingOrders(awaitingList);
     } catch (err) {
-            setError(err?.message || 'Không thể tải danh sách đơn hàng');
+      setError(err?.message || 'Không thể tải danh sách đơn hàng');
     } finally {
       if (!silent) setLoading(false);
     }
@@ -102,7 +102,7 @@ function OrdersPage() {
     const productIds = [
       ...new Set(
         orders
-          .filter((order) => order?.shippingStatus === 'Delivered')
+          .filter(isOrderReviewable)
           .flatMap(getOrderItems)
           .map(getReviewProductId)
           .filter(Boolean)
@@ -196,7 +196,7 @@ function OrdersPage() {
                 <ul className="grid gap-3 p-4 lg:grid-cols-2">
                   {installmentOrders.map((o) => {
                     const plan = o.traGop;
-                    const terms = Array.isArray(plan.terms) ? plan.terms : plan.terms?.$values || [];
+                    const terms = plan.terms || [];
                     const paidTerms = terms.filter((t) => t.trangThai === 'Paid').length;
                     const totalTerms = Number(plan.soKy || terms.length || 0);
                     const progress = totalTerms > 0 ? Math.min(100, Math.round((paidTerms / totalTerms) * 100)) : 0;
@@ -217,7 +217,7 @@ function OrdersPage() {
                           <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-amber-50 px-3 py-2">
                             <div className="flex items-center gap-2 text-xs font-bold text-amber-800">
                               <FiCalendar className="h-4 w-4" />
-                              Kỳ {nextTerm.kyThu} · {new Date(nextTerm.ngayDenHan).toLocaleDateString('vi-VN')}
+                              Kỳ {nextTerm.kyThu} · {formatDate(nextTerm.ngayDenHan)}
                             </div>
                             <strong className="whitespace-nowrap text-sm text-[#d71920]">{formatCurrency(nextTerm.tongTien)}</strong>
                           </div>
@@ -348,7 +348,7 @@ function OrdersPage() {
                       {order.depositAmount > 0 && <span>Đã cọc: <span className="font-bold text-amber-600">{formatCurrency(order.depositAmount)}</span></span>}
                     </div>
                     <div className="flex flex-wrap items-center justify-end gap-2">
-                      {canReviewOrder(order, reviewStatusByProductId) && (
+                      {hasReviewableItems(order, reviewStatusByProductId) && (
                         <button
                           type="button"
                           onClick={(event) => handleReviewOrder(event, order)}
@@ -399,29 +399,6 @@ function InfoCell({ label, value }) {
       <div className="mt-0.5 text-sm font-bold text-zinc-800">{value}</div>
     </div>
   );
-}
-
-function getOrderItems(order) {
-  const items = order?.items || order?.Items || [];
-  if (Array.isArray(items)) return items;
-  return items?.$values || [];
-}
-
-function getReviewProductId(item) {
-  return item?.productId || item?.id || item?.maSanPham || item?.MaSanPham;
-}
-
-function isItemReviewable(item, reviewStatusByProductId) {
-  const productId = getReviewProductId(item);
-  return productId && reviewStatusByProductId[String(productId)] === 'not-reviewed';
-}
-
-function getReviewableOrderItems(order, reviewStatusByProductId) {
-  return getOrderItems(order).filter((item) => isItemReviewable(item, reviewStatusByProductId));
-}
-
-function canReviewOrder(order, reviewStatusByProductId) {
-  return order?.shippingStatus === 'Delivered' && getReviewableOrderItems(order, reviewStatusByProductId).length > 0;
 }
 
 function ReviewProductPicker({ order, reviewStatusByProductId = {}, onClose, onPick }) {

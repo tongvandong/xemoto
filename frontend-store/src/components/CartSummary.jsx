@@ -30,7 +30,7 @@ function CartSummary({ items, subtotal: backendSubtotal, onCheckout }) {
 
       <button
         type="button"
-        className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-full bg-[#d71920] px-5 text-sm font-extrabold uppercase tracking-[0.08em] text-white transition hover:bg-[#b61016] disabled:cursor-not-allowed disabled:bg-zinc-300"
+        className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-full bg-[#d71920] px-5 text-sm font-extrabold uppercase tracking-[0.08em] text-white shadow-[0_14px_28px_rgba(215,25,32,0.25)] transition hover:bg-[#b61016] hover:shadow-[0_18px_34px_rgba(215,25,32,0.32)] active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:shadow-none"
         onClick={onCheckout}
         disabled={!items.length}
       >

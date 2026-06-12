@@ -8,13 +8,14 @@ import ErrorState from '../components/ErrorState.jsx';
 import LoadingState from '../components/LoadingState.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useCart } from '../contexts/CartContext.jsx';
+import { useNotification } from '../contexts/NotificationContext.jsx';
 
 function CartPage() {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
+  const { notify } = useNotification();
   const { cart, loading, refreshCart, updateItem, removeItem: removeCartItem } = useCart();
   const [error, setError] = useState(null);
-  const [checkoutNotice, setCheckoutNotice] = useState('');
 
   async function loadCart() {
     if (!isAuthenticated) {
@@ -35,26 +36,24 @@ function CartPage() {
   }, [isAuthenticated]);
 
   async function updateQuantity(itemId, quantity) {
-    setCheckoutNotice('');
     try {
       await updateItem(itemId, quantity);
     } catch (err) {
-      setCheckoutNotice(err.message || 'Khong the cap nhat so luong trong gio hang.');
+      notify(err.message || 'Không thể cập nhật số lượng trong giỏ hàng.', 'error');
     }
   }
 
   async function removeItem(itemId) {
-    setCheckoutNotice('');
     try {
       await removeCartItem(itemId);
     } catch (err) {
-      setCheckoutNotice(err.message || 'Khong the xoa san pham khoi gio hang.');
+      notify(err.message || 'Không thể xóa sản phẩm khỏi giỏ hàng.', 'error');
     }
   }
 
   function checkout() {
     if (!items.length) {
-      setCheckoutNotice('Gio hang trong. Vui long them san pham truoc khi thanh toan.');
+      notify('Giỏ hàng trống. Vui lòng thêm sản phẩm trước khi thanh toán.', 'error');
       return;
     }
 
@@ -82,12 +81,6 @@ function CartPage() {
                 >
                   Đăng nhập
                 </Link>
-              </div>
-            )}
-
-            {checkoutNotice && (
-              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-700">
-                {checkoutNotice}
               </div>
             )}
 

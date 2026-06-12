@@ -13,17 +13,23 @@ import {
   FiXCircle,
 } from 'react-icons/fi';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { orderApi, paymentApi } from '../services/api.js';
+import { orderApi, reviewApi } from '../services/api.js';
 import Breadcrumb from '../components/Breadcrumb.jsx';
 import LoadingState from '../components/LoadingState.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
-import { formatCurrency } from '../utils/formatters.js';
+import { useNotification } from '../contexts/NotificationContext.jsx';
+import { formatCurrency, formatDate, formatDateTime } from '../utils/formatters.js';
 import { printInstallmentApplication } from '../utils/printInstallmentApplication.js';
 import {
   getShippingStatusLabel, getShippingStatusColor,
   getPaymentStatusColor, getPaymentStatusContextual, getPaymentStatusLabel,
   getPaymentMethodLabel, getOrderTypeLabel, getReceivingMethodLabel,
+  canCancelOrder,
+  getInstallmentTermStatusLabel, getInstallmentTermStatusColor,
 } from '../utils/statusMappings.js';
+import {
+  isOrderReviewable, getOrderItems, getReviewProductId, isItemReviewable,
+} from '../utils/reviewEligibility.js';
 import ReviewModal from '../components/product/ReviewModal.jsx';
 
 function Badge({ label, colorClass }) {
@@ -32,16 +38,11 @@ function Badge({ label, colorClass }) {
 
 const SHIPPING_STEPS = ['Preparing', 'Shipping', 'Delivered'];
 
-function getOrderPaymentDisplay(order) {
-  if (order.paymentMethod) return getPaymentMethodLabel(order.paymentMethod);
-  if (order.orderType) return getOrderTypeLabel(order.orderType);
-  return 'Chưa cập nhật';
-}
-
 function OrderDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { isAuthenticated: isAuth } = useAuth();
+  const { notify } = useNotification();
   const [order, setOrder] = useState(null);
   const [details, setDetails] = useState([]);
   const [vouchers, setVouchers] = useState([]);
@@ -53,10 +54,7 @@ function OrderDetailPage() {
   const [cancelReason, setCancelReason] = useState('');
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [reviewProduct, setReviewProduct] = useState(null);
-  const [showRefundModal, setShowRefundModal] = useState(false);
-  const [refundForm, setRefundForm] = useState({ bankName: '', accountNo: '', accountName: '', reason: '' });
-  const [refundSubmitting, setRefundSubmitting] = useState(false);
-  const [refundError, setRefundError] = useState('');
+  const [reviewStatusByProductId, setReviewStatusByProductId] = useState({});
 
   useEffect(() => {
     if (!isAuth) {
@@ -76,13 +74,9 @@ function OrderDetailPage() {
       setOrder(res.order || res);
       setDetails(res.details?.$values || res.details || []);
       setVouchers(res.vouchers?.$values || res.vouchers || []);
-
-      try {
-        const payRes = await paymentApi.getByOrder(id);
-        setPayments(Array.isArray(payRes) ? payRes : payRes?.$values || []);
-      } catch {
-        setPayments([]);
-      }
+      // Lịch sử thanh toán nằm sẵn trong chi tiết đơn (payments[]),
+      // không gọi /payments/order vì endpoint đó chỉ dành cho admin/staff.
+      setPayments(res.payments || []);
 
       try {
         setPaymentInfo(await orderApi.getPaymentInfo(id));
@@ -109,6 +103,38 @@ function OrderDetailPage() {
     }
   }
 
+  // Tra trạng thái đã-đánh-giá cho từng sản phẩm khi đơn đủ điều kiện (dùng chung quy tắc với OrdersPage).
+  useEffect(() => {
+    if (!isAuth || !order || !isOrderReviewable(order)) {
+      setReviewStatusByProductId((current) => (Object.keys(current).length ? {} : current));
+      return undefined;
+    }
+
+    const productIds = [
+      ...new Set(getOrderItems(order).map(getReviewProductId).filter(Boolean).map(String)),
+    ];
+    if (productIds.length === 0) return undefined;
+
+    let active = true;
+    Promise.all(
+      productIds.map(async (productId) => {
+        try {
+          const state = await reviewApi.getMine(productId);
+          return [productId, state?.myReview ? 'reviewed' : 'not-reviewed'];
+        } catch {
+          return [productId, 'unknown'];
+        }
+      }),
+    ).then((entries) => {
+      if (!active) return;
+      setReviewStatusByProductId(Object.fromEntries(entries));
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [isAuth, order]);
+
   if (!isAuth) return null;
 
   if (loading) return (
@@ -127,51 +153,19 @@ function OrderDetailPage() {
 
   if (!order) return null;
 
-  const canCancel = order.orderStatus === 'AwaitingPayment';
+  const canCancel = canCancelOrder(order);
   const shippingSteps = SHIPPING_STEPS;
   const currentShipIdx = shippingSteps.indexOf(order.shippingStatus);
-  const plan = order.traGop || order.TraGop;
-  const refunds = order.yeuCauHoanTien || order.YeuCauHoanTien || [];
-  const pendingRefund = refunds.find((r) => r.trangThai === 'Pending');
-  const completedRefund = refunds.find((r) => r.trangThai === 'Completed');
-  const PAID_STATUSES = ['Paid', 'PartiallyPaid'];
-  const REFUND_BLOCKED_ORDER_STATUS = ['Shipping', 'Delivered', 'Completed', 'Cancelled'];
-  const canRequestRefund = PAID_STATUSES.includes(order.paymentStatus)
-    && !REFUND_BLOCKED_ORDER_STATUS.includes(order.orderStatus)
-    && !pendingRefund && !completedRefund;
+  const plan = order.traGop;
   const amountDue = Number(paymentInfo?.soTienCanThanhToan ?? 0);
   const showPaymentBox = order.orderStatus !== 'Cancelled' && order.paymentStatus !== 'Paid' && amountDue > 0;
-  const installmentTerms = Array.isArray(plan?.terms) ? plan.terms : plan?.terms?.$values || [];
+  const installmentTerms = plan?.terms || [];
   const paidInstallmentCount = installmentTerms.filter((term) => term.trangThai === 'Paid').length;
   const nextInstallmentTerm = installmentTerms.find((term) => term.trangThai === 'Pending');
   const installmentTotalTerms = Number(plan?.soKy || installmentTerms.length || 0);
   const installmentProgress = installmentTotalTerms > 0
     ? Math.min(100, Math.round((paidInstallmentCount / installmentTotalTerms) * 100))
     : 0;
-
-  async function handleRefundSubmit(e) {
-    e?.preventDefault();
-    setRefundError('');
-    if (!refundForm.bankName.trim() || !refundForm.accountName.trim()) {
-            setRefundError('Vui lòng nhập tên ngân hàng và chủ tài khoản.');
-      return;
-    }
-    if (!/^[0-9]{6,20}$/.test(refundForm.accountNo.trim())) {
-      setRefundError('Số tài khoản không hợp lệ (6–20 chữ số).');
-      return;
-    }
-    setRefundSubmitting(true);
-    try {
-      await orderApi.requestRefund(id, refundForm);
-      setShowRefundModal(false);
-      setRefundForm({ bankName: '', accountNo: '', accountName: '', reason: '' });
-      fetchOrder();
-    } catch (err) {
-      setRefundError(err?.response?.data?.message || err?.message || 'Gửi yêu cầu hoàn tiền thất bại.');
-    } finally {
-      setRefundSubmitting(false);
-    }
-  }
 
   return (
     <>
@@ -187,7 +181,7 @@ function OrderDetailPage() {
                 <div className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-zinc-400">Đơn hàng</div>
                 <h1 className="mt-1 text-[26px] font-black text-zinc-950 sm:text-[30px]">#{order.orderCode || order.id}</h1>
                 <p className="mt-1 text-sm text-zinc-500">
-                  Đặt ngày {new Date(order.createdAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  Đặt ngày {formatDateTime(order.createdAt)}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -197,45 +191,13 @@ function OrderDetailPage() {
             {canCancel && (
               <button onClick={() => setShowCancelModal(true)} className="mt-4 rounded-full border border-red-200 px-5 py-2 text-sm font-bold text-red-600 transition hover:bg-red-50">Hủy đơn hàng</button>
             )}
-            {canRequestRefund && (
-              <button onClick={() => setShowRefundModal(true)} className="mt-4 ml-2 rounded-full border border-amber-300 px-5 py-2 text-sm font-bold text-amber-700 transition hover:bg-amber-50">
-                Yêu cầu hủy &amp; hoàn tiền
-              </button>
-            )}
           </div>
-
-          {/* Refund request status */}
-          {refunds.length > 0 && (
-            <div className="rounded-[28px] border border-amber-200 bg-amber-50/40 p-6 shadow-sm">
-              <h2 className="text-lg font-black text-zinc-950">Yêu cầu hoàn tiền</h2>
-              {refunds.map((r) => (
-                <div key={r.maYeuCauHoanTien} className="mt-3 rounded-2xl bg-white p-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <strong className="text-sm">Số tiền yêu cầu: <span className="text-[#d71920]">{formatCurrency(r.soTien)}</span></strong>
-                    <Badge
-                      label={r.trangThai === 'Completed' ? 'Đã hoàn tiền' : r.trangThai === 'Rejected' ? 'Từ chối' : 'Đang xử lý'}
-                      colorClass={r.trangThai === 'Completed' ? 'bg-green-100 text-green-700' : r.trangThai === 'Rejected' ? 'bg-zinc-200 text-zinc-600' : 'bg-amber-100 text-amber-700'}
-                    />
-                  </div>
-                  <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
-                    <div className="flex justify-between"><span className="text-zinc-500">Ngân hàng</span><span className="font-bold">{r.tenNganHang}</span></div>
-                    <div className="flex justify-between"><span className="text-zinc-500">Số tài khoản</span><span className="font-bold">{r.soTaiKhoan}</span></div>
-                    <div className="flex justify-between"><span className="text-zinc-500">Chủ tài khoản</span><span className="font-bold">{r.chuTaiKhoan}</span></div>
-                    <div className="flex justify-between"><span className="text-zinc-500">Ngày gửi</span><span className="font-bold">{new Date(r.ngayTao).toLocaleString('vi-VN')}</span></div>
-                    {r.ngayHoanTat && <div className="flex justify-between"><span className="text-zinc-500">Ngày hoàn tất</span><span className="font-bold">{new Date(r.ngayHoanTat).toLocaleString('vi-VN')}</span></div>}
-                    {r.lyDo && <div className="flex justify-between sm:col-span-2"><span className="text-zinc-500">Lý do</span><span className="font-bold text-right">{r.lyDo}</span></div>}
-                    {r.maGiaoDichHoan && <div className="flex justify-between sm:col-span-2"><span className="text-zinc-500">Mã giao dịch hoàn</span><span className="font-bold">{r.maGiaoDichHoan}</span></div>}
-                  </dl>
-                </div>
-              ))}
-            </div>
-          )}
 
           {/* ── Payment / QR ── */}
           {showPaymentBox && (
             <div className="rounded-[28px] border border-amber-200 bg-amber-50/40 p-6 shadow-sm">
               <h2 className="text-lg font-black text-zinc-950">Thanh toán đơn hàng</h2>
-              <p className="mt-1 text-sm text-zinc-600">Quét mã QR hoặc chuyển khoản theo tháng tin bên dưới. Đơn sẽ được xác nhận sau khi cửa hàng nhận được tiền.</p>
+              <p className="mt-1 text-sm text-zinc-600">Quét mã QR hoặc chuyển khoản theo thông tin bên dưới. Đơn sẽ được xác nhận sau khi cửa hàng nhận được tiền.</p>
               {paymentInfo?.daCauHinhNganHang ? (
                 <div className="mt-5 flex flex-col items-center gap-5 sm:flex-row sm:items-start">
                   {paymentInfo.qrImageUrl && (
@@ -315,7 +277,7 @@ function OrderDetailPage() {
                       <td className="py-3">
                         <div className="font-bold text-zinc-900">{d.productNameSnapshot || d.productName || 'Sản phẩm'}</div>
                         {d.skuSnapshot && <div className="text-xs text-zinc-400 mt-0.5">SKU: {d.skuSnapshot}</div>}
-                        {order.orderStatus === 'Completed' && (
+                        {isItemReviewable(d, reviewStatusByProductId) && (
                           <button
                             onClick={() => setReviewProduct(d)}
                             className="mt-2 text-xs font-bold text-[#d71920] hover:underline"
@@ -338,7 +300,10 @@ function OrderDetailPage() {
           <div className="rounded-[28px] border border-zinc-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-black text-zinc-950">Thông tin thanh toán</h2>
             <dl className="mt-4 space-y-3 text-sm">
-              <div className="flex justify-between"><span className="text-zinc-500">Hình thức thanh toán</span><span className="font-bold">{getOrderPaymentDisplay(order)}</span></div>
+              <div className="flex justify-between"><span className="text-zinc-500">Loại đơn</span><span className="font-bold">{getOrderTypeLabel(order.orderType)}</span></div>
+              {order.paymentMethod && (
+                <div className="flex justify-between"><span className="text-zinc-500">Phương thức thanh toán</span><span className="font-bold">{getPaymentMethodLabel(order.paymentMethod)}</span></div>
+              )}
               <div className="flex justify-between"><span className="text-zinc-500">Tạm tính</span><span className="font-bold">{formatCurrency(order.subtotal)}</span></div>
               {order.discountAmount > 0 && (
                 <div className="flex justify-between text-green-600"><span>Giảm voucher</span><span className="font-bold">-{formatCurrency(order.discountAmount)}</span></div>
@@ -421,7 +386,7 @@ function OrderDetailPage() {
                       <div>
                         <div className="text-sm font-black text-zinc-950">Kỳ tiếp theo: Kỳ {nextInstallmentTerm.kyThu}</div>
                         <div className="mt-1 text-xs font-medium text-zinc-600">
-                          Đến hạn {new Date(nextInstallmentTerm.ngayDenHan).toLocaleDateString('vi-VN')}
+                          Đến hạn {formatDate(nextInstallmentTerm.ngayDenHan)}
                         </div>
                       </div>
                     </div>
@@ -446,7 +411,11 @@ function OrderDetailPage() {
                       </div>
                       <button
                         type="button"
-                        onClick={() => printInstallmentApplication(order, plan)}
+                        onClick={() => {
+                          if (!printInstallmentApplication(order, plan)) {
+                            notify('Trình duyệt đã chặn cửa sổ in. Vui lòng cho phép pop-up rồi thử lại.', 'error');
+                          }
+                        }}
                         className="inline-flex items-center gap-2 rounded-full border border-zinc-300 bg-white px-4 py-2 text-xs font-extrabold text-zinc-700 transition hover:border-[#d71920] hover:text-[#d71920]"
                       >
                         <FiPrinter className="h-4 w-4" />
@@ -463,9 +432,9 @@ function OrderDetailPage() {
                         <dl className="grid gap-3 text-sm">
                           <LoanInfoItem label="Họ tên" value={plan.hoTenNguoiVay} />
                           <LoanInfoItem label="CCCD/CMND" value={plan.soCCCD} />
-                          {plan.ngayCapCCCD && <LoanInfoItem label="Ngày cấp CCCD" value={new Date(plan.ngayCapCCCD).toLocaleDateString('vi-VN')} />}
+                          {plan.ngayCapCCCD && <LoanInfoItem label="Ngày cấp CCCD" value={formatDate(plan.ngayCapCCCD)} />}
                           {plan.noiCapCCCD && <LoanInfoItem label="Nơi cấp CCCD" value={plan.noiCapCCCD} />}
-                          {plan.ngaySinh && <LoanInfoItem label="Ngày sinh" value={new Date(plan.ngaySinh).toLocaleDateString('vi-VN')} />}
+                          {plan.ngaySinh && <LoanInfoItem label="Ngày sinh" value={formatDate(plan.ngaySinh)} />}
                           {plan.soDienThoai && <LoanInfoItem label="SĐT người vay" value={plan.soDienThoai} />}
                           {plan.diaChiThuongTru && <LoanInfoItem label="Địa chỉ TT" value={plan.diaChiThuongTru} multiline />}
                         </dl>
@@ -509,7 +478,7 @@ function OrderDetailPage() {
                         {installmentTerms.map((t) => (
                           <tr key={t.maKyTraGop} className={t.trangThai === 'Pending' ? 'bg-amber-50/35' : 'bg-white'}>
                             <td className="px-4 py-3 font-black text-zinc-950">Kỳ {t.kyThu}</td>
-                            <td className="px-4 py-3 font-medium text-zinc-700">{new Date(t.ngayDenHan).toLocaleDateString('vi-VN')}</td>
+                            <td className="px-4 py-3 font-medium text-zinc-700">{formatDate(t.ngayDenHan)}</td>
                             <td className="px-4 py-3 text-right text-zinc-600">{formatCurrency(t.soTienGoc)}</td>
                             <td className="px-4 py-3 text-right text-zinc-600">{formatCurrency(t.soTienLai)}</td>
                             <td className="px-4 py-3 text-right font-black text-zinc-950">{formatCurrency(t.tongTien)}</td>
@@ -536,7 +505,7 @@ function OrderDetailPage() {
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-bold text-zinc-900">{getPaymentMethodLabel(p.paymentMethod)}</div>
                       <div className="mt-0.5 text-xs text-zinc-500">
-                        {p.paymentCode} • {new Date(p.createdAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        {p.paymentCode} • {formatDateTime(p.createdAt)}
                       </div>
                       {p.transactionRef && <div className="text-xs text-zinc-400 mt-0.5">Ref: {p.transactionRef}</div>}
                     </div>
@@ -579,83 +548,17 @@ function OrderDetailPage() {
         </div>
       )}
 
-      {/* Refund Request Modal */}
-      {showRefundModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <form onSubmit={handleRefundSubmit} className="w-full max-w-md rounded-[22px] bg-white p-6 shadow-2xl">
-            <h3 className="text-lg font-black text-zinc-950">Yêu cầu hủy &amp; hoàn tiền</h3>
-            <p className="mt-2 text-sm leading-6 text-zinc-600">
-              Vui lòng cung cấp thông tin tài khoản nhận hoàn tiền. Cửa hàng sẽ chuyển khoản trong vòng 1-3 ngày làm việc sau khi xác nhận.
-            </p>
-            {refundError && <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{refundError}</div>}
-            <div className="mt-4 space-y-3">
-              <label className="block">
-                <span className="text-xs font-bold text-zinc-700">Ngân hàng *</span>
-                <input
-                  type="text"
-                  className="mt-1 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm outline-none focus:border-[#d71920]"
-                  placeholder="VD: Vietcombank"
-                  value={refundForm.bankName}
-                  onChange={(e) => setRefundForm((f) => ({ ...f, bankName: e.target.value }))}
-                  maxLength={100}
-                  required
-                />
-              </label>
-              <label className="block">
-                <span className="text-xs font-bold text-zinc-700">Số tài khoản *</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  className="mt-1 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm outline-none focus:border-[#d71920]"
-                  placeholder="Vd: 0123456789"
-                  value={refundForm.accountNo}
-                  onChange={(e) => setRefundForm((f) => ({ ...f, accountNo: e.target.value.replace(/[^\d]/g, '') }))}
-                  maxLength={20}
-                  required
-                />
-              </label>
-              <label className="block">
-                <span className="text-xs font-bold text-zinc-700">Tên chủ tài khoản *</span>
-                <input
-                  type="text"
-                  className="mt-1 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm uppercase outline-none focus:border-[#d71920]"
-                  placeholder="VD: NGUYEN VAN A"
-                  value={refundForm.accountName}
-                  onChange={(e) => setRefundForm((f) => ({ ...f, accountName: e.target.value }))}
-                  maxLength={150}
-                  required
-                />
-              </label>
-              <label className="block">
-                <span className="text-xs font-bold text-zinc-700">Lý do hủy (tùy chọn)</span>
-                <textarea
-                  rows={3}
-                  className="mt-1 w-full rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-sm outline-none focus:border-[#d71920]"
-                  placeholder="Vd: Đổi ý không mua nữa..."
-                  value={refundForm.reason}
-                  onChange={(e) => setRefundForm((f) => ({ ...f, reason: e.target.value }))}
-                  maxLength={500}
-                />
-              </label>
-            </div>
-            <div className="mt-5 flex justify-end gap-2">
-              <button type="button" onClick={() => setShowRefundModal(false)} className="rounded-full border border-zinc-200 px-5 py-2 text-sm font-bold text-zinc-600 hover:bg-zinc-100">
-                Đóng
-              </button>
-              <button type="submit" disabled={refundSubmitting} className="rounded-full bg-amber-600 px-5 py-2 text-sm font-bold text-white hover:bg-amber-700 disabled:bg-zinc-300">
-                {refundSubmitting ? 'Đang gửi...' : 'Gửi yêu cầu'}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
       {/* Review Modal */}
       <ReviewModal
         isOpen={!!reviewProduct}
         onClose={() => setReviewProduct(null)}
         product={reviewProduct}
         orderId={order.id}
+        onSubmitted={({ productId }) => {
+          if (productId) {
+            setReviewStatusByProductId((current) => ({ ...current, [String(productId)]: 'reviewed' }));
+          }
+        }}
       />
     </>
   );
@@ -704,34 +607,19 @@ function LoanInfoItem({ label, value, multiline = false }) {
   );
 }
 
+const TERM_STATUS_ICON = {
+  Paid: FiCheckCircle,
+  Cancelled: FiXCircle,
+  Pending: FiClock,
+};
+
 function TermStatusPill({ status }) {
-  const config = {
-    Paid: {
-      icon: FiCheckCircle,
-      label: 'Đã trả',
-      className: 'bg-green-100 text-green-700',
-    },
-    Cancelled: {
-      icon: FiXCircle,
-      label: 'Đã hủy',
-      className: 'bg-zinc-100 text-zinc-500',
-    },
-    Pending: {
-      icon: FiClock,
-      label: 'Chờ trả',
-      className: 'bg-amber-100 text-amber-700',
-    },
-  }[status] || {
-    icon: FiClock,
-    label: status || 'Chưa cập nhật',
-    className: 'bg-zinc-100 text-zinc-600',
-  };
-  const Icon = config.icon;
+  const Icon = TERM_STATUS_ICON[status] || FiClock;
 
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-extrabold ${config.className}`}>
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-extrabold ${getInstallmentTermStatusColor(status)}`}>
       <Icon className="h-3.5 w-3.5" />
-      {config.label}
+      {getInstallmentTermStatusLabel(status)}
     </span>
   );
 }

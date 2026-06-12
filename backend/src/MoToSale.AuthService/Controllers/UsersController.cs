@@ -86,6 +86,48 @@ public class UsersController : ControllerBase
         return Ok(new IdResponse { Id = id });
     }
 
+    [HttpPut("me/addresses/{id:int}")]
+    public async Task<IActionResult> UpdateAddress(int id, AddressRequest request)
+    {
+        try
+        {
+            await _users.UpdateAddressAsync(CurrentUserId, id, request);
+            return Ok(new IdResponse { Id = id });
+        }
+        catch (UserManagementException ex)
+        {
+            return HandleUserManagementException(ex);
+        }
+    }
+
+    [HttpPut("me/addresses/{id:int}/default")]
+    public async Task<IActionResult> SetDefaultAddress(int id)
+    {
+        try
+        {
+            await _users.SetDefaultAddressAsync(CurrentUserId, id);
+            return Ok(new IdResponse { Id = id });
+        }
+        catch (UserManagementException ex)
+        {
+            return HandleUserManagementException(ex);
+        }
+    }
+
+    [HttpDelete("me/addresses/{id:int}")]
+    public async Task<IActionResult> DeleteAddress(int id)
+    {
+        try
+        {
+            await _users.DeleteAddressAsync(CurrentUserId, id);
+            return Ok(new MessageResponse { Message = "Đã xóa địa chỉ." });
+        }
+        catch (UserManagementException ex)
+        {
+            return HandleUserManagementException(ex);
+        }
+    }
+
     [Authorize(Roles = RoleConstant.Admin)]
     [HttpGet]
     public async Task<IActionResult> List([FromQuery] PagingRequest request, [FromQuery] string? search, [FromQuery] string? role, [FromQuery] string? status)

@@ -1,4 +1,5 @@
 import { createContext, useContext, useMemo, useState } from 'react';
+import { FiAlertCircle, FiCheckCircle, FiInfo } from 'react-icons/fi';
 
 const NotificationContext = createContext(null);
 
@@ -19,13 +20,25 @@ export function NotificationProvider({ children }) {
       : notice?.type === 'success'
         ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
         : 'border-amber-200 bg-amber-50 text-amber-700';
+  const NoticeIcon =
+    notice?.type === 'error'
+      ? FiAlertCircle
+      : notice?.type === 'success'
+        ? FiCheckCircle
+        : FiInfo;
 
   return (
     <NotificationContext.Provider value={value}>
       {children}
       {notice && (
-        <div className={`fixed right-4 top-4 z-50 max-w-sm rounded-2xl border px-4 py-3 text-sm font-semibold shadow-[0_18px_40px_rgba(15,23,42,0.14)] ${colorClass}`}>
-          {notice.message}
+        <div
+          key={notice.id}
+          role="status"
+          aria-live="polite"
+          className={`ui-toast-in fixed right-4 top-4 z-50 flex max-w-sm items-start gap-2.5 rounded-2xl border px-4 py-3 text-sm font-semibold shadow-[0_18px_40px_rgba(15,23,42,0.14)] backdrop-blur ${colorClass}`}
+        >
+          <NoticeIcon className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>{notice.message}</span>
         </div>
       )}
     </NotificationContext.Provider>

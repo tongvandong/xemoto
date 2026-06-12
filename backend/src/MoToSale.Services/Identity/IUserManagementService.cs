@@ -9,6 +9,9 @@ public interface IUserManagementService
     Task ChangePasswordAsync(int userId, ChangePasswordRequest request);
     Task<ItemsResponse<AddressDto>> GetAddressesAsync(int userId);
     Task<int> AddAddressAsync(int userId, AddressRequest request);
+    Task UpdateAddressAsync(int userId, int addressId, AddressRequest request);
+    Task SetDefaultAddressAsync(int userId, int addressId);
+    Task DeleteAddressAsync(int userId, int addressId);
     Task<PagingResponse<UserListItemDto>> SearchUsersAsync(PagingRequest request, string? search, string? role, string? status);
     Task<PagingResponse<CustomerDto>> SearchCustomersAsync(PagingRequest request, string? search, string? status);
     Task<int> CreateCustomerAsync(CustomerUpsertRequest request);

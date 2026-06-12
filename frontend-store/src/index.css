@@ -12,6 +12,8 @@ body {
   color: #171717;
   font-family: 'Roboto', Arial, Helvetica, sans-serif;
   text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
 }
 
 #root {
@@ -26,6 +28,162 @@ a {
 img {
   display: block;
   max-width: 100%;
+}
+
+/* ===== Polish nền tảng (không ảnh hưởng logic) ===== */
+
+/* Bôi đen chữ theo màu thương hiệu */
+::selection {
+  background: rgba(215, 25, 32, 0.14);
+  color: #171717;
+}
+
+/* Trạng thái focus bằng bàn phím: ring đỏ thương hiệu, rõ ràng trên mọi nút/link/input */
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid #d71920;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline-offset: 0;
+}
+
+/* Ẩn spinner mặc định của input number (QuantitySelector tự có nút +/-) */
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* Autofill của trình duyệt không phá nền input trắng */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset;
+  -webkit-text-fill-color: #171717;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* Thanh cuộn mảnh, trung tính cho toàn trang */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #d4d4d8 transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #d4d4d8;
+  border-radius: 8px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #a1a1aa;
+}
+
+/* Skeleton shimmer cho trạng thái loading */
+.ui-skeleton {
+  position: relative;
+  overflow: hidden;
+  background: #f4f4f5;
+  border-radius: 12px;
+}
+
+.ui-skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.85), transparent);
+  animation: uiSkeletonShimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes uiSkeletonShimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Spinner nhỏ dùng chung */
+.ui-spinner {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 3px solid #e4e4e7;
+  border-top-color: #d71920;
+  animation: uiSpinnerRotate 0.8s linear infinite;
+}
+
+@keyframes uiSpinnerRotate {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Hiệu ứng xuất hiện nhẹ cho nội dung trang */
+.ui-fade-in {
+  animation: uiFadeIn 0.35s ease both;
+}
+
+/* Toast trượt vào từ phải */
+.ui-toast-in {
+  animation: uiToastIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes uiToastIn {
+  0% {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes uiFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Tôn trọng người dùng giảm chuyển động */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* ===== Home Hero Slider ===== */

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { FaStar, FaRegStar, FaStarHalfAlt } from 'react-icons/fa';
 import { reviewApi } from '../../services/api.js';
 import { useAuth } from '../../contexts/AuthContext.jsx';
+import { formatDateTime } from '../../utils/formatters.js';
 
 /* ============================================================
    RatingStars — display or interactive star selector
@@ -86,11 +87,7 @@ function UserAvatar({ name }) {
    Helpers
    ============================================================ */
 function formatReviewDate(value) {
-  if (!value) return '';
-  return new Date(value).toLocaleDateString('vi-VN', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  });
+  return formatDateTime(value);
 }
 
 function ratingLabel(rating) {
@@ -336,8 +333,8 @@ function ReviewForm({ productId, reviewState, stateLoading, isAuthenticated, myR
     );
   }
 
-  /* --- Not purchased: don't show anything --- */
-  if (!reviewState?.hasPurchased) {
+  /* --- Chưa đủ điều kiện đánh giá (chưa mua / chưa nhận hàng): không hiển thị form --- */
+  if (!reviewState?.canReview) {
     return null;
   }
 

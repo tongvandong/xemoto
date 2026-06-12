@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { FiCheck, FiDollarSign, FiGift, FiPercent, FiTruck } from 'react-icons/fi';
 import Breadcrumb from '../components/Breadcrumb.jsx';
 import LoadingState from '../components/LoadingState.jsx';
+import ErrorState from '../components/ErrorState.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useNotification } from '../contexts/NotificationContext.jsx';
 import { voucherApi } from '../services/api.js';
@@ -13,15 +14,18 @@ function VouchersPage() {
   const [allVouchers, setAllVouchers] = useState([]);
   const [myVouchers, setMyVouchers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [savingCode, setSavingCode] = useState(null);
 
   async function loadVouchers() {
     setLoading(true);
+    setError(null);
     try {
       const all = await voucherApi.getAll();
       setAllVouchers(Array.isArray(all) ? all : []);
-    } catch {
+    } catch (err) {
       setAllVouchers([]);
+      setError(err);
     }
     try {
       if (isAuthenticated) {
@@ -106,6 +110,8 @@ function VouchersPage() {
             <h2 className="mb-4 text-lg font-extrabold text-zinc-900">Voucher khả dụng</h2>
             {loading ? (
               <LoadingState />
+            ) : error ? (
+              <ErrorState message={error.message || 'Không tải được danh sách voucher.'} onRetry={loadVouchers} />
             ) : allVouchers.length === 0 ? (
               <div className="rounded-2xl border border-zinc-200 bg-white px-6 py-12 text-center">
                 <FiGift className="mx-auto h-12 w-12 text-zinc-300" />

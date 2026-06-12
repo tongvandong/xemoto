@@ -46,7 +46,7 @@ function CartItemRow({ item, onQuantityChange, onRemove }) {
 
       <button
         type="button"
-        className="inline-flex min-h-11 items-center justify-center rounded-full border border-rose-200 px-4 text-sm font-bold text-rose-600 transition hover:border-rose-500 hover:bg-rose-50"
+        className="inline-flex min-h-11 items-center justify-center rounded-full border border-rose-200 px-4 text-sm font-bold text-rose-600 transition hover:border-rose-500 hover:bg-rose-50 active:scale-[0.97]"
         onClick={() => onRemove(item.id)}
       >
         Xóa

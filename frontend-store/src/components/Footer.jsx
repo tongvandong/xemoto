@@ -33,16 +33,16 @@ function Footer() {
         <div>
           <h3 className="text-[17px] font-bold text-white">Chính sách</h3>
           <div className="mt-4 space-y-3 text-sm text-zinc-300">
-            <Link className="block transition hover:text-white" to="/">
+            <Link className="block transition hover:translate-x-1 hover:text-white" to="/">
               Hướng dẫn mua hàng
             </Link>
-            <Link className="block transition hover:text-white" to="/">
+            <Link className="block transition hover:translate-x-1 hover:text-white" to="/">
               Hướng dẫn thanh toán
             </Link>
-            <Link className="block transition hover:text-white" to="/">
+            <Link className="block transition hover:translate-x-1 hover:text-white" to="/">
               Chính sách vận chuyển
             </Link>
-            <Link className="block transition hover:text-white" to="/">
+            <Link className="block transition hover:translate-x-1 hover:text-white" to="/">
               Bảo mật thông tin
             </Link>
           </div>
@@ -51,16 +51,16 @@ function Footer() {
         <div>
           <h3 className="text-[17px] font-bold text-white">Danh mục</h3>
           <div className="mt-4 space-y-3 text-sm text-zinc-300">
-            <Link className="block transition hover:text-white" to="/products?categorySlug=xe-tay-ga">
+            <Link className="block transition hover:translate-x-1 hover:text-white" to="/products?categorySlug=xe-tay-ga">
               Xe tay ga
             </Link>
-            <Link className="block transition hover:text-white" to="/products?categorySlug=xe-so">
+            <Link className="block transition hover:translate-x-1 hover:text-white" to="/products?categorySlug=xe-so">
               Xe số
             </Link>
-            <Link className="block transition hover:text-white" to="/products?categorySlug=xe-con-tay">
+            <Link className="block transition hover:translate-x-1 hover:text-white" to="/products?categorySlug=xe-con-tay">
               Xe côn tay
             </Link>
-            <Link className="block transition hover:text-white" to="/products?categorySlug=phu-tung">
+            <Link className="block transition hover:translate-x-1 hover:text-white" to="/products?categorySlug=phu-tung">
               Phụ tùng
             </Link>
           </div>
@@ -70,12 +70,12 @@ function Footer() {
           <h3 className="text-[17px] font-bold text-white">Nhận tin khuyến mãi</h3>
           <form className="mt-4 flex gap-2" onSubmit={(event) => event.preventDefault()}>
             <input
-              className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-white/10 bg-white px-4 text-sm text-zinc-900 outline-none"
+              className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-white/10 bg-white px-4 text-sm text-zinc-900 outline-none transition placeholder:text-zinc-400 focus:border-[#d71920] focus:shadow-[0_0_0_4px_rgba(215,25,32,0.18)]"
               type="email"
               placeholder="Nhập email nhận tin khuyến mãi"
             />
             <button
-              className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[#d71920] px-4 text-sm font-extrabold uppercase tracking-[0.08em] text-white transition hover:bg-[#b61016]"
+              className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[#d71920] px-4 text-sm font-extrabold uppercase tracking-[0.08em] text-white transition hover:bg-[#b61016] active:scale-[0.98]"
               type="submit"
             >
               Đăng ký
@@ -92,7 +92,7 @@ function Footer() {
               <a
                 href={item.href}
                 key={item.id}
-                className="grid h-9 w-9 place-items-center rounded-lg bg-zinc-800 text-[15px] text-white transition hover:bg-[#d71920]"
+                className="grid h-9 w-9 place-items-center rounded-lg bg-zinc-800 text-[15px] text-white transition hover:-translate-y-0.5 hover:bg-[#d71920]"
                 aria-label={`Mạng xã hội ${item.id}`}
                 target={item.href.startsWith('http') ? '_blank' : undefined}
                 rel={item.href.startsWith('http') ? 'noreferrer' : undefined}

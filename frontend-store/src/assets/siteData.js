@@ -1,4 +1,4 @@
-﻿import { SiFacebook, SiGmail, SiMessenger, SiYoutube, SiZalo } from "react-icons/si";
+import { SiFacebook, SiGmail, SiMessenger, SiYoutube, SiZalo } from "react-icons/si";
 import banner1 from "./banners/banner1.png";
 import banner2 from "./banners/banner2.png";
 import banner3 from "./banners/banner3.png";
@@ -9,8 +9,6 @@ import genuinePartsService from "./services/phu-tung.png";
 import mobileRepairService from "./services/sua-chua-luu-dong.png";
 import combustionCleaningService from "./services/ve-sinh-buong-dot.png";
 import logoEuroMoto from "./logo.png";
-
-export const CDN = 'https://bizweb.dktcdn.net/100/519/812';
 
 export const brandAssets = {
   logo: logoEuroMoto,
@@ -119,8 +117,6 @@ export const serviceHighlights = [
 export const navItems = [
   { label: 'Trang chủ', to: '/' },
   { label: 'Sản phẩm', to: '/products', hasCaret: true },
-  { label: 'Hệ thống cửa hàng', to: '/he-thong-cua-hang' },
-  { label: 'Trả góp', to: '/tra-gop' },
   { label: 'Liên hệ', to: '/contact' },
   { label: 'Câu hỏi thường gặp', to: '/faq' },
 ];

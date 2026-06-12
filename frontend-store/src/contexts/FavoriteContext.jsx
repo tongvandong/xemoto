@@ -16,7 +16,7 @@ export function useFavorite() {
 
 function getProductId(productOrId) {
   if (productOrId && typeof productOrId === 'object') {
-    return productOrId.id || productOrId.productId || productOrId.maSanPham || productOrId.MaSanPham;
+    return productOrId.id || productOrId.productId;
   }
 
   return productOrId;

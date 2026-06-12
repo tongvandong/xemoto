@@ -6,7 +6,7 @@ import { Swiper, SwiperSlide } from 'swiper/react';
 import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/pagination';
-import { categoryApi, orderApi, productApi } from '../services/api.js';
+import { categoryApi, contentApi, orderApi, productApi } from '../services/api.js';
 import { brandAssets, homeCategoryReferences, homeHeroSlides, serviceHighlights } from '../assets/siteData.js';
 import CategoryMenu from '../components/CategoryMenu.jsx';
 import ErrorState from '../components/ErrorState.jsx';
@@ -48,6 +48,23 @@ function buildFeaturedCategories(categories) {
   return matches.length ? matches : homeCategoryReferences.map((reference) => ({ ...reference }));
 }
 
+function normalizeBannerLink(link) {
+  if (typeof link !== 'string' || !link.startsWith('/')) {
+    return '/products';
+  }
+
+  return link === '/motorcycles' || link === '/parts' ? '/products' : link;
+}
+
+function mapHomeBanner(banner) {
+  return {
+    id: `banner-${banner.id}`,
+    image: banner.imageUrl,
+    alt: banner.title || 'EURO Moto',
+    to: normalizeBannerLink(banner.link),
+  };
+}
+
 function HomePage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -61,6 +78,7 @@ function HomePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [pendingOrders, setPendingOrders] = useState([]);
+  const [heroSlides, setHeroSlides] = useState(homeHeroSlides);
 
   async function loadHomeData() {
     setLoading(true);
@@ -70,6 +88,7 @@ function HomePage() {
       const tasks = [
         productApi.getAll({ page: 1, pageSize: 12 }),
         categoryApi.getAll().then((res) => res.data),
+        contentApi.getHomeBanners().catch(() => []),
       ];
 
       if (isAuthenticated) {
@@ -79,10 +98,18 @@ function HomePage() {
       const results = await Promise.all(tasks);
       const productsResponse = results[0];
       const categoriesResponse = results[1];
-      const ordersResponse = results.length > 2 ? results[2] : [];
+      const bannersResponse = results[2];
+      const ordersResponse = results.length > 3 ? results[3] : [];
 
       setProducts(productsResponse.items);
       setCategories(categoriesResponse.filter((category) => category.isActive));
+      const rawBanners = Array.isArray(bannersResponse) ? bannersResponse : bannersResponse?.items || [];
+      const apiSlides = rawBanners
+        .filter((banner) => banner.status !== 0 && banner.position === 'Slider')
+        .sort((a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0))
+        .map(mapHomeBanner)
+        .filter((slide) => slide.image);
+      setHeroSlides(apiSlides.length ? apiSlides : homeHeroSlides);
 
       if (Array.isArray(ordersResponse)) {
         setPendingOrders(
@@ -223,7 +250,7 @@ function HomePage() {
           <Swiper
             modules={[Autoplay, Pagination]}
             slidesPerView={1}
-            loop={homeHeroSlides.length > 1}
+            loop={heroSlides.length > 1}
             speed={700}
             autoplay={{
               delay: 3500,
@@ -231,7 +258,7 @@ function HomePage() {
             }}
             pagination={{ clickable: true }}
           >
-            {homeHeroSlides.map((slide) => (
+            {heroSlides.map((slide) => (
               <SwiperSlide key={slide.id}>
                 <Link to={slide.to} aria-label={slide.alt} className="block aspect-[1792/877] w-full">
                   <img src={slide.image} alt={slide.alt} className="h-full w-full object-contain" />

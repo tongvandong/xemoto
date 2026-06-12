@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
 
-namespace MoToSale.Common.Helpers;
+namespace MoToSale.Common;
 
 /// <summary>Băm mật khẩu PBKDF2 (SHA-256). Định dạng: {iterations}.{saltBase64}.{hashBase64}.</summary>
 public interface IPasswordHasher
