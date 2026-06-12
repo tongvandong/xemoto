@@ -10,10 +10,10 @@ namespace MoToSale.APIService.Controllers;
 public partial class ContentController
 {
     [HttpGet("faq")]
-    public async Task<IActionResult> Faqs()
+    public async Task<IActionResult> Faqs([FromQuery] bool all = false)
     {
-        var faqs = await _content.GetFaqsAsync();
-        return Ok(new { items = faqs });
+        List<FaqDto> faqs = await _content.GetFaqsAsync(all && User.IsInRole(RoleConstant.Admin) || all && User.IsInRole(RoleConstant.Staff));
+        return Ok(new ItemsResponse<FaqDto> { Items = faqs });
     }
 
     [Authorize(Roles = StaffRoles)]

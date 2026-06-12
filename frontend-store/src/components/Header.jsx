@@ -16,7 +16,7 @@ import { brandAssets, navItems, socialLinks } from '../assets/siteData.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useCart } from '../contexts/CartContext.jsx';
 import { useFavorite } from '../contexts/FavoriteContext.jsx';
-import { productApi, voucherApi } from '../services/api.js';
+import { productApi, shopApi, voucherApi } from '../services/api.js';
 import { formatCurrency, getProductImage } from '../utils/formatters.js';
 
 function getDisplayName(user) {
@@ -118,6 +118,7 @@ function Header() {
   const [productMenuOpen, setProductMenuOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [productFilters, setProductFilters] = useState({ brands: [], carModels: [] });
+  const [showroomProfile, setShowroomProfile] = useState(null);
   const [voucherCount, setVoucherCount] = useState(0);
   const { user: currentUser, isAuthenticated, logout } = useAuth();
   const { cart, count: cartCount, miniCartOpen, closeMiniCart } = useCart();
@@ -178,6 +179,43 @@ function Header() {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    shopApi.getShowroomProfile()
+      .then((profile) => {
+        if (mounted && profile?.isActive !== false) {
+          setShowroomProfile(profile);
+        }
+      })
+      .catch(() => {
+        if (mounted) {
+          setShowroomProfile(null);
+        }
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const headerSocialLinks = useMemo(() => {
+    const phone = showroomProfile?.phoneNumber || '';
+    const zalo = showroomProfile?.zaloPhone || phone;
+    const hrefByLabel = {
+      Facebook: showroomProfile?.facebookUrl,
+      Messenger: showroomProfile?.messengerUrl,
+      Zalo: zalo ? `https://zalo.me/${zalo}` : undefined,
+      Gmail: showroomProfile?.email ? `mailto:${showroomProfile.email}` : undefined,
+      YouTube: showroomProfile?.youtubeUrl,
+    };
+
+    return socialLinks.map((item) => ({
+      ...item,
+      href: hrefByLabel[item.label] || item.href,
+    }));
+  }, [showroomProfile]);
 
   const productBrandGroups = useMemo(() => {
     const carModels = productFilters.carModels || [];
@@ -251,7 +289,7 @@ function Header() {
               </div>
 
               <div className="flex items-center gap-2">
-                {socialLinks.map((item, index) => {
+                {headerSocialLinks.map((item, index) => {
                   const Icon = item.icon;
                   return (
                     <a

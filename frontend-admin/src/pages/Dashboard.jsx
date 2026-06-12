@@ -185,7 +185,7 @@ const Dashboard = () => {
 
               <div className="-mx-[7.5px] flex flex-wrap">
                 <StatCard color="primary" icon="fas fa-phone-volume" label="CSKH cần xử lý" value={operations.openCrmTasks || 0} to="/service-crm" />
-                <StatCard color="danger" icon="fas fa-envelope-open-text" label="Liên hệ mới" value={operations.newContacts || 0} to="/service-crm" />
+                <StatCard color="danger" icon="fas fa-envelope-open-text" label="Liên hệ mới" value={operations.newContacts || 0} to="/contacts" />
               </div>
 
               <div className="-mx-[7.5px] flex flex-wrap">

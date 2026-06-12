@@ -52,8 +52,8 @@ public class PaymentsController : ControllerBase
     [HttpGet("order/{orderId:int}")]
     public async Task<IActionResult> GetByOrder(int orderId)
     {
-        var items = await _payments.GetByOrderAsync(orderId);
-        return Ok(new { items });
+        List<PaymentDto> items = await _payments.GetByOrderAsync(orderId);
+        return Ok(new ItemsResponse<PaymentDto> { Items = items });
     }
 
     [HttpGet]

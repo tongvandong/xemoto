@@ -1,8 +1,8 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using MoToSale.Common;
 using MoToSale.Entities.Audit;
-using System.Text.Json;
 
 namespace MoToSale.Repository;
 

@@ -11,8 +11,8 @@ public partial class ProductsController
     [HttpGet("{id:int}/compatibilities")]
     public async Task<IActionResult> GetCompatibilities(int id)
     {
-        var items = await _catalog.GetCompatibilitiesAsync(id);
-        return Ok(new { items });
+        List<CompatibilityDto> items = await _catalog.GetCompatibilitiesAsync(id);
+        return Ok(new ItemsResponse<CompatibilityDto> { Items = items });
     }
 
     [Authorize(Roles = StaffRoles)]

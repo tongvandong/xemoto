@@ -14,13 +14,14 @@ public interface IContentService
     Task DeletePostAsync(int id);
 
     // FAQ
-    Task<List<FaqDto>> GetFaqsAsync();
+    Task<List<FaqDto>> GetFaqsAsync(bool all);
     Task<int> CreateFaqAsync(SaveFaqRequest request);
     Task UpdateFaqAsync(int id, SaveFaqRequest request);
     Task DeleteFaqAsync(int id);
 
     // Liên hệ
-    Task<PagingResponse<ContactDto>> SearchContactsAsync(PagingRequest request, string? status);
+    Task<PagingResponse<ContactDto>> SearchContactsAsync(PagingRequest request, string? status, string? type);
+    Task<ContactDto?> GetContactAsync(int id);
     Task<int> CreateContactAsync(CreateContactRequest request);
     Task MarkContactProcessedAsync(int id);
 

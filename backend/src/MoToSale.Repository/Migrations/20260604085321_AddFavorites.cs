@@ -11,29 +11,31 @@ namespace MoToSale.Repository.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.CreateTable(
-                name: "Favorites",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    UserId = table.Column<int>(type: "int", nullable: false),
-                    ProductId = table.Column<int>(type: "int", nullable: false),
-                    CreatedDate = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    UpdatedDate = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    Status = table.Column<int>(type: "int", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_Favorites", x => x.Id);
-                });
+            migrationBuilder.Sql("""
+                IF OBJECT_ID(N'[Favorites]', N'U') IS NULL
+                BEGIN
+                    CREATE TABLE [Favorites] (
+                        [Id] int NOT NULL IDENTITY,
+                        [UserId] int NOT NULL,
+                        [ProductId] int NOT NULL,
+                        [CreatedDate] datetime2 NOT NULL,
+                        [UpdatedDate] datetime2 NULL,
+                        [Status] int NOT NULL,
+                        CONSTRAINT [PK_Favorites] PRIMARY KEY ([Id])
+                    );
+                END
+                """);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropTable(
-                name: "Favorites");
+            migrationBuilder.Sql("""
+                IF OBJECT_ID(N'[Favorites]', N'U') IS NOT NULL
+                BEGIN
+                    DROP TABLE [Favorites];
+                END
+                """);
         }
     }
 }

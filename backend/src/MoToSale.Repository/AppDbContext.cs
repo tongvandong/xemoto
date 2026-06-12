@@ -7,6 +7,7 @@ using MoToSale.Entities.Inventory;
 using MoToSale.Entities.Ordering;
 using MoToSale.Entities.Operations;
 using MoToSale.Entities.Payments;
+using MoToSale.Repository.Configurations;
 
 namespace MoToSale.Repository;
 
@@ -116,16 +117,16 @@ public partial class AppDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder b)
     {
         base.OnModelCreating(b);
-        ConfigureIdentity(b);
-        ConfigureCatalog(b);
-        ConfigureInventory(b);
-        ConfigureOrdering(b);
-        ConfigurePayments(b);
-        ConfigureContent(b);
-        ConfigureReviewWarranty(b);
-        ConfigureAdvancedOperations(b);
-        ConfigureBusinessOperations(b);
-        ConfigureSystem(b);
-        ConfigureAudit(b);
+        IdentityConfiguration.Configure(b);
+        CatalogConfiguration.Configure(b);
+        InventoryConfiguration.Configure(b);
+        OrderingConfiguration.Configure(b);
+        PaymentConfiguration.Configure(b);
+        ContentConfiguration.Configure(b);
+        ReviewWarrantyConfiguration.Configure(b);
+        AdvancedOperationsConfiguration.Configure(b);
+        BusinessOperationsConfiguration.Configure(b);
+        SystemConfiguration.Configure(b);
+        AuditConfiguration.Configure(b);
     }
 }

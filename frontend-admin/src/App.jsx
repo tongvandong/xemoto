@@ -23,6 +23,7 @@ const HomeBannerList = lazy(() => import('./pages/content/HomeBannerList'));
 const FaqList = lazy(() => import('./pages/faq/FaqList'));
 const ContactList = lazy(() => import('./pages/contacts/ContactList'));
 const ReviewList = lazy(() => import('./pages/reviews/ReviewList'));
+const PostList = lazy(() => import('./pages/posts/PostList'));
 const ReportsPage = lazy(() => import('./pages/reports/ReportsPage'));
 const AuditLogList = lazy(() => import('./pages/audit/AuditLogList'));
 const WarrantyList = lazy(() => import('./pages/warranties/WarrantyList'));
@@ -105,6 +106,7 @@ function AppRoutes() {
       <Route path="/faq" element={<ProtectedRoute><MainLayout><FaqList /></MainLayout></ProtectedRoute>} />
       <Route path="/contacts" element={<ProtectedRoute><MainLayout><ContactList /></MainLayout></ProtectedRoute>} />
       <Route path="/reviews" element={<ProtectedRoute><MainLayout><ReviewList /></MainLayout></ProtectedRoute>} />
+      <Route path="/posts" element={<ProtectedRoute><MainLayout><PostList /></MainLayout></ProtectedRoute>} />
 
       {/* Reports */}
       <Route path="/reports" element={<ProtectedRoute><MainLayout><ReportsPage /></MainLayout></ProtectedRoute>} />

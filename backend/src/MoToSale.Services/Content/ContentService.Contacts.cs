@@ -7,14 +7,20 @@ using MoToSale.Repository.EFCore;
 namespace MoToSale.Services.Content;
 public partial class ContentService
 {
-    public async Task<PagingResponse<ContactDto>> SearchContactsAsync(PagingRequest request, string? status)
+    public async Task<PagingResponse<ContactDto>> SearchContactsAsync(PagingRequest request, string? status, string? type)
     {
         var allContacts = await _contacts.GetAllAsync();
         IEnumerable<ContactRequest> query = allContacts;
 
         if (!string.IsNullOrWhiteSpace(status))
         {
-            query = query.Where(contact => contact.ContactStatus == status);
+            string normalizedStatus = NormalizeContactStatus(status);
+            query = query.Where(contact => contact.ContactStatus == normalizedStatus);
+        }
+
+        if (!string.IsNullOrWhiteSpace(type))
+        {
+            query = query.Where(contact => string.Equals(contact.Type, type, StringComparison.OrdinalIgnoreCase));
         }
 
         var orderedContacts = query.OrderByDescending(contact => contact.Id).ToList();
@@ -31,6 +37,18 @@ public partial class ContentService
             PageSize = request.PageSize,
             TotalItems = orderedContacts.Count,
         };
+    }
+
+    public async Task<ContactDto?> GetContactAsync(int id)
+    {
+        var contact = await _contacts.GetByIdAsync(id);
+
+        if (contact == null)
+        {
+            return null;
+        }
+
+        return MapContactDto(contact);
     }
 
     public async Task<int> CreateContactAsync(CreateContactRequest request)
@@ -84,6 +102,22 @@ public partial class ContentService
             throw new ContentException("Số điện thoại là bắt buộc.");
         }
     }
+
+    private static string NormalizeContactStatus(string status)
+    {
+        if (string.Equals(status, "Pending", StringComparison.OrdinalIgnoreCase))
+        {
+            return NewContactStatus;
+        }
+
+        if (string.Equals(status, ProcessedContactStatus, StringComparison.OrdinalIgnoreCase))
+        {
+            return ProcessedContactStatus;
+        }
+
+        return NewContactStatus;
+    }
+
     private static ContactDto MapContactDto(ContactRequest contact)
     {
         return new ContactDto(

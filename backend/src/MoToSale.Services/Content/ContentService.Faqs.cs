@@ -7,11 +7,17 @@ using MoToSale.Repository.EFCore;
 namespace MoToSale.Services.Content;
 public partial class ContentService
 {
-    public async Task<List<FaqDto>> GetFaqsAsync()
+    public async Task<List<FaqDto>> GetFaqsAsync(bool all)
     {
         var allFaqs = await _faqs.GetAllAsync();
+        IEnumerable<Faq> query = allFaqs;
 
-        return allFaqs
+        if (!all)
+        {
+            query = query.Where(faq => faq.Status == (int)EntityStatus.Active);
+        }
+
+        return query
             .OrderBy(faq => faq.SortOrder)
             .ThenBy(faq => faq.Id)
             .Select(MapFaqDto)

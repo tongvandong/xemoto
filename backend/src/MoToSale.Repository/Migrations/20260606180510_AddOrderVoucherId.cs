@@ -10,19 +10,23 @@ namespace MoToSale.Repository.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<int>(
-                name: "VoucherId",
-                table: "Orders",
-                type: "int",
-                nullable: true);
+            migrationBuilder.Sql("""
+                IF COL_LENGTH(N'[Orders]', N'VoucherId') IS NULL
+                BEGIN
+                    ALTER TABLE [Orders] ADD [VoucherId] int NULL;
+                END
+                """);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropColumn(
-                name: "VoucherId",
-                table: "Orders");
+            migrationBuilder.Sql("""
+                IF COL_LENGTH(N'[Orders]', N'VoucherId') IS NOT NULL
+                BEGIN
+                    ALTER TABLE [Orders] DROP COLUMN [VoucherId];
+                END
+                """);
         }
     }
 }

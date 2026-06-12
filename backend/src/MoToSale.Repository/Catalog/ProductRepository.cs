@@ -230,24 +230,10 @@ public class ProductRepository : Repository<Product>, IProductRepository
 
         if (request.HasPromotion.Value)
         {
-            query = query.Where(HasActivePromotionExpression(now));
-        }
-        else
-        {
-            query = query.Where(product =>
-                !Context.VoucherScopes.Any(scope =>
-                    Context.Vouchers.Any(voucher =>
-                        voucher.Id == scope.VoucherId
-                        && voucher.Status == (int)EntityStatus.Active
-                        && (!voucher.StartAt.HasValue || voucher.StartAt <= now)
-                        && (!voucher.EndAt.HasValue || voucher.EndAt >= now)
-                        && (!voucher.UsageLimit.HasValue || voucher.UsedCount < voucher.UsageLimit)
-                        && ((scope.ScopeType == "Product" && scope.RefId == product.Id)
-                            || (scope.ScopeType == "Category" && scope.RefId == product.CategoryId)
-                            || (scope.ScopeType == "Brand" && product.BrandId.HasValue && scope.RefId == product.BrandId.Value)))));
+            return query.Where(HasActivePromotionExpression(now));
         }
 
-        return query;
+        return query.Where(HasNoActivePromotionExpression(now));
     }
 
     private Expression<Func<Product, bool>> HasActivePromotionExpression(DateTime now)
@@ -262,6 +248,21 @@ public class ProductRepository : Repository<Product>, IProductRepository
                 && ((scope.ScopeType == "Product" && scope.RefId == product.Id)
                     || (scope.ScopeType == "Category" && scope.RefId == product.CategoryId)
                     || (scope.ScopeType == "Brand" && product.BrandId.HasValue && scope.RefId == product.BrandId.Value))));
+    }
+
+    private Expression<Func<Product, bool>> HasNoActivePromotionExpression(DateTime now)
+    {
+        return product =>
+            !Context.VoucherScopes.Any(scope =>
+                Context.Vouchers.Any(voucher =>
+                    voucher.Id == scope.VoucherId
+                    && voucher.Status == (int)EntityStatus.Active
+                    && (!voucher.StartAt.HasValue || voucher.StartAt <= now)
+                    && (!voucher.EndAt.HasValue || voucher.EndAt >= now)
+                    && (!voucher.UsageLimit.HasValue || voucher.UsedCount < voucher.UsageLimit)
+                    && ((scope.ScopeType == "Product" && scope.RefId == product.Id)
+                        || (scope.ScopeType == "Category" && scope.RefId == product.CategoryId)
+                        || (scope.ScopeType == "Brand" && product.BrandId.HasValue && scope.RefId == product.BrandId.Value))));
     }
 
     private static IQueryable<Product> ApplySorting(IQueryable<Product> query, ProductSearchRequest request)

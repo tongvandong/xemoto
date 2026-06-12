@@ -25,10 +25,24 @@ public partial class ContentController
 
     [Authorize(Roles = StaffRoles)]
     [HttpGet("contacts")]
-    public async Task<IActionResult> Contacts([FromQuery] PagingRequest request, [FromQuery] string? status)
+    public async Task<IActionResult> Contacts([FromQuery] PagingRequest request, [FromQuery] string? status, [FromQuery] string? type)
     {
-        var result = await _content.SearchContactsAsync(request, status);
+        var result = await _content.SearchContactsAsync(request, status, type);
         return Ok(result);
+    }
+
+    [Authorize(Roles = StaffRoles)]
+    [HttpGet("contacts/{id:int}")]
+    public async Task<IActionResult> Contact(int id)
+    {
+        var contact = await _content.GetContactAsync(id);
+
+        if (contact == null)
+        {
+            return NotFound();
+        }
+
+        return Ok(contact);
     }
 
     [Authorize(Roles = StaffRoles)]

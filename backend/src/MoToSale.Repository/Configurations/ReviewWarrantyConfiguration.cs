@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using MoToSale.Common;
 using MoToSale.Common.Auth;
 using MoToSale.Entities.Audit;
@@ -10,11 +10,11 @@ using MoToSale.Entities.Operations;
 using MoToSale.Entities.Ordering;
 using MoToSale.Entities.Payments;
 
-namespace MoToSale.Repository;
+namespace MoToSale.Repository.Configurations;
 
-public partial class AppDbContext
+public static class ReviewWarrantyConfiguration
 {
-    private static void ConfigureReviewWarranty(ModelBuilder b)
+    public static void Configure(ModelBuilder b)
     {
         b.Entity<Review>(e =>
         {

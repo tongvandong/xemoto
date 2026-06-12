@@ -13,8 +13,8 @@ public partial class ProductsController
     {
         try
         {
-            var items = await _catalog.GetPromotionsAsync(id);
-            return Ok(new { items });
+            List<ProductPromotionDto> items = await _catalog.GetPromotionsAsync(id);
+            return Ok(new ItemsResponse<ProductPromotionDto> { Items = items });
         }
         catch (CatalogException ex)
         {
@@ -27,8 +27,8 @@ public partial class ProductsController
     {
         try
         {
-            var items = await _catalog.GetRelatedItemsAsync(id);
-            return Ok(new { items });
+            List<ProductRelatedItemDto> items = await _catalog.GetRelatedItemsAsync(id);
+            return Ok(new ItemsResponse<ProductRelatedItemDto> { Items = items });
         }
         catch (CatalogException ex)
         {
@@ -86,8 +86,8 @@ public partial class ProductsController
     {
         try
         {
-            var items = await _catalog.GetInventoryAgingAsync(id);
-            return Ok(new { items });
+            List<ProductInventoryAgingDto> items = await _catalog.GetInventoryAgingAsync(id);
+            return Ok(new ItemsResponse<ProductInventoryAgingDto> { Items = items });
         }
         catch (CatalogException ex)
         {
@@ -100,8 +100,8 @@ public partial class ProductsController
     {
         try
         {
-            var items = await _catalog.GetBarcodeLabelsAsync(id);
-            return Ok(new { items });
+            List<BarcodeLabelDto> items = await _catalog.GetBarcodeLabelsAsync(id);
+            return Ok(new ItemsResponse<BarcodeLabelDto> { Items = items });
         }
         catch (CatalogException ex)
         {

@@ -11,8 +11,8 @@ public partial class ProductsController
     [HttpGet("{id:int}/skus")]
     public async Task<IActionResult> GetSkus(int id)
     {
-        var items = await _catalog.GetSkusByProductAsync(id);
-        return Ok(new { items });
+        List<SkuDto> items = await _catalog.GetSkusByProductAsync(id);
+        return Ok(new ItemsResponse<SkuDto> { Items = items });
     }
 
     [Authorize(Roles = StaffRoles)]

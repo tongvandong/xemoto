@@ -11,30 +11,33 @@ namespace MoToSale.Repository.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<string>(
-                name: "FulfillmentNote",
-                table: "Orders",
-                type: "nvarchar(1000)",
-                maxLength: 1000,
-                nullable: true);
+            migrationBuilder.Sql("""
+                IF COL_LENGTH(N'[Orders]', N'FulfillmentNote') IS NULL
+                BEGIN
+                    ALTER TABLE [Orders] ADD [FulfillmentNote] nvarchar(1000) NULL;
+                END
 
-            migrationBuilder.AddColumn<DateTime>(
-                name: "PickupAppointmentAt",
-                table: "Orders",
-                type: "datetime2(0)",
-                nullable: true);
+                IF COL_LENGTH(N'[Orders]', N'PickupAppointmentAt') IS NULL
+                BEGIN
+                    ALTER TABLE [Orders] ADD [PickupAppointmentAt] datetime2(0) NULL;
+                END
+                """);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropColumn(
-                name: "FulfillmentNote",
-                table: "Orders");
+            migrationBuilder.Sql("""
+                IF COL_LENGTH(N'[Orders]', N'FulfillmentNote') IS NOT NULL
+                BEGIN
+                    ALTER TABLE [Orders] DROP COLUMN [FulfillmentNote];
+                END
 
-            migrationBuilder.DropColumn(
-                name: "PickupAppointmentAt",
-                table: "Orders");
+                IF COL_LENGTH(N'[Orders]', N'PickupAppointmentAt') IS NOT NULL
+                BEGIN
+                    ALTER TABLE [Orders] DROP COLUMN [PickupAppointmentAt];
+                END
+                """);
         }
     }
 }

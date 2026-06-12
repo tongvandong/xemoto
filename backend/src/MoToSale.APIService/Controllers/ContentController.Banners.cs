@@ -13,8 +13,8 @@ public partial class ContentController
     [HttpGet("home-banners")]
     public async Task<IActionResult> Banners([FromQuery] bool all = false)
     {
-        var banners = await _content.GetBannersAsync(all);
-        return Ok(new { items = banners });
+        List<BannerDto> banners = await _content.GetBannersAsync(all);
+        return Ok(new ItemsResponse<BannerDto> { Items = banners });
     }
 
     [Authorize(Roles = StaffRoles)]

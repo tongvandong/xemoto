@@ -35,7 +35,7 @@ const mapPayload = (data = {}) => ({
 });
 
 const faqService = {
-  getAll: (params) => normalizeCollection(api.get('/content/faq', { params })),
+  getAll: (params) => normalizeCollection(api.get('/content/faq', { params: { ...params, all: true } })),
   create: (data) => api.post('/content/faq', mapPayload(data)),
   update: (id, data) => api.put(`/content/faq/${id}`, mapPayload(data)),
   delete: (id) => api.delete(`/content/faq/${id}`),

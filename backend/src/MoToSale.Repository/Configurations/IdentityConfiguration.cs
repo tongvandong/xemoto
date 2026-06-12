@@ -3,11 +3,11 @@ using MoToSale.Common;
 using MoToSale.Common.Auth;
 using MoToSale.Entities.Identity;
 
-namespace MoToSale.Repository;
+namespace MoToSale.Repository.Configurations;
 
-public partial class AppDbContext
+public static class IdentityConfiguration
 {
-    private static void ConfigureIdentity(ModelBuilder b)
+    public static void Configure(ModelBuilder b)
     {
         b.Entity<User>(e =>
         {

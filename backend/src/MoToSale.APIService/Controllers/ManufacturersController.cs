@@ -23,8 +23,8 @@ public class ManufacturersController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> List()
     {
-        var items = await _catalog.GetManufacturersAsync();
-        return Ok(new { items });
+        List<ManufacturerDto> items = await _catalog.GetManufacturersAsync();
+        return Ok(new ItemsResponse<ManufacturerDto> { Items = items });
     }
 
     [Authorize(Roles = $"{RoleConstant.Admin},{RoleConstant.Staff}")]

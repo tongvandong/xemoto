@@ -12,8 +12,8 @@ public partial class ProductsController
     [HttpGet("{id:int}/images")]
     public async Task<IActionResult> GetImages(int id)
     {
-        var items = await _catalog.GetImagesAsync(id);
-        return Ok(new { items });
+        List<ProductImageDto> items = await _catalog.GetImagesAsync(id);
+        return Ok(new ItemsResponse<ProductImageDto> { Items = items });
     }
 
     [Authorize(Roles = StaffRoles)]
@@ -27,7 +27,7 @@ public partial class ProductsController
             var addImageRequest = new AddImageRequest(imageUrl, request.Alt, request.SkuId, request.IsPrimary, request.SortOrder);
             int imageId = await _catalog.AddImageAsync(id, addImageRequest);
 
-            return Ok(new { id = imageId, url = imageUrl });
+            return Ok(new ProductImageUploadResponse { Id = imageId, Url = imageUrl });
         }
         catch (InvalidOperationException ex)
         {
