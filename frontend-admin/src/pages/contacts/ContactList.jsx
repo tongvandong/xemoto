@@ -3,8 +3,18 @@ import contactService from '../../services/contactService';
 import { formatDate } from '../../utils/formatDate';
 
 const CONTACT_STATUS = {
+  New: { label: 'Chờ xử lý', color: 'warning' },
   Pending: { label: 'Chờ xử lý', color: 'warning' },
   Processed: { label: 'Đã xử lý', color: 'success' },
+};
+
+const CONTACT_STATUS_FILTERS = ['New', 'Processed'];
+
+const CONTACT_TYPE_LABELS = {
+  General: 'Chung',
+  Product: 'Sản phẩm',
+  TestDrive: 'Đăng ký lái thử',
+  Consultation: 'Tư vấn',
 };
 
 const ContactList = () => {
@@ -77,6 +87,8 @@ const ContactList = () => {
     return <span className="badge badge-secondary">{status}</span>;
   };
 
+  const getTypeLabel = (type) => CONTACT_TYPE_LABELS[type] || type || '-';
+
   return (
     <div className="content-wrapper">
       <div className="content-header">
@@ -105,9 +117,12 @@ const ContactList = () => {
                     onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }}
                   >
                     <option value="">-- Tất cả trạng thái --</option>
-                    {Object.entries(CONTACT_STATUS).map(([key, val]) => (
+                    {CONTACT_STATUS_FILTERS.map((key) => {
+                      const val = CONTACT_STATUS[key];
+                      return (
                       <option key={key} value={key}>{val.label}</option>
-                    ))}
+                      );
+                    })}
                   </select>
                 </div>
                 <div className="col-md-3">
@@ -155,7 +170,7 @@ const ContactList = () => {
                             <td className="table-col-text">{c.hoTen || c.fullName || '-'}</td>
                             <td className="table-col-code">{c.soDienThoai || c.phone || '-'}</td>
                             <td className="table-col-text">{c.email || '-'}</td>
-                            <td className="table-col-status">{c.loaiYeuCau || c.type || '-'}</td>
+                            <td className="table-col-status">{getTypeLabel(c.loaiYeuCau || c.type)}</td>
                             <td className="table-col-status">{getStatusBadge(c.trangThai || c.status)}</td>
                             <td className="table-col-date">{formatDate(c.ngayTao || c.createdAt)}</td>
                             <td className="table-col-actions">
@@ -227,7 +242,7 @@ const ContactList = () => {
                     </tr>
                     <tr>
                       <th>Loại yêu cầu:</th>
-                      <td>{detailItem.loaiYeuCau || detailItem.type || '-'}</td>
+                      <td>{getTypeLabel(detailItem.loaiYeuCau || detailItem.type)}</td>
                     </tr>
                     <tr>
                       <th>Trạng thái:</th>

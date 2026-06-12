@@ -156,6 +156,32 @@ const Sidebar = ({ collapsed = false }) => {
               </Link>
             </li>
 
+            <li className={headerClass}>NỘI DUNG & CSKH</li>
+            <li>
+              <Link to="/home-banners" className={navLinkClass(isActiveGroup('/home-banners'))}>
+                <i className={cn(navIconClass, 'fas fa-images')}></i>
+                <p className={labelClass}>Banner trang chủ</p>
+              </Link>
+            </li>
+            <li>
+              <Link to="/faq" className={navLinkClass(isActiveGroup('/faq'))}>
+                <i className={cn(navIconClass, 'fas fa-question-circle')}></i>
+                <p className={labelClass}>FAQ</p>
+              </Link>
+            </li>
+            <li>
+              <Link to="/contacts" className={navLinkClass(isActiveGroup('/contacts'))}>
+                <i className={cn(navIconClass, 'fas fa-envelope-open-text')}></i>
+                <p className={labelClass}>Liên hệ</p>
+              </Link>
+            </li>
+            <li>
+              <Link to="/reviews" className={navLinkClass(isActiveGroup('/reviews'))}>
+                <i className={cn(navIconClass, 'fas fa-star-half-alt')}></i>
+                <p className={labelClass}>Đánh giá</p>
+              </Link>
+            </li>
+
             <li className={headerClass}>TÀI CHÍNH & HỆ THỐNG</li>
             {isAdmin() && (
               <li>
