@@ -12,7 +12,7 @@ public class ReviewRepository : Repository<Review>, IReviewRepository
     {
     }
 
-    public async Task<PagingResponse<ReviewDto>> SearchAsync(PagingRequest request, string? status)
+    public async Task<PagingResponse<ReviewDto>> SearchAsync(PagingRequest request, string? status, int? rating)
     {
         var query =
             from review in Set.AsNoTracking()
@@ -30,6 +30,11 @@ public class ReviewRepository : Repository<Review>, IReviewRepository
         if (!string.IsNullOrWhiteSpace(status))
         {
             query = query.Where(row => row.Review.ReviewStatus == status);
+        }
+
+        if (rating is >= 1 and <= 5)
+        {
+            query = query.Where(row => row.Review.Rating == rating);
         }
 
         int totalItems = await query.CountAsync();

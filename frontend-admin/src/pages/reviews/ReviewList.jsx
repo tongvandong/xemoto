@@ -6,6 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 const REVIEW_STATUS = {
   Pending: { label: 'Chờ duyệt', color: 'warning' },
   Approved: { label: 'Đã duyệt', color: 'success' },
+  Rejected: { label: 'Từ chối', color: 'danger' },
   Hidden: { label: 'Đã ẩn', color: 'secondary' },
 };
 

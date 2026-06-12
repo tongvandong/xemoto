@@ -20,7 +20,10 @@ public partial class ContentService
 
         if (!string.IsNullOrWhiteSpace(type))
         {
-            query = query.Where(contact => string.Equals(contact.Type, type, StringComparison.OrdinalIgnoreCase));
+            // FE cho nhập tự do -> khớp một phần, không phân biệt hoa thường.
+            string keyword = type.Trim();
+            query = query.Where(contact => contact.Type != null
+                && contact.Type.Contains(keyword, StringComparison.OrdinalIgnoreCase));
         }
 
         var orderedContacts = query.OrderByDescending(contact => contact.Id).ToList();

@@ -20,9 +20,9 @@ public class ReviewsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> Search([FromQuery] PagingRequest request, [FromQuery] string? status)
+    public async Task<IActionResult> Search([FromQuery] PagingRequest request, [FromQuery] string? status, [FromQuery] int? rating)
     {
-        var result = await _reviews.SearchAsync(request, status);
+        var result = await _reviews.SearchAsync(request, status, rating);
         return Ok(result);
     }
 
