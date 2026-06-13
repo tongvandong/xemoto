@@ -196,7 +196,7 @@ function ProductInfoBox({
                     } ${available ? '' : 'opacity-60'}`}
                     onClick={() => onSelectColor(option)}
                   >
-                    <span className="h-8 w-8 shrink-0 rounded-full border border-white shadow-sm" style={buildColorStyle(option)} />
+                    {!isPartProduct && <span className="h-8 w-8 shrink-0 rounded-full border border-white shadow-sm" style={buildColorStyle(option)} />}
                     <span className="flex-1">{option}</span>
                   </button>
                 );
@@ -207,7 +207,7 @@ function ProductInfoBox({
           )}
         </div>
 
-        {fallbackNotes.length > 0 && (
+        {!isPartProduct && fallbackNotes.length > 0 && (
           <div className="rounded-2xl border border-dashed border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
             {fallbackNotes.join(' ')}
           </div>
