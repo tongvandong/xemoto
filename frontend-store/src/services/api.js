@@ -389,5 +389,22 @@ export const shopApi = {
   },
 };
 
+// ===== Trả góp (đăng ký tư vấn qua đối tác tài chính) =====
+
+export const installmentApi = {
+  register: (data) => api.post('/installment-applications', {
+    productId: data.productId ?? null,
+    skuId: data.skuId ?? null,
+    productName: data.productName,
+    customerName: data.customerName,
+    customerPhone: data.customerPhone,
+    customerEmail: data.customerEmail ?? null,
+    financePartner: data.financePartner ?? null,
+    downPayment: Number(data.downPayment) || 0,
+    months: Number(data.months) || 0,
+    note: data.note ?? null,
+  }),
+};
+
 export { AUTH_CHANGED_EVENT };
 export default api;

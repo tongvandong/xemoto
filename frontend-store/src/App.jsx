@@ -24,6 +24,7 @@ import RegisterPage from './pages/RegisterPage.jsx';
 import FaqPage from './pages/FaqPage.jsx';
 import VouchersPage from './pages/VouchersPage.jsx';
 import ContactPage from './pages/ContactPage.jsx';
+import InstallmentPage from './pages/InstallmentPage.jsx';
 
 const authPaths = ['/login', '/register', '/forgot-password'];
 
@@ -65,6 +66,7 @@ function AppRoutes() {
         <Route path="/vouchers" element={<VouchersPage />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/faq" element={<FaqPage />} />
+        <Route path="/tra-gop" element={<InstallmentPage />} />
         <Route
           path="/cart"
           element={

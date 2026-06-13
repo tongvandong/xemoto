@@ -15,7 +15,7 @@ const RECEIVING_METHODS = [
 const ORDER_TYPES = [
   { value: 'FullPayment', label: 'Thanh toán toàn bộ' },
   { value: 'Deposit', label: 'Đặt cọc trước' },
-  { value: 'Installment', label: 'Trả góp' },
+  // Trả góp KHÔNG đặt tại checkout — khách đăng ký tư vấn ở trang /tra-gop, admin duyệt hồ sơ (qua đối tác tài chính).
 ];
 
 const INSTALLMENT_TERMS = [6, 9, 12];

@@ -9,6 +9,8 @@ const DEFAULT_SETTINGS = [
   ['ZaloPhone', 'Số Zalo hiển thị ở storefront'],
   ['StoreEmail', 'Email hiển thị ở storefront'],
   ['Address', 'Địa chỉ'],
+  ['StoreDistrict', 'Quận/Huyện hiển thị ở storefront'],
+  ['StoreProvince', 'Tỉnh/Thành phố hiển thị ở storefront'],
   ['StoreHours', 'Giờ mở cửa hiển thị ở storefront'],
   ['FacebookUrl', 'Link Facebook'],
   ['MessengerUrl', 'Link Messenger'],
