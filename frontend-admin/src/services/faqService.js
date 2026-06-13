@@ -1,43 +1,23 @@
 import api from './api';
 
-const normalizeFaq = (item = {}) => ({
-  ...item,
-  id: item.id,
-  cauHoi: item.cauHoi ?? item.question ?? '',
-  question: item.question ?? item.cauHoi ?? '',
-  cauTraLoi: item.cauTraLoi ?? item.answer ?? '',
-  answer: item.answer ?? item.cauTraLoi ?? '',
-  danhMuc: item.danhMuc ?? item.category ?? '',
-  category: item.category ?? item.danhMuc ?? '',
-  thuTu: item.thuTu ?? item.sortOrder ?? 0,
-  sortOrder: item.sortOrder ?? item.thuTu ?? 0,
-  dangHoatDong: item.dangHoatDong ?? item.status === 1,
-  status: item.status ?? (item.dangHoatDong === false ? 0 : 1),
-});
+// FAQ: BE trả về DTO tiếng Anh { id, question, answer, category, sortOrder, status }.
+// status: 1 = đang hiển thị, 0 = ẩn. Không cần map nhiều tên — dùng thẳng field tiếng Anh.
 
-const normalizeCollection = async (request) => {
-  const response = await request;
-  const data = response.data;
-  if (Array.isArray(data)) {
-    response.data = data.map(normalizeFaq);
-    return response;
-  }
-  response.data = { ...data, items: (data?.items || data?.data || []).map(normalizeFaq) };
-  return response;
-};
-
-const mapPayload = (data = {}) => ({
-  question: data.question ?? data.cauHoi ?? '',
-  answer: data.answer ?? data.cauTraLoi ?? '',
-  category: data.category ?? data.danhMuc ?? null,
-  sortOrder: Number(data.sortOrder ?? data.thuTu ?? 0),
-  status: data.status ?? (data.dangHoatDong === false ? 0 : 1),
-});
+function toPayload(data) {
+  return {
+    question: data.question,
+    answer: data.answer,
+    category: data.category || null,
+    sortOrder: Number(data.sortOrder) || 0,
+    status: data.status,
+  };
+}
 
 const faqService = {
-  getAll: (params) => normalizeCollection(api.get('/content/faq', { params: { ...params, all: true } })),
-  create: (data) => api.post('/content/faq', mapPayload(data)),
-  update: (id, data) => api.put(`/content/faq/${id}`, mapPayload(data)),
+  // Admin xem cả FAQ đang ẩn -> truyền all=true.
+  getAll: () => api.get('/content/faq', { params: { all: true } }),
+  create: (data) => api.post('/content/faq', toPayload(data)),
+  update: (id, data) => api.put(`/content/faq/${id}`, toPayload(data)),
   delete: (id) => api.delete(`/content/faq/${id}`),
 };
 

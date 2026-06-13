@@ -1,5 +1,9 @@
 import api from './api';
 
+// Lớp chuẩn hoá (normalize) cho sản phẩm/biến thể (SKU)/ảnh: BE trả DTO tiếng Anh
+// (name, listPrice, salePrice, variantName, version, color...). Các hàm dưới map về shape cho UI
+// và GIỮ THÊM alias tiếng Việt (tenBienThe, phienBan...) để trang cũ chạy.
+// Sản phẩm có cấu trúc lồng (SKU + ảnh + tương thích) nên lớp này dày hơn — coi như adapter, đọc field ưu tiên tên tiếng Anh.
 const buildSkuDisplayName = (version, color) =>
   [String(version || '').trim(), String(color || '').trim()].filter(Boolean).join(' - ');
 

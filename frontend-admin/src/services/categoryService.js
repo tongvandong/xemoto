@@ -1,5 +1,8 @@
 import api from './api';
 
+// Lớp chuẩn hoá (normalize): BE trả DTO tiếng Anh (id, name, parentId, sortOrder, status...).
+// Hàm dưới map về shape ổn định cho UI và GIỮ THÊM alias tiếng Việt (tenDanhMuc, danhMucChaId, thuTu...)
+// để các trang cũ chạy được. Khi đọc field nên ưu tiên tên tiếng Anh; alias chỉ để tương thích.
 const normalizeCategory = (item = {}) => ({
   ...item,
   id: item.id ?? item.maDanhMuc,

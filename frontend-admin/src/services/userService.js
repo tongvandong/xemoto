@@ -1,5 +1,8 @@
 import api from './api';
 
+// Lớp chuẩn hoá (normalize): BE trả DTO tiếng Anh (fullName, email, phoneNumber, role, status số...).
+// Các hàm dưới map về shape cho UI; status: BE dùng số (1/0) <-> UI dùng chuỗi Active/Inactive.
+// Có giữ một số alias để tương thích trang cũ — đọc field nên ưu tiên tên tiếng Anh.
 const normalizeParams = (params = {}) => {
   const normalized = { ...params };
   if (normalized.search && !normalized.keyword) normalized.keyword = normalized.search;

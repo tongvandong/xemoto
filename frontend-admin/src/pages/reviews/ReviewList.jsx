@@ -3,6 +3,7 @@ import reviewService from '../../services/reviewService';
 import { formatDate } from '../../utils/formatDate';
 import { useAuth } from '../../contexts/AuthContext';
 
+// reviewStatus của BE: Pending | Approved | Rejected | Hidden.
 const REVIEW_STATUS = {
   Pending: { label: 'Chờ duyệt', color: 'warning' },
   Approved: { label: 'Đã duyệt', color: 'success' },
@@ -16,11 +17,11 @@ const ReviewList = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Filters
+  // Bộ lọc
   const [filterStatus, setFilterStatus] = useState('');
   const [filterRating, setFilterRating] = useState('');
 
-  // Pagination
+  // Phân trang (BE trả PagingResponse)
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const pageSize = 10;
@@ -34,13 +35,8 @@ const ReviewList = () => {
       if (filterRating) params.rating = filterRating;
       const res = await reviewService.getAll(params);
       const data = res.data;
-      if (Array.isArray(data)) {
-        setReviews(data);
-        setTotalPages(1);
-      } else {
-        setReviews(data.items || data.data || []);
-        setTotalPages(data.totalPages || Math.ceil((data.total || 0) / pageSize) || 1);
-      }
+      setReviews(data.items || []);
+      setTotalPages(data.totalPages || 1);
     } catch (err) {
       setError('Không thể tải danh sách đánh giá.');
       console.error(err);
@@ -55,7 +51,7 @@ const ReviewList = () => {
 
   const handleApprove = async (id) => {
     try {
-      await reviewService.updateStatus(id, { status: 'Approved' });
+      await reviewService.updateStatus(id, 'Approved');
       fetchReviews();
     } catch (err) {
       alert('Duyệt đánh giá thất bại!');
@@ -65,7 +61,7 @@ const ReviewList = () => {
 
   const handleHide = async (id) => {
     try {
-      await reviewService.updateStatus(id, { status: 'Hidden' });
+      await reviewService.updateStatus(id, 'Hidden');
       fetchReviews();
     } catch (err) {
       alert('Ẩn đánh giá thất bại!');
@@ -100,8 +96,6 @@ const ReviewList = () => {
     return <span className="badge badge-secondary">{status}</span>;
   };
 
-  const getReviewId = (review) => review.maDanhGia || review.id;
-
   return (
     <div className="content-wrapper">
       <div className="content-header">
@@ -121,7 +115,6 @@ const ReviewList = () => {
               <h3 className="card-title">Danh sách đánh giá</h3>
             </div>
             <div className="card-body">
-              {/* Filters */}
               <div className="row mb-3">
                 <div className="col-md-3">
                   <select
@@ -180,54 +173,50 @@ const ReviewList = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {reviews.map((r, idx) => {
-                          const reviewId = getReviewId(r);
-                          return (
-                          <tr key={reviewId || idx}>
-                            <td className="table-col-text">{r.tenSanPham || r.productName || '-'}</td>
-                            <td className="table-col-text">{r.tenNguoiDung || r.userName || '-'}</td>
-                            <td className="table-col-status">{renderStars(r.diem || r.diemDanhGia || r.rating || 0)}</td>
-                            <td className="table-col-text">{r.tieuDe || r.title || '-'}</td>
-                            <td className="table-col-status">{getStatusBadge(r.trangThai || r.status)}</td>
-                            <td className="table-col-date">{formatDate(r.ngayTao || r.createdAt)}</td>
+                        {reviews.map((r) => (
+                          <tr key={r.id}>
+                            <td className="table-col-text">{r.productName || '-'}</td>
+                            <td className="table-col-text">{r.userName || '-'}</td>
+                            <td className="table-col-status">{renderStars(r.rating || 0)}</td>
+                            <td className="table-col-text">{r.title || '-'}</td>
+                            <td className="table-col-status">{getStatusBadge(r.reviewStatus)}</td>
+                            <td className="table-col-date">{formatDate(r.createdDate)}</td>
                             <td className="table-col-actions">
-                              {(r.trangThai || r.status) !== 'Approved' && (
-                                <button className="btn btn-xs btn-success mr-1" onClick={() => handleApprove(reviewId)} title="Duyệt">
+                              {r.reviewStatus !== 'Approved' && (
+                                <button className="btn btn-xs btn-success mr-1" onClick={() => handleApprove(r.id)} title="Duyệt">
                                   <i className="fas fa-check"></i>
                                 </button>
                               )}
-                              {(r.trangThai || r.status) !== 'Hidden' && (
-                                <button className="btn btn-xs btn-warning mr-1" onClick={() => handleHide(reviewId)} title="Ẩn">
+                              {r.reviewStatus !== 'Hidden' && (
+                                <button className="btn btn-xs btn-warning mr-1" onClick={() => handleHide(r.id)} title="Ẩn">
                                   <i className="fas fa-eye-slash"></i>
                                 </button>
                               )}
                               {isAdmin() && (
-                                <button className="btn btn-xs btn-danger" onClick={() => handleDelete(reviewId)} title="Xóa">
+                                <button className="btn btn-xs btn-danger" onClick={() => handleDelete(r.id)} title="Xóa">
                                   <i className="fas fa-trash"></i>
                                 </button>
                               )}
                             </td>
                           </tr>
-                          );
-                        })}
+                        ))}
                       </tbody>
                     </table>
                   </div>
 
-                  {/* Pagination */}
                   {totalPages > 1 && (
                     <nav className="mt-3">
                       <ul className="pagination pagination-sm justify-content-center">
                         <li className={`page-item ${page <= 1 ? 'disabled' : ''}`}>
-                          <button className="page-link" onClick={() => setPage(p => p - 1)}>«</button>
+                          <button className="page-link" onClick={() => setPage((p) => p - 1)}>«</button>
                         </li>
-                        {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
                           <li key={p} className={`page-item ${p === page ? 'active' : ''}`}>
                             <button className="page-link" onClick={() => setPage(p)}>{p}</button>
                           </li>
                         ))}
                         <li className={`page-item ${page >= totalPages ? 'disabled' : ''}`}>
-                          <button className="page-link" onClick={() => setPage(p => p + 1)}>»</button>
+                          <button className="page-link" onClick={() => setPage((p) => p + 1)}>»</button>
                         </li>
                       </ul>
                     </nav>

@@ -1,53 +1,27 @@
 import api from './api';
 
-const normalizeBanner = (item = {}) => ({
-  ...item,
-  id: item.id ?? item.maBanner,
-  maBanner: item.maBanner ?? item.id,
-  viTri: item.viTri ?? item.position ?? 'Slider',
-  position: item.position ?? item.viTri ?? 'Slider',
-  tieuDe: item.tieuDe ?? item.title ?? '',
-  title: item.title ?? item.tieuDe ?? '',
-  urlAnh: item.urlAnh ?? item.imageUrl ?? '',
-  imageUrl: item.imageUrl ?? item.urlAnh ?? '',
-  lienKet: item.lienKet ?? item.link ?? '',
-  link: item.link ?? item.lienKet ?? '',
-  thuTu: item.thuTu ?? item.sortOrder ?? 0,
-  sortOrder: item.sortOrder ?? item.thuTu ?? 0,
-  dangHoatDong: item.dangHoatDong ?? item.status === 1,
-  status: item.status ?? (item.dangHoatDong === false ? 0 : 1),
-});
+// Banner trang chủ: BE trả DTO tiếng Anh { id, position, title, imageUrl, link, sortOrder, status }.
+// status: 1 = hiển thị, 0 = ẩn.
 
-const normalizeCollection = async (request) => {
-  const response = await request;
-  const data = response.data;
-  if (Array.isArray(data)) {
-    response.data = data.map(normalizeBanner);
-    return response;
-  }
-  response.data = { ...data, items: (data?.items || data?.data || []).map(normalizeBanner) };
-  return response;
-};
-
-const mapPayload = (data = {}) => ({
-  position: data.position ?? data.viTri ?? 'Slider',
-  title: data.title ?? data.tieuDe ?? null,
-  imageUrl: data.imageUrl ?? data.urlAnh ?? '',
-  link: data.link ?? data.lienKet ?? null,
-  sortOrder: Number(data.sortOrder ?? data.thuTu ?? 0),
-  status: data.status ?? (data.dangHoatDong === false ? 0 : 1),
-});
+function toPayload(data) {
+  return {
+    position: data.position || 'Slider',
+    title: data.title || null,
+    imageUrl: data.imageUrl,
+    link: data.link || null,
+    sortOrder: Number(data.sortOrder) || 0,
+    status: data.status,
+  };
+}
 
 const bannerService = {
-  getAll: () => normalizeCollection(api.get('/content/home-banners', { params: { all: true } })),
-  create: (data) => api.post('/content/home-banners', mapPayload(data)),
-  update: (id, data) => api.put(`/content/home-banners/${id}`, mapPayload(data)),
+  // Admin xem cả banner đang ẩn -> all=true.
+  getAll: () => api.get('/content/home-banners', { params: { all: true } }),
+  create: (data) => api.post('/content/home-banners', toPayload(data)),
+  update: (id, data) => api.put(`/content/home-banners/${id}`, toPayload(data)),
   delete: (id) => api.delete(`/content/home-banners/${id}`),
-  uploadImage: async (formData) => {
-    const response = await api.post('/content/home-banners/image', formData);
-    response.data = { ...response.data, urlAnh: response.data?.urlAnh ?? response.data?.url ?? response.data?.imageUrl };
-    return response;
-  },
+  // Upload ảnh banner -> BE trả { url }.
+  uploadImage: (formData) => api.post('/content/home-banners/image', formData),
 };
 
 export default bannerService;

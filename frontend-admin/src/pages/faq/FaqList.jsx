@@ -2,6 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import faqService from '../../services/faqService';
 import { useAuth } from '../../contexts/AuthContext';
 
+// Form dùng field tiếng Anh khớp DTO BE; isActive (boolean) quy đổi sang status 1/0 khi gửi.
+const emptyForm = { question: '', answer: '', category: '', sortOrder: 0, isActive: true };
+
 const FaqList = () => {
   const { isAdmin } = useAuth();
   const [faqs, setFaqs] = useState([]);
@@ -10,17 +13,10 @@ const FaqList = () => {
   const [showModal, setShowModal] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState(emptyForm);
 
   const [page, setPage] = useState(1);
   const pageSize = 10;
-
-  const [form, setForm] = useState({
-    cauHoi: '',
-    cauTraLoi: '',
-    danhMuc: '',
-    thuTu: 0,
-    dangHoatDong: true,
-  });
 
   // BE trả toàn bộ danh sách -> phân trang phía client.
   const totalPages = Math.max(1, Math.ceil(faqs.length / pageSize));
@@ -32,8 +28,7 @@ const FaqList = () => {
     setError('');
     try {
       const res = await faqService.getAll();
-      const data = res.data;
-      setFaqs(Array.isArray(data) ? data : data.items || data.data || []);
+      setFaqs(res.data.items || []);
     } catch (err) {
       setError('Không thể tải danh sách FAQ.');
       console.error(err);
@@ -48,19 +43,18 @@ const FaqList = () => {
 
   const openAdd = () => {
     setEditItem(null);
-    setForm({ cauHoi: '', cauTraLoi: '', danhMuc: '', thuTu: 0, dangHoatDong: true });
+    setForm(emptyForm);
     setShowModal(true);
   };
 
   const openEdit = (item) => {
     setEditItem(item);
-    const isActive = item.dangHoatDong ?? ((item.trangThai || item.status || 'active') === 'active');
     setForm({
-      cauHoi: item.cauHoi || item.question || '',
-      cauTraLoi: item.cauTraLoi || item.answer || '',
-      danhMuc: item.danhMuc || item.category || '',
-      thuTu: item.thuTu || item.sortOrder || 0,
-      dangHoatDong: !!isActive,
+      question: item.question || '',
+      answer: item.answer || '',
+      category: item.category || '',
+      sortOrder: item.sortOrder || 0,
+      isActive: item.status === 1,
     });
     setShowModal(true);
   };
@@ -72,11 +66,11 @@ const FaqList = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.cauHoi.trim()) {
+    if (!form.question.trim()) {
       alert('Câu hỏi là bắt buộc!');
       return;
     }
-    if (!form.cauTraLoi.trim()) {
+    if (!form.answer.trim()) {
       alert('Câu trả lời là bắt buộc!');
       return;
     }
@@ -84,11 +78,11 @@ const FaqList = () => {
     setSaving(true);
     try {
       const payload = {
-        cauHoi: form.cauHoi,
-        cauTraLoi: form.cauTraLoi,
-        danhMuc: form.danhMuc,
-        thuTu: Number(form.thuTu) || 0,
-        dangHoatDong: !!form.dangHoatDong,
+        question: form.question,
+        answer: form.answer,
+        category: form.category,
+        sortOrder: Number(form.sortOrder) || 0,
+        status: form.isActive ? 1 : 0,
       };
 
       if (editItem) {
@@ -171,12 +165,12 @@ const FaqList = () => {
                       <tbody>
                         {pagedFaqs.map((f) => (
                           <tr key={f.id}>
-                            <td className="table-col-text">{f.cauHoi || f.question}</td>
-                            <td className="table-col-text">{f.danhMuc || f.category || '-'}</td>
-                            <td className="table-col-number">{f.thuTu || f.sortOrder || 0}</td>
+                            <td className="table-col-text">{f.question}</td>
+                            <td className="table-col-text">{f.category || '-'}</td>
+                            <td className="table-col-number">{f.sortOrder || 0}</td>
                             <td className="table-col-status">
-                              <span className={`badge badge-${f.dangHoatDong ? 'success' : 'secondary'}`}>
-                                {f.dangHoatDong ? 'Hoạt động' : 'Ẩn'}
+                              <span className={`badge badge-${f.status === 1 ? 'success' : 'secondary'}`}>
+                                {f.status === 1 ? 'Hoạt động' : 'Ẩn'}
                               </span>
                             </td>
                             <td className="table-col-actions">
@@ -184,7 +178,7 @@ const FaqList = () => {
                                 <i className="fas fa-edit"></i>
                               </button>
                               {isAdmin() && (
-                                <button className="btn btn-xs btn-danger" onClick={() => handleDelete(f.id, f.cauHoi || f.question)} title="Xóa">
+                                <button className="btn btn-xs btn-danger" onClick={() => handleDelete(f.id, f.question)} title="Xóa">
                                   <i className="fas fa-trash"></i>
                                 </button>
                               )}
@@ -233,23 +227,23 @@ const FaqList = () => {
                 <div className="modal-body" style={{ overflowY: 'auto', flex: 1 }}>
                   <div className="form-group">
                     <label>Câu hỏi <span className="text-danger">*</span></label>
-                    <input type="text" className="form-control" name="cauHoi" value={form.cauHoi} onChange={handleChange} />
+                    <input type="text" className="form-control" name="question" value={form.question} onChange={handleChange} />
                   </div>
                   <div className="form-group">
                     <label>Câu trả lời <span className="text-danger">*</span></label>
-                    <textarea className="form-control" name="cauTraLoi" value={form.cauTraLoi} onChange={handleChange} rows="5" />
+                    <textarea className="form-control" name="answer" value={form.answer} onChange={handleChange} rows="5" />
                   </div>
                   <div className="row">
                     <div className="col-md-4">
                       <div className="form-group">
                         <label>Danh mục</label>
-                        <input type="text" className="form-control" name="danhMuc" value={form.danhMuc} onChange={handleChange} />
+                        <input type="text" className="form-control" name="category" value={form.category} onChange={handleChange} />
                       </div>
                     </div>
                     <div className="col-md-4">
                       <div className="form-group">
                         <label>Thứ tự hiển thị</label>
-                        <input type="number" className="form-control" name="thuTu" value={form.thuTu} onChange={handleChange} min="0" />
+                        <input type="number" className="form-control" name="sortOrder" value={form.sortOrder} onChange={handleChange} min="0" />
                       </div>
                     </div>
                     <div className="col-md-4">
@@ -258,12 +252,12 @@ const FaqList = () => {
                           <input
                             type="checkbox"
                             className="custom-control-input"
-                            id="faqDangHoatDong"
-                            checked={form.dangHoatDong}
-                            onChange={(e) => setForm((prev) => ({ ...prev, dangHoatDong: e.target.checked }))}
+                            id="faqIsActive"
+                            checked={form.isActive}
+                            onChange={(e) => setForm((prev) => ({ ...prev, isActive: e.target.checked }))}
                           />
-                          <label className="custom-control-label" htmlFor="faqDangHoatDong">
-                            {form.dangHoatDong ? 'Hoạt động' : 'Ẩn'}
+                          <label className="custom-control-label" htmlFor="faqIsActive">
+                            {form.isActive ? 'Hoạt động' : 'Ẩn'}
                           </label>
                         </div>
                       </div>

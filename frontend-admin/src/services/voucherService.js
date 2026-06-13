@@ -1,5 +1,8 @@
 import api from './api';
 
+// Lớp chuẩn hoá (normalize): BE trả DTO tiếng Anh (code, discountType, discountValue, startAt/endAt, status số...).
+// Hàm dưới map về shape ổn định cho UI và GIỮ THÊM alias tiếng Việt + tên cũ (giaTriGiam, startDate...) để trang cũ chạy.
+// status: BE dùng số (1/0); UI ở đây quy về chuỗi Active/Inactive cho dễ hiển thị.
 const statusToNumber = (status) => {
   if (typeof status === 'number') return status;
   return status === 'Inactive' || status === 'Expired' ? 0 : 1;

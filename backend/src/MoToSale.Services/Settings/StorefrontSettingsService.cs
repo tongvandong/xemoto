@@ -45,6 +45,8 @@ public class StorefrontSettingsService : IStorefrontSettingsService
             else
             {
                 UpdateSetting(existing, item, now);
+                // existing lấy từ GetAllAsync (AsNoTracking) nên EF không theo dõi -> phải Update để thay đổi được lưu.
+                _settings.Update(existing);
             }
         }
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import contactService from '../../services/contactService';
 import { formatDate } from '../../utils/formatDate';
 
+// contactStatus của BE: 'New' (chờ xử lý) | 'Processed' (đã xử lý).
 const CONTACT_STATUS = {
   New: { label: 'Chờ xử lý', color: 'warning' },
   Processed: { label: 'Đã xử lý', color: 'success' },
@@ -12,16 +13,16 @@ const ContactList = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Filters
+  // Bộ lọc
   const [filterStatus, setFilterStatus] = useState('');
   const [filterType, setFilterType] = useState('');
 
-  // Pagination
+  // Phân trang (BE trả PagingResponse)
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const pageSize = 10;
 
-  // Detail modal
+  // Modal chi tiết
   const [showDetail, setShowDetail] = useState(false);
   const [detailItem, setDetailItem] = useState(null);
 
@@ -34,13 +35,8 @@ const ContactList = () => {
       if (filterType) params.type = filterType;
       const res = await contactService.getAll(params);
       const data = res.data;
-      if (Array.isArray(data)) {
-        setContacts(data);
-        setTotalPages(1);
-      } else {
-        setContacts(data.items || data.data || []);
-        setTotalPages(data.totalPages || Math.ceil(((data.totalItems ?? data.total) || 0) / pageSize) || 1);
-      }
+      setContacts(data.items || []);
+      setTotalPages(data.totalPages || 1);
     } catch (err) {
       setError('Không thể tải danh sách liên hệ.');
       console.error(err);
@@ -61,7 +57,7 @@ const ContactList = () => {
       const response = await contactService.getById(item.id);
       setDetailItem(response.data);
     } catch {
-      // Keep the row data visible if the detail endpoint is unavailable.
+      // Giữ dữ liệu dòng nếu endpoint chi tiết lỗi.
     }
   };
 
@@ -70,7 +66,7 @@ const ContactList = () => {
       await contactService.markProcessed(id);
       fetchContacts();
       if (detailItem && detailItem.id === id) {
-        setDetailItem(prev => ({ ...prev, trangThai: 'Processed', status: 'Processed', contactStatus: 'Processed' }));
+        setDetailItem((prev) => ({ ...prev, contactStatus: 'Processed' }));
       }
     } catch (err) {
       alert('Đánh dấu đã xử lý thất bại!');
@@ -103,7 +99,6 @@ const ContactList = () => {
               <h3 className="card-title">Danh sách yêu cầu liên hệ</h3>
             </div>
             <div className="card-body">
-              {/* Filters */}
               <div className="row mb-3">
                 <div className="col-md-3">
                   <select
@@ -157,19 +152,19 @@ const ContactList = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {contacts.map(c => (
+                        {contacts.map((c) => (
                           <tr key={c.id}>
-                            <td className="table-col-text">{c.hoTen || c.fullName || '-'}</td>
-                            <td className="table-col-code">{c.soDienThoai || c.phone || '-'}</td>
+                            <td className="table-col-text">{c.fullName || '-'}</td>
+                            <td className="table-col-code">{c.phone || '-'}</td>
                             <td className="table-col-text">{c.email || '-'}</td>
-                            <td className="table-col-status">{c.loaiYeuCau || c.type || '-'}</td>
-                            <td className="table-col-status">{getStatusBadge(c.trangThai || c.status || c.contactStatus)}</td>
-                            <td className="table-col-date">{formatDate(c.ngayTao || c.createdDate || c.createdAt)}</td>
+                            <td className="table-col-status">{c.type || '-'}</td>
+                            <td className="table-col-status">{getStatusBadge(c.contactStatus)}</td>
+                            <td className="table-col-date">{formatDate(c.createdDate)}</td>
                             <td className="table-col-actions">
                               <button className="btn btn-xs btn-info mr-1" onClick={() => handleViewDetail(c)} title="Xem chi tiết">
                                 <i className="fas fa-eye"></i>
                               </button>
-                              {(c.trangThai || c.status || c.contactStatus) !== 'Processed' && (
+                              {c.contactStatus !== 'Processed' && (
                                 <button className="btn btn-xs btn-success" onClick={() => handleMarkProcessed(c.id)} title="Đánh dấu đã xử lý">
                                   <i className="fas fa-check"></i>
                                 </button>
@@ -181,20 +176,19 @@ const ContactList = () => {
                     </table>
                   </div>
 
-                  {/* Pagination */}
                   {totalPages > 1 && (
                     <nav className="mt-3">
                       <ul className="pagination pagination-sm justify-content-center">
                         <li className={`page-item ${page <= 1 ? 'disabled' : ''}`}>
-                          <button className="page-link" onClick={() => setPage(p => p - 1)}>«</button>
+                          <button className="page-link" onClick={() => setPage((p) => p - 1)}>«</button>
                         </li>
-                        {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
                           <li key={p} className={`page-item ${p === page ? 'active' : ''}`}>
                             <button className="page-link" onClick={() => setPage(p)}>{p}</button>
                           </li>
                         ))}
                         <li className={`page-item ${page >= totalPages ? 'disabled' : ''}`}>
-                          <button className="page-link" onClick={() => setPage(p => p + 1)}>»</button>
+                          <button className="page-link" onClick={() => setPage((p) => p + 1)}>»</button>
                         </li>
                       </ul>
                     </nav>
@@ -206,7 +200,6 @@ const ContactList = () => {
         </div>
       </section>
 
-      {/* Detail Modal */}
       {showDetail && detailItem && (
         <div className="modal fade show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <div className="modal-dialog" style={{ maxHeight: '90vh' }}>
@@ -222,7 +215,7 @@ const ContactList = () => {
                   <tbody>
                     <tr>
                       <th style={{ width: '130px' }}>Họ tên:</th>
-                      <td>{detailItem.hoTen || detailItem.fullName || '-'}</td>
+                      <td>{detailItem.fullName || '-'}</td>
                     </tr>
                     <tr>
                       <th>Email:</th>
@@ -230,29 +223,29 @@ const ContactList = () => {
                     </tr>
                     <tr>
                       <th>SĐT:</th>
-                      <td>{detailItem.soDienThoai || detailItem.phone || '-'}</td>
+                      <td>{detailItem.phone || '-'}</td>
                     </tr>
                     <tr>
                       <th>Loại yêu cầu:</th>
-                      <td>{detailItem.loaiYeuCau || detailItem.type || '-'}</td>
+                      <td>{detailItem.type || '-'}</td>
                     </tr>
                     <tr>
                       <th>Trạng thái:</th>
-                      <td>{getStatusBadge(detailItem.trangThai || detailItem.status || detailItem.contactStatus)}</td>
+                      <td>{getStatusBadge(detailItem.contactStatus)}</td>
                     </tr>
                     <tr>
                       <th>Ngày tạo:</th>
-                      <td>{formatDate(detailItem.ngayTao || detailItem.createdDate || detailItem.createdAt)}</td>
+                      <td>{formatDate(detailItem.createdDate)}</td>
                     </tr>
                     <tr>
                       <th>Nội dung:</th>
-                      <td style={{ whiteSpace: 'pre-wrap' }}>{detailItem.noiDung || detailItem.body || detailItem.content || detailItem.message || '-'}</td>
+                      <td style={{ whiteSpace: 'pre-wrap' }}>{detailItem.body || '-'}</td>
                     </tr>
                   </tbody>
                 </table>
               </div>
               <div className="modal-footer">
-                {(detailItem.trangThai || detailItem.status || detailItem.contactStatus) !== 'Processed' && (
+                {detailItem.contactStatus !== 'Processed' && (
                   <button className="btn btn-success" onClick={() => handleMarkProcessed(detailItem.id)}>
                     <i className="fas fa-check mr-1"></i> Đánh dấu đã xử lý
                   </button>

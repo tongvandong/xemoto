@@ -1,5 +1,8 @@
 import api from './api';
 
+// Lớp chuẩn hoá (normalize): BE trả DTO tiếng Anh (id, code, orderId, customerName, productSnapshot, warrantyStatus...).
+// Hàm dưới map sang alias tiếng Việt (maBaoHanh, tenKhachHang, tenSanPham...) cho trang cũ dùng.
+// Đây là adapter để UI cũ chạy với BE mới; muốn sạch nhất nên đọc theo tên tiếng Anh của DTO.
 const mapWarranty = (item = {}) => ({
   ...item,
   maBaoHanh: item.id,

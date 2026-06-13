@@ -1,6 +1,8 @@
 import api from './api';
 
-// Backend: ManufacturerDto(Id, Name, LogoUrl, Description, Status); SaveManufacturerRequest(Name, LogoUrl, Description, Status)
+// Backend: ManufacturerDto(Id, Name, LogoUrl, Description, Status); SaveManufacturerRequest(Name, LogoUrl, Description, Status).
+// Lớp chuẩn hoá dưới đây map DTO tiếng Anh về shape cho UI và GIỮ THÊM alias tiếng Việt (ten, moTa, dangHoatDong)
+// để trang cũ chạy. Khi đọc field nên ưu tiên tên tiếng Anh; alias chỉ để tương thích.
 const normalizeManufacturer = (item = {}) => ({
   ...item,
   id: item.id ?? item.maHangSanXuat,

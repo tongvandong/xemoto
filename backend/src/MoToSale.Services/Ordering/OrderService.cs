@@ -15,6 +15,32 @@ using MoToSale.Repository.Payments;
 
 namespace MoToSale.Services.Ordering;
 
+// =====================================================================================
+// BẢN ĐỒ TRẠNG THÁI ĐƠN HÀNG (2 trục độc lập — đọc để hiểu toàn bộ vòng đời đơn)
+//
+// Trục 1 — OrderStatus (giao/nhận hàng):
+//   Pending (Chờ xác nhận) ──admin duyệt giao/xuất kho──▶ Shipping (Đang giao)
+//        │                                                     │
+//        │                                              fulfill (giao xong)
+//        ▼                                                     ▼
+//   Cancelled (Đã hủy) ◀──hủy khi chưa giao──            Delivered (Đã giao = hoàn tất)
+//   • POS bán đứt: tạo xong lên thẳng Delivered.
+//   • Chỉ hủy được khi đơn CHƯA giao (Pending/Shipping). Đã giao thì dùng phiếu đổi trả.
+//
+// Trục 2 — PaymentStatus (thanh toán) — KHÔNG tự kéo theo OrderStatus:
+//   Unpaid (Chờ thanh toán)
+//      ├─ khách báo chuyển khoản ─▶ PendingConfirmation (Chờ xác nhận CK) ─admin xác nhận─▶ Paid
+//      ├─ thu đủ tiền mặt/COD ────────────────────────────────────────────────────────▶ Paid
+//      ├─ hủy đơn đã thu tiền ─────────────────────────────────────────────────────────▶ Refunded
+//      └─ hủy đơn đang chờ CK / CK quá hạn ────────────────────────────────────────────▶ Failed
+//   • Đơn đặt cọc / trả góp: chưa thu đủ vẫn là Unpaid (số đã thu xem ở DepositAmount/RemainingAmount + phiếu thu).
+//
+// Logic chia theo file partial:
+//   - OrderService.Checkout.cs                : khách đặt đơn online (giữ chỗ tồn).
+//   - OrderService.Pos.cs                     : bán tại quầy (POS) — bán đứt / đặt cọc / trả góp.
+//   - OrderService.QueryAllocationFulfillment.cs : tra cứu, soạn/xuất kho, giao hàng, hủy, đổi trạng thái.
+//   - PaymentService.*                        : ghi/xác nhận thu tiền (chỉ đổi PaymentStatus).
+// =====================================================================================
 public partial class OrderService : IOrderService
 {
     private const int HoldMinutes = 30;

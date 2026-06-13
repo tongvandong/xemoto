@@ -11,7 +11,8 @@ const POSITIONS = [
 
 const positionLabel = (value) => POSITIONS.find((p) => p.value === value)?.label || value;
 
-const emptyForm = { viTri: 'Slider', tieuDe: '', urlAnh: '', lienKet: '', thuTu: 0, dangHoatDong: true };
+// Form dùng field tiếng Anh khớp DTO BE; isActive (boolean) quy đổi sang status 1/0 khi gửi.
+const emptyForm = { position: 'Slider', title: '', imageUrl: '', link: '', sortOrder: 0, isActive: true };
 
 const HomeBannerList = () => {
   const { isAdmin } = useAuth();
@@ -29,8 +30,7 @@ const HomeBannerList = () => {
     setError('');
     try {
       const res = await bannerService.getAll();
-      const data = res.data;
-      setBanners(Array.isArray(data) ? data : data.items || data.data || []);
+      setBanners(res.data.items || []);
     } catch (err) {
       setError('Không thể tải danh sách banner.');
       console.error(err);
@@ -52,12 +52,12 @@ const HomeBannerList = () => {
   const openEdit = (item) => {
     setEditItem(item);
     setForm({
-      viTri: item.viTri || 'Slider',
-      tieuDe: item.tieuDe || '',
-      urlAnh: item.urlAnh || '',
-      lienKet: item.lienKet || '',
-      thuTu: item.thuTu || 0,
-      dangHoatDong: item.dangHoatDong ?? true,
+      position: item.position || 'Slider',
+      title: item.title || '',
+      imageUrl: item.imageUrl || '',
+      link: item.link || '',
+      sortOrder: item.sortOrder || 0,
+      isActive: item.status === 1,
     });
     setShowModal(true);
   };
@@ -75,9 +75,9 @@ const HomeBannerList = () => {
       const formData = new FormData();
       formData.append('file', file);
       const res = await bannerService.uploadImage(formData);
-      const url = res.data?.urlAnh;
+      const url = res.data?.url;
       if (url) {
-        setForm((prev) => ({ ...prev, urlAnh: url }));
+        setForm((prev) => ({ ...prev, imageUrl: url }));
       }
     } catch (err) {
       alert(err.response?.data?.message || 'Tải ảnh thất bại!');
@@ -89,7 +89,7 @@ const HomeBannerList = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.urlAnh.trim()) {
+    if (!form.imageUrl.trim()) {
       alert('Vui lòng chọn ảnh banner từ máy tính!');
       return;
     }
@@ -97,16 +97,16 @@ const HomeBannerList = () => {
     setSaving(true);
     try {
       const payload = {
-        viTri: form.viTri,
-        tieuDe: form.tieuDe || null,
-        urlAnh: form.urlAnh.trim(),
-        lienKet: form.lienKet || null,
-        thuTu: Number(form.thuTu) || 0,
-        dangHoatDong: !!form.dangHoatDong,
+        position: form.position,
+        title: form.title || null,
+        imageUrl: form.imageUrl.trim(),
+        link: form.link || null,
+        sortOrder: Number(form.sortOrder) || 0,
+        status: form.isActive ? 1 : 0,
       };
 
       if (editItem) {
-        await bannerService.update(editItem.maBanner, payload);
+        await bannerService.update(editItem.id, payload);
       } else {
         await bannerService.create(payload);
       }
@@ -185,19 +185,19 @@ const HomeBannerList = () => {
                     </thead>
                     <tbody>
                       {banners.map((b) => (
-                        <tr key={b.maBanner}>
+                        <tr key={b.id}>
                           <td>
-                            {b.urlAnh && (
-                              <img src={b.urlAnh} alt={b.tieuDe || 'banner'} style={{ maxHeight: 50, maxWidth: 120, objectFit: 'cover' }} className="rounded border" />
+                            {b.imageUrl && (
+                              <img src={b.imageUrl} alt={b.title || 'banner'} style={{ maxHeight: 50, maxWidth: 120, objectFit: 'cover' }} className="rounded border" />
                             )}
                           </td>
-                          <td className="table-col-text">{positionLabel(b.viTri)}</td>
-                          <td className="table-col-text">{b.tieuDe || '-'}</td>
-                          <td className="table-col-text">{b.lienKet || '-'}</td>
-                          <td className="table-col-number">{b.thuTu || 0}</td>
+                          <td className="table-col-text">{positionLabel(b.position)}</td>
+                          <td className="table-col-text">{b.title || '-'}</td>
+                          <td className="table-col-text">{b.link || '-'}</td>
+                          <td className="table-col-number">{b.sortOrder || 0}</td>
                           <td className="table-col-status">
-                            <span className={`badge badge-${b.dangHoatDong ? 'success' : 'secondary'}`}>
-                              {b.dangHoatDong ? 'Hiển thị' : 'Ẩn'}
+                            <span className={`badge badge-${b.status === 1 ? 'success' : 'secondary'}`}>
+                              {b.status === 1 ? 'Hiển thị' : 'Ẩn'}
                             </span>
                           </td>
                           <td className="table-col-actions">
@@ -205,7 +205,7 @@ const HomeBannerList = () => {
                               <i className="fas fa-edit"></i>
                             </button>
                             {isAdmin() && (
-                              <button className="btn btn-xs btn-danger" onClick={() => handleDelete(b.maBanner, b.tieuDe)} title="Xóa">
+                              <button className="btn btn-xs btn-danger" onClick={() => handleDelete(b.id, b.title)} title="Xóa">
                                 <i className="fas fa-trash"></i>
                               </button>
                             )}
@@ -237,7 +237,7 @@ const HomeBannerList = () => {
                     <div className="col-md-6">
                       <div className="form-group">
                         <label>Vị trí <span className="text-danger">*</span></label>
-                        <select className="form-control" name="viTri" value={form.viTri} onChange={handleChange}>
+                        <select className="form-control" name="position" value={form.position} onChange={handleChange}>
                           {POSITIONS.map((p) => (
                             <option key={p.value} value={p.value}>{p.label}</option>
                           ))}
@@ -247,7 +247,7 @@ const HomeBannerList = () => {
                     <div className="col-md-6">
                       <div className="form-group">
                         <label>Tiêu đề (alt)</label>
-                        <input type="text" className="form-control" name="tieuDe" value={form.tieuDe} onChange={handleChange} />
+                        <input type="text" className="form-control" name="title" value={form.title} onChange={handleChange} />
                       </div>
                     </div>
                   </div>
@@ -260,9 +260,9 @@ const HomeBannerList = () => {
                         {uploading ? 'Đang tải ảnh...' : 'Chọn ảnh từ máy tính...'}
                       </label>
                     </div>
-                    {form.urlAnh && (
+                    {form.imageUrl && (
                       <div className="mt-2">
-                        <img src={form.urlAnh} alt="Preview" className="rounded border" style={{ maxHeight: 120, maxWidth: 240, objectFit: 'cover' }} />
+                        <img src={form.imageUrl} alt="Preview" className="rounded border" style={{ maxHeight: 120, maxWidth: 240, objectFit: 'cover' }} />
                         <div className="small text-success mt-1">Ảnh đã tải lên thành công.</div>
                       </div>
                     )}
@@ -272,13 +272,13 @@ const HomeBannerList = () => {
                     <div className="col-md-6">
                       <div className="form-group">
                         <label>Liên kết (khi bấm vào)</label>
-                        <input type="text" className="form-control" name="lienKet" value={form.lienKet} onChange={handleChange} placeholder="VD: /products" />
+                        <input type="text" className="form-control" name="link" value={form.link} onChange={handleChange} placeholder="VD: /products" />
                       </div>
                     </div>
                     <div className="col-md-3">
                       <div className="form-group">
                         <label>Thứ tự</label>
-                        <input type="number" className="form-control" name="thuTu" value={form.thuTu} onChange={handleChange} min="0" />
+                        <input type="number" className="form-control" name="sortOrder" value={form.sortOrder} onChange={handleChange} min="0" />
                       </div>
                     </div>
                     <div className="col-md-3">
@@ -287,12 +287,12 @@ const HomeBannerList = () => {
                           <input
                             type="checkbox"
                             className="custom-control-input"
-                            id="bannerDangHoatDong"
-                            checked={form.dangHoatDong}
-                            onChange={(e) => setForm((prev) => ({ ...prev, dangHoatDong: e.target.checked }))}
+                            id="bannerIsActive"
+                            checked={form.isActive}
+                            onChange={(e) => setForm((prev) => ({ ...prev, isActive: e.target.checked }))}
                           />
-                          <label className="custom-control-label" htmlFor="bannerDangHoatDong">
-                            {form.dangHoatDong ? 'Hiển thị' : 'Ẩn'}
+                          <label className="custom-control-label" htmlFor="bannerIsActive">
+                            {form.isActive ? 'Hiển thị' : 'Ẩn'}
                           </label>
                         </div>
                       </div>

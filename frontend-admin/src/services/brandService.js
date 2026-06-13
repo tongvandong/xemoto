@@ -1,5 +1,8 @@
 import api from './api';
 
+// Lớp chuẩn hoá (normalize): BE trả DTO tiếng Anh (id, name, logoUrl, brandId, status...).
+// Hàm dưới map về shape ổn định cho UI và GIỮ THÊM alias tiếng Việt (tenHang, tenDongXe, hangXeId...) cho trang cũ.
+// Khi đọc field nên ưu tiên tên tiếng Anh; alias chỉ để tương thích.
 const normalizeBrand = (brand = {}) => ({
   ...brand,
   id: brand.id ?? brand.maHangXe,

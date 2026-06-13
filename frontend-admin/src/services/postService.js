@@ -1,5 +1,8 @@
 import api from './api';
 
+// Lớp chuẩn hoá (normalize): BE trả DTO tiếng Anh (title, summary, body, coverUrl, postStatus...).
+// Hàm dưới map về shape cho UI và GIỮ THÊM alias tiếng Việt (tieuDe, tomTat, noiDung, anhDaiDienUrl...) cho trang cũ.
+// Khi đọc field nên ưu tiên tên tiếng Anh; alias chỉ để tương thích.
 const normalizePost = (item = {}) => ({
   ...item,
   id: item.id ?? item.maBaiViet,

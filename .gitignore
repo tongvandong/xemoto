@@ -22,3 +22,7 @@ test-artifacts/
 **/test-artifacts/
 test-results/
 **/test-results/
+
+# ===== Thư mục backup tạm (không commit) =====
+*.backup-*
+**/*.backup-*

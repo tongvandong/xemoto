@@ -1,3 +1,4 @@
+using System.Net;
 using System.Threading.RateLimiting;
 using Ocelot.DependencyInjection;
 using Ocelot.Middleware;
@@ -34,6 +35,13 @@ builder.Services.AddRateLimiter(options =>
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
     {
+        // Bỏ giới hạn cho gọi trực tiếp từ localhost khi DEV/chạy test (không qua nginx nên không có X-Forwarded-For).
+        // Ở production nginx luôn set X-Forwarded-For -> nhánh này không kích hoạt -> vẫn siết theo IP thật.
+        if (IsLocalDevRequest(context))
+        {
+            return RateLimitPartition.GetNoLimiter<string>("local-dev");
+        }
+
         string clientIp = ResolveClientIp(context);
         string path = context.Request.Path.Value?.ToLowerInvariant() ?? string.Empty;
 
@@ -69,6 +77,14 @@ app.UseRateLimiter();
 await app.UseOcelot();
 
 app.Run();
+
+// Gọi trực tiếp từ máy local (loopback) và KHÔNG có X-Forwarded-For = môi trường dev/test, không phải qua nginx.
+static bool IsLocalDevRequest(HttpContext context)
+{
+    bool hasForwarded = !string.IsNullOrWhiteSpace(context.Request.Headers["X-Forwarded-For"].FirstOrDefault());
+    IPAddress? remoteIp = context.Connection.RemoteIpAddress;
+    return !hasForwarded && remoteIp is not null && IPAddress.IsLoopback(remoteIp);
+}
 
 // Ưu tiên IP đầu tiên trong X-Forwarded-For (client thật trước chuỗi proxy); fallback IP kết nối.
 static string ResolveClientIp(HttpContext context)

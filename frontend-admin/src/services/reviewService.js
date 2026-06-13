@@ -1,21 +1,12 @@
 import api from './api';
 
-const normalizeReview = (review) => ({
-  ...review,
-  trangThai: review.trangThai ?? review.status ?? review.reviewStatus,
-  diem: review.diem ?? review.rating,
-  tenSanPham: review.tenSanPham ?? review.productName,
-  tenNguoiDung: review.tenNguoiDung ?? review.userName,
-  createdAt: review.createdAt ?? review.createdDate,
-});
+// Đánh giá: BE trả DTO tiếng Anh { id, productId, productName, userId, userName, rating, title, comment, imageUrl, reviewStatus, createdDate }.
+// reviewStatus: Pending | Approved | Rejected | Hidden.
 
 const reviewService = {
-  getAll: async (params) => {
-    const response = await api.get('/reviews', { params });
-    response.data = { ...response.data, items: (response.data?.items || []).map(normalizeReview) };
-    return response;
-  },
-  updateStatus: (id, data) => api.patch(`/reviews/${id}/status`, data),
+  // params: { page, pageSize, status, rating } -> PagingResponse { items, totalItems, totalPages, ... }.
+  getAll: (params) => api.get('/reviews', { params }),
+  updateStatus: (id, status) => api.patch(`/reviews/${id}/status`, { status }),
   delete: (id) => api.delete(`/reviews/${id}`),
 };
 
