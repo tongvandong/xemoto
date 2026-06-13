@@ -270,11 +270,24 @@ export const orderApi = {
   claimTransfer: (id) => api.post(`/orders/${id}/payment-claim`).then(responseData),
 };
 
-// ===== Trả góp =====
+// ===== Trả góp (đăng ký tư vấn qua đối tác tài chính) =====
 
 export const installmentApi = {
-  // Gửi hồ sơ tư vấn trả góp; admin thẩm định trong trang "Hồ sơ trả góp" rồi duyệt thành đơn bán.
+  // Gửi hồ sơ tư vấn trả góp từ trang thanh toán; admin thẩm định trong trang "Hồ sơ trả góp" rồi duyệt thành đơn bán.
   submitApplication: (data) => api.post('/installment-applications', data).then(responseData),
+  // Đăng ký tư vấn trả góp từ trang /tra-gop (map field tường minh để khớp contract backend).
+  register: (data) => api.post('/installment-applications', {
+    productId: data.productId ?? null,
+    skuId: data.skuId ?? null,
+    productName: data.productName,
+    customerName: data.customerName,
+    customerPhone: data.customerPhone,
+    customerEmail: data.customerEmail ?? null,
+    financePartner: data.financePartner ?? null,
+    downPayment: Number(data.downPayment) || 0,
+    months: Number(data.months) || 0,
+    note: data.note ?? null,
+  }),
 };
 
 // ===== Voucher =====
@@ -418,23 +431,6 @@ export const shopApi = {
       return { bankName: '', bankCode: '', bankAccountNo: '', bankAccountName: '', bankQrUrl: '' };
     }
   },
-};
-
-// ===== Trả góp (đăng ký tư vấn qua đối tác tài chính) =====
-
-export const installmentApi = {
-  register: (data) => api.post('/installment-applications', {
-    productId: data.productId ?? null,
-    skuId: data.skuId ?? null,
-    productName: data.productName,
-    customerName: data.customerName,
-    customerPhone: data.customerPhone,
-    customerEmail: data.customerEmail ?? null,
-    financePartner: data.financePartner ?? null,
-    downPayment: Number(data.downPayment) || 0,
-    months: Number(data.months) || 0,
-    note: data.note ?? null,
-  }),
 };
 
 export { AUTH_CHANGED_EVENT };
