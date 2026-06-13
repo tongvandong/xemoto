@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { installmentApi } from '../services/api.js';
+import { installmentApi, productApi } from '../services/api.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useNotification } from '../contexts/NotificationContext.jsx';
+import { formatCurrency, getProductPrice } from '../utils/formatters.js';
 
 const getErrorMessage = (error, fallback) =>
   error?.response?.data?.message || error?.message || fallback;
 
 const PARTNERS = ['Home Credit', 'FE Credit', 'HD SAISON', 'Mcredit', 'Shinhan Finance', 'Khác'];
 const MONTHS = [6, 9, 12, 18, 24, 36];
+const DOWN_PERCENTS = [10, 20, 30, 40, 50, 60, 70, 80];
 
 export default function InstallmentPage() {
   const [params] = useSearchParams();
@@ -21,10 +23,11 @@ export default function InstallmentPage() {
     customerPhone: '',
     customerEmail: '',
     financePartner: 'Home Credit',
-    downPayment: '',
     months: 12,
     note: '',
   });
+  const [downPercent, setDownPercent] = useState(30);
+  const [productPrice, setProductPrice] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
 
@@ -41,6 +44,20 @@ export default function InstallmentPage() {
     }));
   }, [params, user]);
 
+  // Mở từ trang sản phẩm -> lấy giá để quy đổi % trả trước thành số tiền.
+  useEffect(() => {
+    if (!productId) return undefined;
+    let active = true;
+    productApi.getById(productId).then((p) => {
+      if (!active) return;
+      setProductPrice(Number(getProductPrice(p)) || 0);
+      setForm((f) => ({ ...f, productName: f.productName || p?.name || '' }));
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [productId]);
+
+  const downAmount = productPrice > 0 ? Math.round((productPrice * downPercent) / 100) : 0;
+
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   const submit = async (e) => {
@@ -51,8 +68,11 @@ export default function InstallmentPage() {
     }
     setSubmitting(true);
     try {
+      const noteWithPct = `${form.note.trim() ? `${form.note.trim()} — ` : ''}Trả trước mong muốn: ${downPercent}%`;
       await installmentApi.register({
         ...form,
+        note: noteWithPct,
+        downPayment: downAmount,
         productId: productId ? Number(productId) : null,
         skuId: skuId ? Number(skuId) : null,
       });
@@ -86,6 +106,9 @@ export default function InstallmentPage() {
           <div className="sm:col-span-2">
             <label className="mb-1 block text-sm font-medium text-zinc-700">Sản phẩm quan tâm *</label>
             <input className="w-full rounded-lg border border-zinc-300 px-3 py-2" value={form.productName} onChange={set('productName')} placeholder="Tên xe muốn mua trả góp" />
+            {productPrice > 0 && (
+              <p className="mt-1 text-xs text-zinc-500">Giá tham khảo: {formatCurrency(productPrice)}</p>
+            )}
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-zinc-700">Họ tên *</label>
@@ -106,8 +129,15 @@ export default function InstallmentPage() {
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-700">Số tiền trả trước dự kiến (đ)</label>
-            <input type="number" min="0" className="w-full rounded-lg border border-zinc-300 px-3 py-2" value={form.downPayment} onChange={set('downPayment')} placeholder="VD: 9000000" />
+            <label className="mb-1 block text-sm font-medium text-zinc-700">Tỷ lệ trả trước mong muốn</label>
+            <select className="w-full rounded-lg border border-zinc-300 px-3 py-2" value={downPercent} onChange={(e) => setDownPercent(Number(e.target.value))}>
+              {DOWN_PERCENTS.map((p) => <option key={p} value={p}>{p}%</option>)}
+            </select>
+            {productPrice > 0 ? (
+              <p className="mt-1 text-xs text-zinc-500">≈ {formatCurrency(downAmount)}</p>
+            ) : (
+              <p className="mt-1 text-xs text-zinc-400">Mở từ trang sản phẩm để hiển thị số tiền tương ứng.</p>
+            )}
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-zinc-700">Kỳ hạn mong muốn (tháng)</label>
