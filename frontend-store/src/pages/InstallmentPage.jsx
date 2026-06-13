@@ -56,7 +56,7 @@ export default function InstallmentPage() {
     return () => { active = false; };
   }, [productId]);
 
-  const downAmount = productPrice > 0 ? Math.round((productPrice * downPercent) / 100) : 0;
+  const downAmount = productPrice > 0 ? (productPrice * downPercent) / 100 : 0;
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
