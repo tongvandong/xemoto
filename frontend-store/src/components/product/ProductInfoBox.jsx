@@ -9,7 +9,7 @@ export const defaultPromotions = [
 ];
 
 function normalizeText(value) {
-  return (value || '').trim().toLowerCase();
+  return String(value ?? '').trim().toLowerCase();
 }
 
 function buildColorStops(name) {
