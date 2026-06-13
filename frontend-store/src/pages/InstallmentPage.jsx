@@ -134,7 +134,7 @@ export default function InstallmentPage() {
               {DOWN_PERCENTS.map((p) => <option key={p} value={p}>{p}%</option>)}
             </select>
             {productPrice > 0 ? (
-              <p className="mt-1 text-xs text-zinc-500">≈ {formatCurrency(downAmount)}</p>
+              <p className="mt-1 text-xs text-zinc-500">Trả trước: {formatCurrency(downAmount)}</p>
             ) : (
               <p className="mt-1 text-xs text-zinc-400">Mở từ trang sản phẩm để hiển thị số tiền tương ứng.</p>
             )}
