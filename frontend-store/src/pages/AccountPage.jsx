@@ -19,6 +19,7 @@ import { useAuth } from '../contexts/AuthContext.jsx';
 import { useCart } from '../contexts/CartContext.jsx';
 import { useNotification } from '../contexts/NotificationContext.jsx';
 import { userApi } from '../services/api.js';
+import { normalizeAddress, normalizeAddresses, formatAddress } from '../utils/address.js';
 
 const tabs = [
   { id: 'profile', label: 'Thông tin tài khoản', icon: FiUser },
@@ -60,31 +61,6 @@ function normalizeProfile(data = {}) {
     phone: data.phoneNumber ?? '',
     created: '',
   };
-}
-
-// Backend AddressDto: id, recipientName, phone, line, ward, district, province, isDefault.
-// Form trong trang dùng tên fullName/phoneNumber/addressLine nên map 1-1 ở đây.
-function normalizeAddress(address = {}) {
-  return {
-    id: address.id ?? null,
-    fullName: address.recipientName ?? '',
-    phoneNumber: address.phone ?? '',
-    addressLine: address.line ?? '',
-    ward: address.ward ?? '',
-    district: address.district ?? '',
-    province: address.province ?? '',
-    note: '',
-    isDefault: Boolean(address.isDefault),
-  };
-}
-
-function normalizeAddresses(data = []) {
-  const rows = Array.isArray(data) ? data : data.items || [];
-  return rows.map(normalizeAddress);
-}
-
-function formatAddress(address) {
-  return [address.addressLine, address.ward, address.district, address.province].filter(Boolean).join(', ');
 }
 
 function getErrorMessage(error, fallback) {

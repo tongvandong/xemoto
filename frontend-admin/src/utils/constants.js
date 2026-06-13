@@ -1,9 +1,10 @@
 export const ORDER_STATUS_LABELS = {
-  Pending: { label: 'Chờ xác nhận', color: 'warning' },
-  Checkout: { label: 'Chờ xác nhận', color: 'warning' },
-  AwaitingPayment: { label: 'Chờ xác nhận', color: 'warning' },
-  Confirmed: { label: 'Chờ xác nhận', color: 'warning' },
-  Allocated: { label: 'Đang giao', color: 'info' },
+  Preparing: { label: 'Đang chuẩn bị hàng', color: 'warning' },
+  Pending: { label: 'Chờ xác nhận', color: 'secondary' },
+  Checkout: { label: 'Chờ xác nhận', color: 'secondary' },
+  AwaitingPayment: { label: 'Chờ xác nhận', color: 'secondary' },
+  Confirmed: { label: 'Chờ xác nhận', color: 'secondary' },
+  Allocated: { label: 'Đang chuẩn bị hàng', color: 'warning' },
   Shipping: { label: 'Đang giao', color: 'info' },
   Delivered: { label: 'Đã giao', color: 'success' },
   Completed: { label: 'Đã giao', color: 'success' },
@@ -12,17 +13,18 @@ export const ORDER_STATUS_LABELS = {
 
 export const ORDER_STATUS_OPTIONS = [
   { value: 'Pending', label: 'Chờ xác nhận' },
+  { value: 'Preparing', label: 'Đang chuẩn bị hàng' },
   { value: 'Shipping', label: 'Đang giao' },
   { value: 'Delivered', label: 'Đã giao' },
-  { value: 'Cancelled', label: 'Đã hủy' },
 ];
 
 export const ORDER_NEXT_STATUS = {
-  Pending: ['Shipping', 'Delivered', 'Cancelled'],
-  Checkout: ['Shipping', 'Delivered', 'Cancelled'],
-  AwaitingPayment: ['Shipping', 'Delivered', 'Cancelled'],
-  Confirmed: ['Shipping', 'Delivered', 'Cancelled'],
-  Allocated: ['Delivered', 'Cancelled'],
+  Preparing: ['Shipping', 'Delivered', 'Cancelled'],
+  Pending: ['Preparing', 'Shipping', 'Delivered', 'Cancelled'],
+  Checkout: ['Preparing', 'Shipping', 'Delivered', 'Cancelled'],
+  AwaitingPayment: ['Preparing', 'Shipping', 'Delivered', 'Cancelled'],
+  Confirmed: ['Preparing', 'Shipping', 'Delivered', 'Cancelled'],
+  Allocated: ['Shipping', 'Delivered', 'Cancelled'],
   Shipping: ['Delivered', 'Cancelled'],
   Delivered: [],
   Completed: [],
@@ -41,10 +43,8 @@ export const PAYMENT_STATUS = {
   Paid: { label: 'Đã thanh toán', color: 'success' },
   Refunded: { label: 'Đã hoàn tiền', color: 'dark' },
   Failed: { label: 'Thanh toán thất bại', color: 'danger' },
-  // alias dữ liệu cũ
+  // Trạng thái phiếu thanh toán (PaymentRecordStatus) hiển thị ở danh sách/giao dịch thanh toán.
   Pending: { label: 'Chờ xác nhận chuyển khoản', color: 'warning' },
-  DepositPaid: { label: 'Đã đặt cọc (còn nợ)', color: 'info' },
-  PartiallyPaid: { label: 'Đã thanh toán một phần', color: 'info' },
   Cancelled: { label: 'Đã hủy thanh toán', color: 'secondary' },
 };
 

@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-dom';
 import ScrollToTop from './components/ScrollToTop.jsx';
 import { AuthProvider, useAuth } from './contexts/AuthContext.jsx';
@@ -6,24 +7,27 @@ import { FavoriteProvider } from './contexts/FavoriteContext.jsx';
 import { NotificationProvider } from './contexts/NotificationContext.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import MainLayout from './components/MainLayout.jsx';
-import CartPage from './pages/CartPage.jsx';
-import CheckoutPage from './pages/CheckoutPage.jsx';
-import CheckoutSuccessPage from './pages/CheckoutSuccessPage.jsx';
-import PaymentPage from './pages/PaymentPage.jsx';
-import FavoritesPage from './pages/FavoritesPage.jsx';
 import HomePage from './pages/HomePage.jsx';
-import LoginPage from './pages/LoginPage.jsx';
-import ForgotPasswordPage from './pages/ForgotPasswordPage.jsx';
-import NotFoundPage from './pages/NotFoundPage.jsx';
-import OrderDetailPage from './pages/OrderDetailPage.jsx';
-import OrdersPage from './pages/OrdersPage.jsx';
-import AccountPage from './pages/AccountPage.jsx';
-import ProductDetailPage from './pages/ProductDetailPage.jsx';
-import ProductListPage from './pages/ProductListPage.jsx';
-import RegisterPage from './pages/RegisterPage.jsx';
-import FaqPage from './pages/FaqPage.jsx';
-import VouchersPage from './pages/VouchersPage.jsx';
-import ContactPage from './pages/ContactPage.jsx';
+
+// Tách mã theo route: trang chủ nạp ngay (trang đích), các trang còn lại nạp khi điều hướng tới
+// để giảm kích thước bundle tải lần đầu. Tất cả page đều export default nên dùng React.lazy trực tiếp.
+const CartPage = lazy(() => import('./pages/CartPage.jsx'));
+const CheckoutPage = lazy(() => import('./pages/CheckoutPage.jsx'));
+const CheckoutSuccessPage = lazy(() => import('./pages/CheckoutSuccessPage.jsx'));
+const PaymentPage = lazy(() => import('./pages/PaymentPage.jsx'));
+const FavoritesPage = lazy(() => import('./pages/FavoritesPage.jsx'));
+const LoginPage = lazy(() => import('./pages/LoginPage.jsx'));
+const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage.jsx'));
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage.jsx'));
+const OrderDetailPage = lazy(() => import('./pages/OrderDetailPage.jsx'));
+const OrdersPage = lazy(() => import('./pages/OrdersPage.jsx'));
+const AccountPage = lazy(() => import('./pages/AccountPage.jsx'));
+const ProductDetailPage = lazy(() => import('./pages/ProductDetailPage.jsx'));
+const ProductListPage = lazy(() => import('./pages/ProductListPage.jsx'));
+const RegisterPage = lazy(() => import('./pages/RegisterPage.jsx'));
+const FaqPage = lazy(() => import('./pages/FaqPage.jsx'));
+const VouchersPage = lazy(() => import('./pages/VouchersPage.jsx'));
+const ContactPage = lazy(() => import('./pages/ContactPage.jsx'));
 
 const authPaths = ['/login', '/register', '/forgot-password'];
 
@@ -57,6 +61,7 @@ function AuthPage({ path }) {
 
 function AppRoutes() {
   return (
+    <Suspense fallback={<LoadingScreen />}>
     <Routes>
       <Route element={<MainLayout />}>
         <Route path="/" element={<HomePage />} />
@@ -143,6 +148,7 @@ function AppRoutes() {
       </Route>
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
+    </Suspense>
   );
 }
 

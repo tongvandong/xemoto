@@ -5,9 +5,6 @@ import { reviewApi } from '../../services/api.js';
 import { useAuth } from '../../contexts/AuthContext.jsx';
 import { formatDateTime } from '../../utils/formatters.js';
 
-/* ============================================================
-   RatingStars — display or interactive star selector
-   ============================================================ */
 function RatingStars({ value = 0, size = 16, interactive = false, onChange }) {
   const [hoverValue, setHoverValue] = useState(0);
   const displayValue = interactive && hoverValue > 0 ? hoverValue : Number(value || 0);
@@ -18,7 +15,7 @@ function RatingStars({ value = 0, size = 16, interactive = false, onChange }) {
         const filled = star <= Math.floor(displayValue);
         const half = !filled && star - 0.5 <= displayValue;
         const Icon = filled ? FaStar : half ? FaStarHalfAlt : FaRegStar;
-        const colorClass = filled || half ? 'text-amber-400' : 'text-gray-300';
+        const colorClass = filled || half ? 'text-amber-400' : 'text-zinc-300';
 
         if (!interactive) {
           return <Icon key={star} size={size} className={colorClass} />;
@@ -35,7 +32,7 @@ function RatingStars({ value = 0, size = 16, interactive = false, onChange }) {
           >
             <FaStar
               size={size}
-              className={star <= displayValue ? 'text-amber-400' : 'text-gray-300'}
+              className={star <= displayValue ? 'text-amber-400' : 'text-zinc-300'}
             />
           </button>
         );
@@ -44,30 +41,25 @@ function RatingStars({ value = 0, size = 16, interactive = false, onChange }) {
   );
 }
 
-/* ============================================================
-   RatingBar — single row in the rating distribution
-   ============================================================ */
 function RatingBar({ star, count, total }) {
   const pct = total > 0 ? Math.round((count / total) * 100) : 0;
 
   return (
     <div className="flex items-center gap-2 text-sm">
-      <span className="w-7 text-right font-medium text-gray-600">{star}</span>
+      <span className="w-7 text-right font-medium text-zinc-600">{star}</span>
       <FaStar size={12} className="text-amber-400" />
-      <div className="relative h-2 flex-1 overflow-hidden rounded-full bg-gray-200">
+      <div className="relative h-2 flex-1 overflow-hidden rounded-full bg-zinc-200">
         <div
           className="absolute inset-y-0 left-0 rounded-full bg-amber-400 transition-all duration-500"
           style={{ width: `${pct}%` }}
         />
       </div>
-      <span className="w-8 text-right text-xs text-gray-500">{count}</span>
+      <span className="w-8 text-right text-xs text-zinc-500">{count}</span>
     </div>
   );
 }
 
-/* ============================================================
-   Avatar — letter avatar from username
-   ============================================================ */
+
 function UserAvatar({ name }) {
   const letter = (name || '?')[0].toUpperCase();
   const colors = [
@@ -81,13 +73,6 @@ function UserAvatar({ name }) {
       {letter}
     </div>
   );
-}
-
-/* ============================================================
-   Helpers
-   ============================================================ */
-function formatReviewDate(value) {
-  return formatDateTime(value);
 }
 
 function ratingLabel(rating) {
@@ -127,12 +112,12 @@ function ReviewSummary({ summary, reviews }) {
   }, [reviews]);
 
   return (
-    <div className="flex flex-col gap-6 rounded-2xl border border-gray-100 bg-gradient-to-br from-gray-50 to-white p-6 shadow-sm sm:flex-row sm:items-center">
+    <div className="flex flex-col gap-6 rounded-2xl border border-zinc-100 bg-gradient-to-br from-zinc-50 to-white p-6 shadow-sm sm:flex-row sm:items-center">
       {/* Left: Big number */}
       <div className="flex flex-col items-center gap-1 sm:min-w-[140px]">
-        <span className="text-5xl font-black tracking-tight text-gray-900">{avg.toFixed(1)}</span>
+        <span className="text-5xl font-black tracking-tight text-zinc-900">{avg.toFixed(1)}</span>
         <RatingStars value={avg} size={20} />
-        <span className="mt-1 text-sm font-medium text-gray-500">
+        <span className="mt-1 text-sm font-medium text-zinc-500">
           {total > 0 ? `(${total} đánh giá)` : 'Chưa có đánh giá'}
         </span>
         {total > 0 && (
@@ -159,15 +144,15 @@ function ReviewSummary({ summary, reviews }) {
    ============================================================ */
 function ReviewCard({ review, isMine = false }) {
   return (
-    <div className={`rounded-xl border bg-white p-5 transition-shadow hover:shadow-md ${isMine ? 'border-amber-200' : 'border-gray-100'}`}>
+    <div className={`rounded-xl border bg-white p-5 transition-shadow hover:shadow-md ${isMine ? 'border-amber-200' : 'border-zinc-100'}`}>
       <div className="mb-3 flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
           <UserAvatar name={review.userName} />
           <div>
-            <div className="font-semibold text-gray-900">
+            <div className="font-semibold text-zinc-900">
               {isMine ? 'Đánh giá của bạn' : review.userName || `Khách hàng #${review.userId}`}
             </div>
-            <div className="text-xs text-gray-400">{formatReviewDate(review.createdAt)}</div>
+            <div className="text-xs text-zinc-400">{formatDateTime(review.createdAt)}</div>
           </div>
         </div>
         <div className="flex flex-col items-end gap-2">
@@ -180,39 +165,19 @@ function ReviewCard({ review, isMine = false }) {
         </div>
       </div>
 
-      {review.title && <h4 className="mb-1 text-sm font-bold text-gray-800">{review.title}</h4>}
-      <p className="whitespace-pre-line text-sm leading-relaxed text-gray-600">{review.comment}</p>
+      {review.title && <h4 className="mb-1 text-sm font-bold text-zinc-800">{review.title}</h4>}
+      <p className="whitespace-pre-line text-sm leading-relaxed text-zinc-600">{review.comment}</p>
 
       {review.imageUrl && (
         <div className="mt-3">
           <img
             src={review.imageUrl}
             alt="Ảnh đánh giá"
-            className="h-20 w-20 cursor-pointer rounded-lg border border-gray-200 object-cover transition-transform hover:scale-105"
+            className="h-20 w-20 cursor-pointer rounded-lg border border-zinc-200 object-cover transition-transform hover:scale-105"
             onClick={() => window.open(review.imageUrl, '_blank')}
           />
         </div>
       )}
-    </div>
-  );
-}
-
-function MyReviewCard({ review }) {
-  if (!review) return null;
-
-  const isApproved = review.status === 'Approved';
-
-  return (
-    <div className={`space-y-3 rounded-2xl border p-4 ${isApproved ? 'border-green-200 bg-green-50/50' : 'border-amber-200 bg-amber-50/50'}`}>
-      <div>
-        <h4 className={`text-sm font-black ${isApproved ? 'text-green-900' : 'text-amber-900'}`}>Đánh giá bạn đã gửi</h4>
-        <p className={`mt-1 text-xs leading-5 ${isApproved ? 'text-green-700' : 'text-amber-700'}`}>
-          {isApproved
-            ? 'Đánh giá đã được duyệt và đang hiển thị công khai.'
-            : 'Đánh giá sẽ xuất hiện trong danh sách công khai sau khi cửa hàng duyệt.'}
-        </p>
-      </div>
-      <ReviewCard review={review} isMine />
     </div>
   );
 }
@@ -224,22 +189,22 @@ function ReviewList({ reviews, loading }) {
   if (loading) {
     return (
       <div className="flex flex-col items-center gap-3 py-12">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-amber-400" />
-        <span className="text-sm text-gray-500">Đang tải đánh giá...</span>
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-zinc-200 border-t-amber-400" />
+        <span className="text-sm text-zinc-500">Đang tải đánh giá...</span>
       </div>
     );
   }
 
   if (!reviews.length) {
     return (
-      <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 px-6 py-14 text-center">
-        <div className="flex items-center gap-1 text-gray-300">
+      <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-zinc-200 bg-zinc-50/50 px-6 py-14 text-center">
+        <div className="flex items-center gap-1 text-zinc-300">
           {[1, 2, 3, 4, 5].map((s) => (
             <FaRegStar key={s} size={28} />
           ))}
         </div>
-        <p className="text-sm font-medium text-gray-500">Chưa có đánh giá nào cho sản phẩm này.</p>
-        <p className="text-xs text-gray-400">Hãy là người đầu tiên đánh giá sau khi mua sản phẩm!</p>
+        <p className="text-sm font-medium text-zinc-500">Chưa có đánh giá nào cho sản phẩm này.</p>
+        <p className="text-xs text-zinc-400">Hãy là người đầu tiên đánh giá sau khi mua sản phẩm!</p>
       </div>
     );
   }
@@ -314,7 +279,7 @@ function ReviewForm({ productId, reviewState, stateLoading, isAuthenticated, myR
         <h4 className="mb-2 text-sm font-bold text-amber-800">Đăng nhập để đánh giá</h4>
         <p className="text-sm text-amber-700">
           Vui lòng{' '}
-          <Link to={`/login?redirect=/products/${productId}`} className="font-bold text-[#d71920] underline underline-offset-2 hover:text-[#b9161c]">
+          <Link to={`/login?redirect=/products/${productId}`} className="font-bold text-[#d71920] underline underline-offset-2 hover:text-[#b61016]">
             đăng nhập
           </Link>{' '}
           để đánh giá sản phẩm này.
@@ -326,9 +291,9 @@ function ReviewForm({ productId, reviewState, stateLoading, isAuthenticated, myR
   /* --- Loading state check --- */
   if (stateLoading) {
     return (
-      <div className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-gray-50 p-5">
-        <div className="h-5 w-5 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
-        <span className="text-sm text-gray-500">Đang kiểm tra điều kiện đánh giá...</span>
+      <div className="flex items-center gap-3 rounded-2xl border border-zinc-100 bg-zinc-50 p-5">
+        <div className="h-5 w-5 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-600" />
+        <span className="text-sm text-zinc-500">Đang kiểm tra điều kiện đánh giá...</span>
       </div>
     );
   }
@@ -344,15 +309,15 @@ function ReviewForm({ productId, reviewState, stateLoading, isAuthenticated, myR
 
   /* --- Form (can review) --- */
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-      <h4 className="mb-4 text-base font-bold text-gray-900">
+    <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+      <h4 className="mb-4 text-base font-bold text-zinc-900">
         ⭐ Viết đánh giá
       </h4>
 
       <form className="space-y-4" onSubmit={handleSubmit}>
         {/* Star selector */}
         <div>
-          <label className="mb-2 block text-sm font-semibold text-gray-700">Chọn số sao</label>
+          <label className="mb-2 block text-sm font-semibold text-zinc-700">Chọn số sao</label>
           <div className="flex items-center gap-3">
             <RatingStars value={rating} size={32} interactive onChange={setRating} />
             <span className="text-sm font-medium text-amber-600">{rating}/5</span>
@@ -361,16 +326,16 @@ function ReviewForm({ productId, reviewState, stateLoading, isAuthenticated, myR
 
         {/* Comment textarea */}
         <div>
-          <label className="mb-2 block text-sm font-semibold text-gray-700">Nội dung đánh giá</label>
+          <label className="mb-2 block text-sm font-semibold text-zinc-700">Nội dung đánh giá</label>
           <textarea
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             rows={4}
             maxLength={1000}
-            className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 outline-none transition-colors placeholder:text-gray-400 focus:border-[#d71920] focus:bg-white focus:ring-2 focus:ring-[#d71920]/10"
+            className="w-full resize-none rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-800 outline-none transition-colors placeholder:text-zinc-400 focus:border-[#d71920] focus:bg-white focus:ring-2 focus:ring-[#d71920]/10"
             placeholder="Chia sẻ trải nghiệm của bạn về sản phẩm này..."
           />
-          <div className="mt-1 text-right text-xs text-gray-400">{comment.length}/1000</div>
+          <div className="mt-1 text-right text-xs text-zinc-400">{comment.length}/1000</div>
         </div>
 
         {/* Messages */}
@@ -389,7 +354,7 @@ function ReviewForm({ productId, reviewState, stateLoading, isAuthenticated, myR
         <button
           type="submit"
           disabled={!canSubmit}
-          className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl bg-[#d71920] px-5 text-sm font-bold text-white shadow-sm transition-all hover:bg-[#b9161c] hover:shadow-md disabled:cursor-not-allowed disabled:bg-gray-300 disabled:shadow-none"
+          className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl bg-[#d71920] px-5 text-sm font-bold text-white shadow-sm transition-all hover:bg-[#b61016] hover:shadow-md disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:shadow-none"
         >
           {submitting ? (
             <>
@@ -429,7 +394,10 @@ export default function ProductReviews({ productId }) {
     if (!displayedMyReview?.id || displayedMyReview.status === 'Approved') return reviews;
     return reviews.filter((review) => review.id !== displayedMyReview.id);
   }, [displayedMyReview, reviews]);
-  const shouldShowMyReviewCard = displayedMyReview && displayedMyReview.status !== 'Approved';
+  const visibleReviews = useMemo(() => {
+    if (!displayedMyReview?.id || displayedMyReview.status === 'Approved') return publicReviews;
+    return [displayedMyReview, ...publicReviews];
+  }, [displayedMyReview, publicReviews]);
 
   const loadReviews = useCallback(async () => {
     if (!productId) return;
@@ -510,13 +478,11 @@ export default function ProductReviews({ productId }) {
       {/* Section header */}
       <div className="flex items-center gap-3">
         <div className="h-6 w-1 rounded-full bg-[#d71920]" />
-        <h3 className="text-xl font-bold text-gray-900">Đánh giá sản phẩm</h3>
+        <h3 className="text-xl font-bold text-zinc-900">Đánh giá sản phẩm</h3>
       </div>
 
       {/* Rating summary */}
       <ReviewSummary summary={summary} reviews={reviews} />
-
-      {shouldShowMyReviewCard && <MyReviewCard review={displayedMyReview} />}
 
       {/* Review form */}
       <ReviewForm
@@ -529,7 +495,7 @@ export default function ProductReviews({ productId }) {
       />
 
       {/* Review list */}
-      <ReviewList reviews={publicReviews} loading={loading} />
+      <ReviewList reviews={visibleReviews} loading={loading} />
     </section>
   );
 }

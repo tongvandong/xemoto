@@ -23,6 +23,12 @@ public partial class OrderService
 
     private async Task<int> CheckoutCoreAsync(int userId, CheckoutRequest req)
     {
+        // Đơn online chỉ hỗ trợ thanh toán toàn bộ hoặc đặt cọc. Trả góp phải qua luồng gửi hồ sơ
+        // (/installment-applications) để cửa hàng thẩm định rồi mới lập đơn — tránh tạo đơn trả góp
+        // "rỗng cọc" bị đòi 100% tiền.
+        if (req.OrderType == OrderType.Installment)
+            throw new OrderException("Đơn trả góp cần gửi hồ sơ để cửa hàng thẩm định, không đặt trực tiếp.");
+
         var cart = await _cart.GetWithItemsAsync(userId);
         if (cart is null || cart.Items.Count == 0) throw new OrderException("Giỏ hàng trống.");
 
@@ -39,7 +45,7 @@ public partial class OrderService
             Code = $"DH{now:yyyyMMddHHmmssfff}",
             UserId = userId,
             Channel = "Online",
-            OrderType = req.OrderType is OrderType.Deposit or OrderType.Installment ? req.OrderType : OrderType.FullPayment,
+            OrderType = req.OrderType == OrderType.Deposit ? OrderType.Deposit : OrderType.FullPayment,
             OrderStatus = OrderStatus.Pending,
             PaymentMethod = paymentMethod,
             PaymentStatus = PaymentStatus.Unpaid,
@@ -57,10 +63,16 @@ public partial class OrderService
             CreatedDate = now,
         };
 
+        // Nạp SKU + sản phẩm cho cả giỏ bằng hai truy vấn thay vì 2N truy vấn trong vòng lặp.
+        var cartSkuIds = cart.Items.Select(i => i.SkuId).Distinct().ToList();
+        var skusById = (await _skus.FindAsync(s => cartSkuIds.Contains(s.Id))).ToDictionary(s => s.Id);
+        var productIds = skusById.Values.Select(s => s.ProductId).Distinct().ToList();
+        var productsById = (await _products.FindAsync(p => productIds.Contains(p.Id))).ToDictionary(p => p.Id);
+
         foreach (var item in cart.Items)
         {
-            var sku = await _skus.GetByIdAsync(item.SkuId)!;
-            var product = sku is null ? null : await _products.GetByIdAsync(sku.ProductId);
+            skusById.TryGetValue(item.SkuId, out var sku);
+            Product? product = sku is not null && productsById.TryGetValue(sku.ProductId, out var p) ? p : null;
             order.Lines.Add(new OrderLine
             {
                 SkuId = item.SkuId,
@@ -112,9 +124,17 @@ public partial class OrderService
         _orders.Add(order);
         await _orders.SaveChangesAsync(); // sinh OrderId + OrderLine.Id
 
+        // Giữ chỗ tồn ATOMIC trước, gom các bản ghi Reservation rồi mới Add một lượt
+        // (tránh có thay đổi tracked đang chờ khi gọi ExecuteUpdate). Nếu một SKU vừa hết
+        // tồn do request khác giữ trước, ném lỗi để rollback toàn bộ giao dịch checkout.
+        var reservationsToAdd = new List<Reservation>();
         foreach (var line in order.Lines)
         {
-            _reservations.Add(new Reservation
+            bool reserved = await _inventory.TryReserveAsync(line.SkuId, line.Qty, now);
+            if (!reserved)
+                throw new OrderException("Một số sản phẩm vừa hết tồn khả dụng. Vui lòng thử lại.");
+
+            reservationsToAdd.Add(new Reservation
             {
                 OrderId = order.Id,
                 OrderLineId = line.Id,
@@ -124,10 +144,10 @@ public partial class OrderService
                 ExpiresAt = now.AddMinutes(HoldMinutes),
                 CreatedDate = now,
             });
-            var resItem = await _inventory.GetOrCreateItemAsync(line.SkuId);
-            resItem.Reserved += line.Qty;
-            resItem.UpdatedDate = now;
         }
+
+        foreach (var reservation in reservationsToAdd)
+            _reservations.Add(reservation);
 
         _cart.ClearItems(cart.Items);
         _orders.AddStatusHistory(new OrderStatusHistory { OrderId = order.Id, ToStatus = OrderStatus.Pending, Note = "Tạo đơn", ChangedBy = userId, CreatedDate = now });

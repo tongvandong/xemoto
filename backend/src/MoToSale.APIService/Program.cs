@@ -66,6 +66,9 @@ builder.Services.AddScoped<ICustomerProfileService, CustomerProfileService>();
 builder.Services.AddScoped<IStorefrontSettingsService, StorefrontSettingsService>();
 builder.Services.AddScoped<IReportService, ReportService>();
 
+// Job nền tự hủy đơn hết hạn giữ chỗ để trả tồn kho.
+builder.Services.AddHostedService<MoToSale.APIService.Hosting.ReservationCleanupService>();
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(o =>
     {

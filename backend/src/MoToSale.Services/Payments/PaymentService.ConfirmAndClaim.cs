@@ -22,7 +22,8 @@ public partial class PaymentService
             throw new PaymentException("Đơn đã thanh toán đủ.");
         }
 
-        decimal amount = CalculateClaimAmount(order);
+        decimal totalPaid = await _payments.GetTotalPaidAsync(orderId);
+        decimal amount = CalculateClaimAmount(order, totalPaid);
         if (amount <= 0)
         {
             throw new PaymentException("Đơn không còn khoản cần thanh toán.");
@@ -35,7 +36,7 @@ public partial class PaymentService
         }
 
         DateTime now = DateTime.UtcNow;
-        string paymentType = DetermineClaimPaymentType(order, amount);
+        string paymentType = DetermineClaimPaymentType(order, amount, totalPaid);
         var payment = CreatePendingTransferPayment(order.Id, paymentType, amount, userId, now);
         _payments.Add(payment);
 
@@ -143,10 +144,13 @@ public partial class PaymentService
         }
     }
 
-    private static decimal CalculateClaimAmount(Order order)
+    // Xác định khoản khách cần chuyển. Đơn đặt cọc: lần đầu (chưa thu đồng nào) chuyển TIỀN CỌC,
+    // các lần sau chuyển phần còn lại. Dựa vào totalPaid thay vì PaymentStatus vì sau khi xác nhận
+    // cọc, backend đưa PaymentStatus về Unpaid (chưa đủ 100%) — dễ tính nhầm lại thành tiền cọc.
+    private static decimal CalculateClaimAmount(Order order, decimal totalPaid)
     {
         bool isFirstDepositPayment = order.OrderType == OrderType.Deposit
-            && order.PaymentStatus == PaymentStatus.Unpaid
+            && totalPaid <= 0
             && order.DepositAmount > 0;
 
         if (isFirstDepositPayment)
@@ -162,10 +166,10 @@ public partial class PaymentService
         return order.GrandTotal;
     }
 
-    private static string DetermineClaimPaymentType(Order order, decimal amount)
+    private static string DetermineClaimPaymentType(Order order, decimal amount, decimal totalPaid)
     {
         bool isFirstDepositPayment = order.OrderType == OrderType.Deposit
-            && order.PaymentStatus == PaymentStatus.Unpaid
+            && totalPaid <= 0
             && order.DepositAmount > 0;
 
         if (isFirstDepositPayment)

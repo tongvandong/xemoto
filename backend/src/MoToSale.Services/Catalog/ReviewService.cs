@@ -45,7 +45,7 @@ public class ReviewService : IReviewService
             .Where(r => r.ProductId == productId && r.ReviewStatus == "Approved")
             .OrderByDescending(r => r.CreatedDate)
             .Join(_db.Users, r => r.UserId, u => u.Id,
-                (r, u) => new ProductReviewItem(r.Id, r.Rating, r.Title, r.Comment, u.FullName, r.CreatedDate))
+                (r, u) => new ProductReviewItem(r.Id, r.Rating, r.Title, r.Comment, u.FullName, r.CreatedDate, r.ReviewStatus, r.ImageUrl))
             .ToListAsync();
     }
 
@@ -75,7 +75,7 @@ public class ReviewService : IReviewService
         return await _db.Reviews
             .Where(r => r.ProductId == productId && r.UserId == userId)
             .Join(_db.Users, r => r.UserId, u => u.Id,
-                (r, u) => new ProductReviewItem(r.Id, r.Rating, r.Title, r.Comment, u.FullName, r.CreatedDate))
+                (r, u) => new ProductReviewItem(r.Id, r.Rating, r.Title, r.Comment, u.FullName, r.CreatedDate, r.ReviewStatus, r.ImageUrl))
             .FirstOrDefaultAsync();
     }
 

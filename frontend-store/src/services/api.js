@@ -213,15 +213,22 @@ export const orderApi = {
   // Backend không có endpoint payment-info riêng: ghép thông tin chuyển khoản
   // từ chi tiết đơn (số tiền cần trả) + showroom (tài khoản ngân hàng), dựng QR VietQR.
   async getPaymentInfo(id) {
-    const [order, showroomData] = await Promise.all([
+    const [order, showroom] = await Promise.all([
       api.get(`/orders/${id}`).then((res) => mapOrder(res.data)).catch(() => null),
-      api.get('/showrooms').then(responseData).catch(() => []),
+      shopApi.getShowroomProfile().catch(() => ({})),
     ]);
 
-    const showrooms = Array.isArray(showroomData) ? showroomData : showroomData?.items || [];
-    const showroom = showrooms[0] || {};
-
-    const amountDue = Number(order?.remainingAmount || order?.depositAmount || order?.totalAmount || 0);
+    // Khớp PaymentService.CalculateClaimAmount của backend: đơn đặt cọc chưa thu đồng nào
+    // thì khách chuyển TIỀN CỌC trước; các trường hợp khác chuyển phần còn lại / tổng đơn.
+    // (Sau khi cọc được xác nhận, backend trả paymentStatus về Unpaid nên phải tra thêm payments[].)
+    const hasPaidRecord = (order?.payments || []).some((p) => p.paymentStatus === 'Paid');
+    const isFirstDepositPayment = order?.orderType === 'Deposit'
+      && order?.paymentStatus === 'Unpaid'
+      && !hasPaidRecord
+      && Number(order?.depositAmount || 0) > 0;
+    const amountDue = isFirstDepositPayment
+      ? Number(order.depositAmount)
+      : Number(order?.remainingAmount || order?.totalAmount || 0);
     const orderCode = order?.orderCode || id;
     const bankCode = showroom.bankCode || '';
     const accountNo = showroom.bankAccountNo || '';
@@ -245,19 +252,29 @@ export const orderApi = {
     };
   },
 
-  // Cửa hàng hiện miễn phí giao hàng toàn bộ đơn online (backend không có API tính phí ship).
-  // Giữ tên hàm vì CheckoutPage gọi; trả về cấu trúc quote với phí 0.
-  async getShippingQuote() {
-    return {
-      shippingFee: 0,
-      originalShippingFee: 0,
-      discountAmount: 0,
-    };
+  // Phí giao hàng đồng giá lấy từ cấu hình vận hành của admin (Setting "DefaultShippingFee",
+  // backend trả về qua /showrooms). Nhận trực tiếp tại cửa hàng thì không tính phí.
+  // Backend cộng shippingFee gửi lên vào tổng đơn khi checkout (CheckoutRequest.ShippingFee).
+  async getShippingQuote({ receivingMethod } = {}) {
+    if (receivingMethod === 'Pickup') {
+      return { shippingFee: 0, originalShippingFee: 0, discountAmount: 0 };
+    }
+
+    const showroom = await shopApi.getShowroomProfile();
+    const fee = Math.max(0, Number(showroom.defaultShippingFee || 0));
+    return { shippingFee: fee, originalShippingFee: fee, discountAmount: 0 };
   },
 
   cancel: (id, reason) => api.post(`/orders/${id}/cancel`, { reason }).then((res) => mapOrder(res.data)),
 
   claimTransfer: (id) => api.post(`/orders/${id}/payment-claim`).then(responseData),
+};
+
+// ===== Trả góp =====
+
+export const installmentApi = {
+  // Gửi hồ sơ tư vấn trả góp; admin thẩm định trong trang "Hồ sơ trả góp" rồi duyệt thành đơn bán.
+  submitApplication: (data) => api.post('/installment-applications', data).then(responseData),
 };
 
 // ===== Voucher =====
@@ -366,10 +383,24 @@ export const contentApi = {
   getBlogPosts: (params) => api.get('/content/posts/public', { params }),
 };
 
+// Hồ sơ cửa hàng (thông tin liên hệ + tài khoản ngân hàng) gần như không đổi trong một phiên,
+// nhưng được nhiều nơi cần (Header, Footer, trang liên hệ, dựng QR, tính phí ship). Cache lại
+// 1 promise để toàn app chỉ gọi /showrooms một lần thay vì 4-6 lần mỗi lượt tải trang.
+let showroomProfilePromise = null;
+
 export const shopApi = {
-  async getShowroomProfile() {
-    const data = await api.get('/showrooms').then(responseData);
-    return (Array.isArray(data) ? data : data?.items || (data ? [data] : []))[0] || {};
+  getShowroomProfile() {
+    if (!showroomProfilePromise) {
+      showroomProfilePromise = api.get('/showrooms')
+        .then(responseData)
+        .then((data) => (Array.isArray(data) ? data : data?.items || (data ? [data] : []))[0] || {})
+        .catch((err) => {
+          showroomProfilePromise = null; // cho phép thử lại ở lần gọi sau khi lỗi mạng
+          throw err;
+        });
+    }
+
+    return showroomProfilePromise;
   },
 
   async getPaymentInfo() {

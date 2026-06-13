@@ -64,7 +64,8 @@ public record ReviewDto(int Id, int ProductId, string ProductName, int UserId, s
 public record UpdateReviewStatusRequest(string Status);
 
 // ===== Storefront (khách hàng) =====
-public record ProductReviewItem(int Id, int Rating, string? Title, string? Comment, string UserName, DateTime CreatedDate);
+// ReviewStatus để khách thấy đánh giá của mình đã duyệt hay chưa; ImageUrl hiển thị ảnh đính kèm (nếu có).
+public record ProductReviewItem(int Id, int Rating, string? Title, string? Comment, string UserName, DateTime CreatedDate, string? ReviewStatus = null, string? ImageUrl = null);
 public record ProductReviewSummary(int ProductId, int TotalReviews, double AverageRating);
 public record MyReviewState(int ProductId, bool IsAuthenticated, bool HasPurchased, bool CanReview, int? EligibleOrderId, string? Reason, ProductReviewItem? MyReview);
 public record CreateReviewRequest(int Rating, string? Title, string? Comment, int? OrderId);

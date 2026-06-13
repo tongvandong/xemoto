@@ -124,21 +124,22 @@ public partial class OrderService
         }
         else
         {
-            // Đặt cọc / trả góp → giữ chỗ tồn, xuất kho khi tất toán & giao xe.
+            // Đặt cọc / trả góp → giữ chỗ tồn ATOMIC, xuất kho khi tất toán & giao xe.
             var holdUntil = isInstallment ? now.AddDays(30) : now.AddDays(7);
+            var reservationsToAdd = new List<Reservation>();
             foreach (var line in order.Lines)
             {
-                if (line.Qty > await AvailableForSaleAsync(line.SkuId))
+                if (!await _inventory.TryReserveAsync(line.SkuId, line.Qty, now))
                     throw new OrderException($"Tồn khả dụng không đủ cho {line.ProductNameSnapshot}.");
-                _reservations.Add(new Reservation
+                reservationsToAdd.Add(new Reservation
                 {
                     OrderId = order.Id, OrderLineId = line.Id, SkuId = line.SkuId, Qty = line.Qty,
                     ReservationStatus = ReservationStatus.Confirmed, ExpiresAt = holdUntil, CreatedDate = now,
                 });
-                var resItem = await _inventory.GetOrCreateItemAsync(line.SkuId);
-                resItem.Reserved += line.Qty;
-                resItem.UpdatedDate = now;
             }
+
+            foreach (var reservation in reservationsToAdd)
+                _reservations.Add(reservation);
         }
 
         // Ghi nhận tiền đã thu tại quầy + thu quỹ.

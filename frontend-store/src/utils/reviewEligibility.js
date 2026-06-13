@@ -1,10 +1,10 @@
 // Điều kiện đánh giá sản phẩm — NGUỒN DUY NHẤT cho cả OrdersPage, OrderDetailPage và ProductReviews.
-// Khớp đúng với backend (CatalogService/ReviewsController.GetEligibleOrderIdAsync):
-// một đơn cho phép đánh giá khi đã 'Completed' HOẶC đã giao ('Delivered').
+// Khớp đúng backend ReviewService.EligibleOrderIdAsync: xét TRẠNG THÁI ĐƠN (orderStatus)
+// là 'Delivered' hoặc 'Completed' — KHÔNG xét shippingStatus (fulfillment dùng giá trị 'Fulfilled').
 // Việc "đã đánh giá hay chưa" tra bằng reviewApi.getMine(productId) -> reviewStatusByProductId.
 
 export function isOrderReviewable(order) {
-  return order?.orderStatus === 'Completed' || order?.shippingStatus === 'Delivered';
+  return order?.orderStatus === 'Delivered' || order?.orderStatus === 'Completed';
 }
 
 export function getOrderItems(order) {

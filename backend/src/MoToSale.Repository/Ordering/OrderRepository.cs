@@ -83,7 +83,8 @@ public class OrderRepository : Repository<Order>, IOrderRepository
     {
         if (!string.IsNullOrWhiteSpace(request.OrderStatus))
         {
-            query = query.Where(order => order.OrderStatus == request.OrderStatus);
+            string orderStatus = NormalizeOrderStatusFilter(request.OrderStatus);
+            query = query.Where(order => order.OrderStatus == orderStatus);
         }
 
         if (!string.IsNullOrWhiteSpace(request.PaymentStatus))
@@ -97,6 +98,19 @@ public class OrderRepository : Repository<Order>, IOrderRepository
         }
 
         return query;
+    }
+
+    private static string NormalizeOrderStatusFilter(string status)
+    {
+        return status switch
+        {
+            "Pending" or "AwaitingPayment" or "Checkout" or "Confirmed" => "Pending",
+            "Preparing" or "Allocated" => "Preparing",
+            "Shipping" => "Shipping",
+            "Completed" or "Delivered" => "Delivered",
+            "Cancelled" => "Cancelled",
+            _ => status,
+        };
     }
 
     private static IQueryable<Order> ApplyDateFilters(IQueryable<Order> query, OrderSearchRequest request)

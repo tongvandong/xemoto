@@ -19,7 +19,13 @@ public partial class OrderService
     public async Task<List<OrderListItem>> GetMyOrdersAsync(int userId)
     {
         var orders = await _orders.GetByUserAsync(userId);
-        return orders.Select(o => new OrderListItem(o.Id, o.Code, o.OrderStatus, o.PaymentStatus, o.FulfillmentStatus, o.GrandTotal, o.PlacedAt, o.UserId, null, MapLineSummaries(o))).ToList();
+        var items = new List<OrderListItem>();
+        foreach (var o in orders)
+        {
+            items.Add(new OrderListItem(o.Id, o.Code, o.OrderStatus, o.PaymentStatus, o.FulfillmentStatus, o.GrandTotal, o.PlacedAt, o.UserId, null, await MapLineSummariesAsync(o)));
+        }
+
+        return items;
     }
 
     public async Task<OrderDetail?> GetOrderAsync(int id)
@@ -32,9 +38,15 @@ public partial class OrderService
     {
         var page = await _orders.SearchAsync(request);
         var names = await UserNameMapAsync(page.Items.Select(o => o.UserId));
+        var items = new List<OrderListItem>();
+        foreach (var o in page.Items)
+        {
+            items.Add(new OrderListItem(o.Id, o.Code, o.OrderStatus, o.PaymentStatus, o.FulfillmentStatus, o.GrandTotal, o.PlacedAt, o.UserId, names.GetValueOrDefault(o.UserId), await MapLineSummariesAsync(o)));
+        }
+
         return new PagingResponse<OrderListItem>
         {
-            Items = page.Items.Select(o => new OrderListItem(o.Id, o.Code, o.OrderStatus, o.PaymentStatus, o.FulfillmentStatus, o.GrandTotal, o.PlacedAt, o.UserId, names.GetValueOrDefault(o.UserId), MapLineSummaries(o))).ToList(),
+            Items = items,
             Page = page.Page,
             PageSize = page.PageSize,
             TotalItems = page.TotalItems,

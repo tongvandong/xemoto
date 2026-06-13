@@ -29,6 +29,22 @@ export function formatDateTime(value) {
   });
 }
 
+// Ngày giờ tuyệt đối kèm khoảng cách tương đối ("vừa xong", "5 phút trước") cho danh sách đơn hàng.
+export function formatDateTimeWithRelative(value, now) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Chưa cập nhật';
+
+  const absoluteTime = formatDateTime(value);
+  const diffMs = now.getTime() - date.getTime();
+
+  if (diffMs < 0) return absoluteTime;
+  if (diffMs < 60 * 1000) return `${absoluteTime} · vừa xong`;
+  if (diffMs < 60 * 60 * 1000) return `${absoluteTime} · ${Math.floor(diffMs / (60 * 1000))} phút trước`;
+  if (diffMs < 24 * 60 * 60 * 1000) return `${absoluteTime} · ${Math.floor(diffMs / (60 * 60 * 1000))} giờ trước`;
+
+  return absoluteTime;
+}
+
 export function normalizeImageUrl(url) {
   if (!url) {
     return '';

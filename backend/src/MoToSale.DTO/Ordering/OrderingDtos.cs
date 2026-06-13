@@ -18,7 +18,8 @@ public record OrderLineDto(int Id, int ProductId, int SkuId, string ProductName,
 public record AllocationDto(int Id, int Qty, string Status);
 public record OrderHistoryDto(int Id, string EventType, string? OldValue, string NewValue, string? Note, int? ActorUserId, DateTime CreatedAt);
 public record OrderPaymentDto(int Id, string Code, string PaymentType, decimal Amount, string Method, string Status, string? TransactionRef, DateTime? PaidAt);
-public record OrderLineSummaryDto(int SkuId, string ProductName, string SkuCode, decimal UnitPrice, int Qty, decimal LineTotal);
+// ProductId để storefront tra trạng thái đánh giá sản phẩm ngay từ danh sách đơn (không cần mở chi tiết).
+public record OrderLineSummaryDto(int SkuId, string ProductName, string SkuCode, decimal UnitPrice, int Qty, decimal LineTotal, int ProductId = 0);
 
 public record OrderListItem(
     int Id, string Code, string OrderStatus, string PaymentStatus, string FulfillmentStatus,

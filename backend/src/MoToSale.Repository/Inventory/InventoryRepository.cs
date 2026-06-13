@@ -54,6 +54,59 @@ public class InventoryRepository : Repository<InventoryItem>, IInventoryReposito
         return total ?? 0;
     }
 
+    // UPDATE ... WHERE OnHand - Reserved >= qty: SQL Server khóa dòng khi cập nhật nên
+    // hai giao dịch song song được tuần tự hóa, không thể cùng giữ vượt tồn khả dụng.
+    // affected = 0 khi tồn không đủ (hoặc chưa có dòng tồn cho SKU).
+    public async Task<bool> TryReserveAsync(int skuId, int qty, DateTime now)
+    {
+        if (Context.Database.IsRelational())
+        {
+            int affected = await Set
+                .Where(item => item.SkuId == skuId && item.OnHand - item.Reserved >= qty)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(item => item.Reserved, item => item.Reserved + qty)
+                    .SetProperty(item => item.UpdatedDate, now));
+
+            return affected > 0;
+        }
+
+        // Fallback cho provider không hỗ trợ ExecuteUpdate (vd InMemory trong unit test).
+        // Thay đổi tracked sẽ được lưu cùng SaveChanges của giao dịch gọi.
+        InventoryItem? item = await Set.FirstOrDefaultAsync(row => row.SkuId == skuId);
+        if (item is null || item.OnHand - item.Reserved < qty)
+        {
+            return false;
+        }
+
+        item.Reserved += qty;
+        item.UpdatedDate = now;
+        return true;
+    }
+
+    public async Task<bool> TryIssueAsync(int skuId, int qty, DateTime now)
+    {
+        if (Context.Database.IsRelational())
+        {
+            int affected = await Set
+                .Where(item => item.SkuId == skuId && item.OnHand >= qty)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(item => item.OnHand, item => item.OnHand - qty)
+                    .SetProperty(item => item.UpdatedDate, now));
+
+            return affected > 0;
+        }
+
+        InventoryItem? item = await Set.FirstOrDefaultAsync(row => row.SkuId == skuId);
+        if (item is null || item.OnHand < qty)
+        {
+            return false;
+        }
+
+        item.OnHand -= qty;
+        item.UpdatedDate = now;
+        return true;
+    }
+
     public async Task<int> GetTotalAvailableAsync(int skuId)
     {
         int total = await Set

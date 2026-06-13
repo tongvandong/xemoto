@@ -203,7 +203,7 @@ function ProductInfoBox({
             <div className="grid gap-3 sm:grid-cols-2">
               <button
                 type="button"
-                className="inline-flex min-h-12 items-center justify-center rounded-xl bg-[#d71920] px-5 text-sm font-bold text-white transition hover:bg-[#b9161c] disabled:cursor-not-allowed disabled:bg-zinc-300"
+                className="inline-flex min-h-12 items-center justify-center rounded-xl bg-[#d71920] px-5 text-sm font-bold text-white transition hover:bg-[#b61016] disabled:cursor-not-allowed disabled:bg-zinc-300"
                 onClick={onAddToCart}
                 disabled={!isInStock}
               >

@@ -82,6 +82,7 @@ public class StorefrontSettingsService : IStorefrontSettingsService
             PickSetting(settingMap, "BankAccountNo", "BankAccount") ?? string.Empty,
             PickSetting(settingMap, "BankAccountName", "StoreName") ?? string.Empty,
             PickSetting(settingMap, "BankQrUrl") ?? string.Empty,
+            ParseDecimalSetting(settingMap, "DefaultShippingFee"),
             true);
 
         return new List<StorefrontShowroomDto> { store };
@@ -105,6 +106,26 @@ public class StorefrontSettingsService : IStorefrontSettingsService
         setting.Value = item.Value;
         setting.Description = item.ResolvedDescription;
         setting.UpdatedDate = now;
+    }
+
+    // Setting lưu dạng chuỗi; admin có thể nhập "30000" hoặc "30.000" nên bỏ dấu phân tách trước khi parse.
+    private static decimal ParseDecimalSetting(Dictionary<string, string?> settingMap, params string[] keys)
+    {
+        string? raw = PickSetting(settingMap, keys);
+
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return 0;
+        }
+
+        string cleaned = raw.Replace(".", string.Empty).Replace(",", string.Empty).Replace(" ", string.Empty);
+
+        if (decimal.TryParse(cleaned, out decimal value) && value >= 0)
+        {
+            return value;
+        }
+
+        return 0;
     }
 
     private static string? PickSetting(Dictionary<string, string?> settingMap, params string[] keys)

@@ -62,7 +62,7 @@ function FavoritesPage() {
               </div>
               <h2 className="mt-5 text-2xl font-black text-zinc-950">Chưa có sản phẩm yêu thích</h2>
               <Link
-                className="mt-6 inline-flex min-h-11 items-center justify-center rounded-xl bg-[#d71920] px-6 text-sm font-bold text-white transition hover:bg-[#b9161c]"
+                className="mt-6 inline-flex min-h-11 items-center justify-center rounded-xl bg-[#d71920] px-6 text-sm font-bold text-white transition hover:bg-[#b61016]"
                 to="/products"
               >
                 Khám phá sản phẩm

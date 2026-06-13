@@ -12,6 +12,19 @@ import {
 
 const toNumber = (value) => Number(value || 0);
 
+const mapShippingStatus = (status) => {
+  if (status === 'Unallocated' || status === 'Allocated' || status === 'Preparing' || status === 'Pending') {
+    return 'Preparing';
+  }
+  if (status === 'Shipped' || status === 'Shipping') {
+    return 'Shipping';
+  }
+  if (status === 'Fulfilled' || status === 'Delivered' || status === 'Completed') {
+    return 'Delivered';
+  }
+  return status;
+};
+
 // Lấy mảng items từ response (backend bọc danh sách trong { items: [...] } hoặc trả thẳng mảng).
 export const listOf = (data) => (Array.isArray(data) ? data : data?.items || []);
 
@@ -54,7 +67,7 @@ export const mapOrder = (raw = {}) => {
     remainingAmount: toNumber(raw.remainingAmount),
     orderStatus: raw.orderStatus,
     paymentStatus: raw.paymentStatus,
-    shippingStatus: raw.fulfillmentStatus,
+    shippingStatus: mapShippingStatus(raw.fulfillmentStatus || raw.orderStatus),
     note: raw.note,
     fulfillmentNote: raw.fulfillmentNote,
     pickupAppointmentAt: raw.pickupAppointmentAt,
@@ -112,13 +125,14 @@ export const mapFavorite = (raw = {}) => ({
 });
 
 // ===== Đánh giá =====
-// ProductReviewItem: id, rating, title, comment, userName, createdDate
+// ProductReviewItem: id, rating, title, comment, userName, createdDate, reviewStatus, imageUrl
 export const mapReview = (raw = {}) => ({
   id: raw.id,
   rating: toNumber(raw.rating),
   title: raw.title,
   comment: raw.comment,
   userName: raw.userName,
+  status: raw.reviewStatus,
   imageUrl: normalizeImageUrl(raw.imageUrl),
   createdAt: raw.createdDate,
 });

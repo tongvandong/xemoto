@@ -53,4 +53,5 @@ public record StorefrontShowroomDto(
     string BankAccountNo,
     string BankAccountName,
     string BankQrUrl,
+    decimal DefaultShippingFee,
     bool IsActive);

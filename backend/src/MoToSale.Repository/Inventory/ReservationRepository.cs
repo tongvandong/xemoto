@@ -58,4 +58,16 @@ public class ReservationRepository : Repository<Reservation>, IReservationReposi
 
         return reservations;
     }
+
+    public async Task<List<int>> GetExpiredActiveOrderIdsAsync(DateTime asOf)
+    {
+        List<int> orderIds = await Set
+            .Where(reservation => reservation.ReservationStatus == ReservationStatus.Active
+                                  && reservation.ExpiresAt < asOf)
+            .Select(reservation => reservation.OrderId)
+            .Distinct()
+            .ToListAsync();
+
+        return orderIds;
+    }
 }

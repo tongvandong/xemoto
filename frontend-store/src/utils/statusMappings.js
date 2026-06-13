@@ -4,21 +4,27 @@
 //   3. PAYMENT_STATUS — Unpaid | PartiallyPaid | Paid | Refunded | Cancelled  (tiền đã thu hay chưa)
 
 export const ORDER_STATUS_MAP = {
-  AwaitingPayment: 'Chờ thanh toán',
-  Confirmed: 'Đã xác nhận',
+  Preparing: 'Đang chuẩn bị hàng',
+  AwaitingPayment: 'Chờ xác nhận',
+  Confirmed: 'Chờ xác nhận',
   Cancelled: 'Đã hủy',
   // Legacy giá trị cũ vẫn map để hiển thị nếu còn data
-  Pending: 'Chờ thanh toán',
-  Checkout: 'Chờ thanh toán',
-  Processing: 'Đã xác nhận',
-  Shipping: 'Đã xác nhận',
-  Delivered: 'Đã xác nhận',
-  Completed: 'Đã xác nhận',
+  Pending: 'Chờ xác nhận',
+  Checkout: 'Chờ xác nhận',
+  Processing: 'Chờ xác nhận',
+  Allocated: 'Đang chuẩn bị hàng',
+  Shipping: 'Đang giao',
+  Delivered: 'Đã giao',
+  Completed: 'Đã giao',
 };
 
 export const SHIPPING_STATUS_MAP = {
+  Unallocated: 'Đang chuẩn bị hàng',
+  Allocated: 'Đang chuẩn bị hàng',
   Preparing: 'Đang chuẩn bị hàng',
+  Shipped: 'Đang giao',
   Shipping: 'Đang giao',
+  Fulfilled: 'Đã giao',
   Delivered: 'Đã giao',
 };
 
@@ -28,6 +34,7 @@ export const SHIPPING_STATUS_MAP = {
 // Để biết nhãn contextual theo orderType (Deposit/Installment) dùng getPaymentStatusContextual.
 export const PAYMENT_STATUS_MAP = {
   Unpaid: 'Chưa thanh toán',
+  PendingConfirmation: 'Chờ cửa hàng xác nhận',
   PartiallyPaid: 'Đã thanh toán một phần',
   Paid: 'Đã thanh toán',
   Refunded: 'Đã hoàn tiền',
@@ -56,25 +63,32 @@ export const RECEIVING_METHOD_MAP = {
 };
 
 const ORDER_STATUS_COLOR_MAP = {
-  AwaitingPayment: 'bg-amber-100 text-amber-700',
-  Confirmed: 'bg-blue-100 text-blue-700',
+  Preparing: 'bg-amber-100 text-amber-700',
+  AwaitingPayment: 'bg-zinc-100 text-zinc-700',
+  Confirmed: 'bg-zinc-100 text-zinc-700',
   Cancelled: 'bg-red-100 text-red-700',
-  Pending: 'bg-amber-100 text-amber-700',
-  Checkout: 'bg-amber-100 text-amber-700',
-  Processing: 'bg-blue-100 text-blue-700',
+  Pending: 'bg-zinc-100 text-zinc-700',
+  Checkout: 'bg-zinc-100 text-zinc-700',
+  Processing: 'bg-zinc-100 text-zinc-700',
+  Allocated: 'bg-amber-100 text-amber-700',
   Shipping: 'bg-blue-100 text-blue-700',
-  Delivered: 'bg-blue-100 text-blue-700',
-  Completed: 'bg-blue-100 text-blue-700',
+  Delivered: 'bg-green-100 text-green-700',
+  Completed: 'bg-green-100 text-green-700',
 };
 
 const SHIPPING_STATUS_COLOR_MAP = {
+  Unallocated: 'bg-amber-100 text-amber-700',
+  Allocated: 'bg-amber-100 text-amber-700',
   Preparing: 'bg-amber-100 text-amber-700',
+  Shipped: 'bg-blue-100 text-blue-700',
   Shipping: 'bg-blue-100 text-blue-700',
+  Fulfilled: 'bg-green-100 text-green-700',
   Delivered: 'bg-green-100 text-green-700',
 };
 
 const PAYMENT_STATUS_COLOR_MAP = {
   Unpaid: 'bg-zinc-100 text-zinc-700',
+  PendingConfirmation: 'bg-amber-100 text-amber-700',
   PartiallyPaid: 'bg-orange-100 text-orange-700',
   Paid: 'bg-green-100 text-green-700',
   Refunded: 'bg-purple-100 text-purple-700',
@@ -148,9 +162,13 @@ export function isOrderPaid(paymentStatus) {
   return PAID_PAYMENT_STATUSES.includes(paymentStatus);
 }
 
-// Đơn còn được phép hủy (chưa thanh toán).
+// Đơn còn được phép hủy — khớp đúng điều kiện backend OrderService.CancelOrderAsync:
+// chưa hủy, chưa giao xong (orderStatus Delivered / fulfillment Fulfilled).
 export function canCancelOrder(order) {
-  return order?.orderStatus === 'AwaitingPayment';
+  return order?.orderStatus !== 'Cancelled'
+    && order?.orderStatus !== 'Delivered'
+    && order?.orderStatus !== 'Completed'
+    && order?.shippingStatus !== 'Fulfilled';
 }
 
 // Đơn còn được phép yêu cầu hoàn tiền: đã thu tiền, chưa sang giao/hoàn tất/hủy, và chưa có yêu cầu đang xử lý / đã hoàn.

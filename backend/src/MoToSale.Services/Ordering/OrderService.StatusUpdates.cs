@@ -122,7 +122,7 @@ public partial class OrderService
     {
         var order = await _orders.GetDetailAsync(orderId) ?? throw new OrderException("Không tìm thấy đơn hàng.");
         var toStatus = NormalizeAdminOrderStatus(req.ToStatus);
-        var allowed = new HashSet<string> { OrderStatus.Pending, OrderStatus.Shipping, OrderStatus.Delivered, OrderStatus.Cancelled };
+        var allowed = new HashSet<string> { OrderStatus.Pending, OrderStatus.Preparing, OrderStatus.Shipping, OrderStatus.Delivered, OrderStatus.Cancelled };
         if (!allowed.Contains(toStatus)) throw new OrderException("Invalid order status.");
         if (toStatus == OrderStatus.Cancelled)
         {
@@ -141,6 +141,7 @@ public partial class OrderService
         var now = DateTime.UtcNow;
         order.OrderStatus = toStatus;
         if (toStatus == OrderStatus.Pending) order.FulfillmentStatus = FulfillmentStatus.Unallocated;
+        if (toStatus == OrderStatus.Preparing) order.FulfillmentStatus = FulfillmentStatus.Allocated;
         if (toStatus == OrderStatus.Shipping) order.FulfillmentStatus = FulfillmentStatus.Shipped;
         order.UpdatedDate = now;
         _orders.Update(order);
@@ -156,11 +157,12 @@ public partial class OrderService
         await _orders.SaveChangesAsync();
     }
 
-    // Chấp nhận cả giá trị cũ (AwaitingPayment/Confirmed/Allocated/Completed) lẫn mới → quy về 4 trạng thái.
+    // Chấp nhận cả giá trị cũ (AwaitingPayment/Confirmed/Allocated/Completed) lẫn mới.
     private static string NormalizeAdminOrderStatus(string? status) => status switch
     {
-        "Pending" or "AwaitingPayment" or "Confirmed" => OrderStatus.Pending,
-        "Allocated" or "Shipping" => OrderStatus.Shipping,
+        "Pending" or "AwaitingPayment" or "Checkout" or "Confirmed" => OrderStatus.Pending,
+        "Preparing" or "Allocated" => OrderStatus.Preparing,
+        "Shipping" => OrderStatus.Shipping,
         "Completed" or "Delivered" => OrderStatus.Delivered,
         "Cancelled" => OrderStatus.Cancelled,
         _ => status ?? string.Empty,
@@ -171,7 +173,8 @@ public partial class OrderService
         var mappedOrderStatus = req.ToStatus switch
         {
             FulfillmentStatus.Unallocated => OrderStatus.Pending,
-            FulfillmentStatus.Allocated or FulfillmentStatus.Shipped => OrderStatus.Shipping,
+            FulfillmentStatus.Allocated => OrderStatus.Preparing,
+            FulfillmentStatus.Shipped => OrderStatus.Shipping,
             FulfillmentStatus.Fulfilled => OrderStatus.Delivered,
             _ => throw new OrderException("Invalid fulfillment status."),
         };

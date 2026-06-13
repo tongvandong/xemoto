@@ -49,6 +49,8 @@ public partial class ReportService
         {
             case OrderStatus.Pending:
                 return "Chờ xác nhận";
+            case OrderStatus.Preparing:
+                return "Đang chuẩn bị hàng";
             case OrderStatus.Shipping:
                 return "Đang giao";
             case OrderStatus.Delivered:
