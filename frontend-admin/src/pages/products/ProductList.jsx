@@ -30,6 +30,7 @@ const PAGE_CONFIG = {
     codeHeader: 'Mã xe',
     showBrand: true,
     showVariants: true,
+    showCompatibility: false,
     showManufacturer: false,
     rootNames: ['xe máy', 'xe may'],
   },
@@ -44,7 +45,8 @@ const PAGE_CONFIG = {
     nameHeader: 'Tên phụ tùng',
     codeHeader: 'Mã phụ tùng',
     showBrand: false,
-    showVariants: false,
+    showVariants: true,
+    showCompatibility: true,
     showManufacturer: true,
     rootNames: ['phụ tùng', 'phu tung', 'phụ kiện', 'phu kien'],
   },
@@ -507,11 +509,11 @@ const ProductList = ({ productType = 'XeMay' }) => {
                                   <i className="fas fa-edit"></i>
                                 </button>
                                 {config.showVariants && (
-                                  <button type="button" className="btn btn-xs btn-warning mr-1" title="Biến thể" onClick={() => setShowVariants(getProductId(product))}>
+                                  <button type="button" className="btn btn-xs btn-warning mr-1" title={productType === 'PhuTung' ? 'SKU / quy cách' : 'Biến thể'} onClick={() => setShowVariants(getProductId(product))}>
                                     <i className="fas fa-layer-group"></i>
                                   </button>
                                 )}
-                                {!config.showVariants && (
+                                {config.showCompatibility && (
                                   <button type="button" className="btn btn-xs btn-warning mr-1" title="Tương thích xe" onClick={() => setShowCompatibility(product)}>
                                     <i className="fas fa-link"></i>
                                   </button>
@@ -575,6 +577,7 @@ const ProductList = ({ productType = 'XeMay' }) => {
       {showVariants && (
         <VariantManager
           productId={showVariants}
+          productType={productType}
           onClose={() => setShowVariants(null)}
         />
       )}
