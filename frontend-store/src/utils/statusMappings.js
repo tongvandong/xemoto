@@ -39,6 +39,7 @@ export const PAYMENT_STATUS_MAP = {
   Paid: 'Đã thanh toán',
   Refunded: 'Đã hoàn tiền',
   Cancelled: 'Đã hủy',
+  PendingConfirmation: 'Chờ xác nhận chuyển khoản',
   Pending: 'Chờ xác nhận',
   Failed: 'Thất bại',
 };
@@ -93,6 +94,7 @@ const PAYMENT_STATUS_COLOR_MAP = {
   Paid: 'bg-green-100 text-green-700',
   Refunded: 'bg-purple-100 text-purple-700',
   Cancelled: 'bg-zinc-100 text-zinc-700',
+  PendingConfirmation: 'bg-amber-100 text-amber-700',
   Pending: 'bg-amber-100 text-amber-700',
   Failed: 'bg-red-100 text-red-700',
 };

@@ -12,7 +12,6 @@ const FaqList = () => {
   const [saving, setSaving] = useState(false);
 
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const pageSize = 10;
 
   const [form, setForm] = useState({
@@ -23,26 +22,25 @@ const FaqList = () => {
     dangHoatDong: true,
   });
 
+  // BE trả toàn bộ danh sách -> phân trang phía client.
+  const totalPages = Math.max(1, Math.ceil(faqs.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const pagedFaqs = faqs.slice((safePage - 1) * pageSize, safePage * pageSize);
+
   const fetchFaqs = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const res = await faqService.getAll({ page, pageSize });
+      const res = await faqService.getAll();
       const data = res.data;
-      if (Array.isArray(data)) {
-        setFaqs(data);
-        setTotalPages(1);
-      } else {
-        setFaqs(data.items || data.data || []);
-        setTotalPages(data.totalPages || Math.ceil((data.total || 0) / pageSize) || 1);
-      }
+      setFaqs(Array.isArray(data) ? data : data.items || data.data || []);
     } catch (err) {
       setError('Không thể tải danh sách FAQ.');
       console.error(err);
     } finally {
       setLoading(false);
     }
-  }, [page]);
+  }, []);
 
   useEffect(() => {
     fetchFaqs();
@@ -171,7 +169,7 @@ const FaqList = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {faqs.map((f) => (
+                        {pagedFaqs.map((f) => (
                           <tr key={f.id}>
                             <td className="table-col-text">{f.cauHoi || f.question}</td>
                             <td className="table-col-text">{f.danhMuc || f.category || '-'}</td>
@@ -200,16 +198,16 @@ const FaqList = () => {
                   {totalPages > 1 && (
                     <nav className="mt-3">
                       <ul className="pagination pagination-sm justify-content-center">
-                        <li className={`page-item ${page <= 1 ? 'disabled' : ''}`}>
-                          <button className="page-link" onClick={() => setPage((p) => p - 1)}>«</button>
+                        <li className={`page-item ${safePage <= 1 ? 'disabled' : ''}`}>
+                          <button className="page-link" onClick={() => setPage(safePage - 1)}>«</button>
                         </li>
                         {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-                          <li key={p} className={`page-item ${p === page ? 'active' : ''}`}>
+                          <li key={p} className={`page-item ${p === safePage ? 'active' : ''}`}>
                             <button className="page-link" onClick={() => setPage(p)}>{p}</button>
                           </li>
                         ))}
-                        <li className={`page-item ${page >= totalPages ? 'disabled' : ''}`}>
-                          <button className="page-link" onClick={() => setPage((p) => p + 1)}>»</button>
+                        <li className={`page-item ${safePage >= totalPages ? 'disabled' : ''}`}>
+                          <button className="page-link" onClick={() => setPage(safePage + 1)}>»</button>
                         </li>
                       </ul>
                     </nav>

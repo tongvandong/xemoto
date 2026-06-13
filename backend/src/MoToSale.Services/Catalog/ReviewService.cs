@@ -19,7 +19,7 @@ public class ReviewService : IReviewService
         _db = db;
     }
 
-    public Task<PagingResponse<ReviewDto>> SearchAsync(PagingRequest request, string? status) => _reviews.SearchAsync(request, status);
+    public Task<PagingResponse<ReviewDto>> SearchAsync(PagingRequest request, string? status, int? rating) => _reviews.SearchAsync(request, status, rating);
 
     public async Task UpdateStatusAsync(int id, string status)
     {

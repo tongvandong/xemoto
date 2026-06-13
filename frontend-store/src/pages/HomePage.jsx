@@ -72,7 +72,9 @@ function HomePage() {
   const { addItem } = useCart();
   const { isFavorite, toggleFavorite } = useFavorite();
   const { notify } = useNotification();
-  const [products, setProducts] = useState([]);
+  const [featuredProducts, setFeaturedProducts] = useState([]);
+  const [dealProducts, setDealProducts] = useState([]);
+  const [latestProducts, setLatestProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [activeService, setActiveService] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -86,7 +88,9 @@ function HomePage() {
 
     try {
       const tasks = [
-        productApi.getAll({ page: 1, pageSize: 12 }),
+        productApi.getAll({ page: 1, pageSize: 4, isFeatured: true, sortBy: 'newest', sortDescending: true }),
+        productApi.getAll({ page: 1, pageSize: 4, isHotDeal: true, sortBy: 'newest', sortDescending: true }),
+        productApi.getAll({ page: 1, pageSize: 4, sortBy: 'newest', sortDescending: true }),
         categoryApi.getAll().then((res) => res.data),
         contentApi.getHomeBanners().catch(() => []),
       ];
@@ -96,12 +100,16 @@ function HomePage() {
       }
 
       const results = await Promise.all(tasks);
-      const productsResponse = results[0];
-      const categoriesResponse = results[1];
-      const bannersResponse = results[2];
-      const ordersResponse = results.length > 3 ? results[3] : [];
+      const featuredProductsResponse = results[0];
+      const dealProductsResponse = results[1];
+      const latestProductsResponse = results[2];
+      const categoriesResponse = results[3];
+      const bannersResponse = results[4];
+      const ordersResponse = results.length > 5 ? results[5] : [];
 
-      setProducts(productsResponse.items);
+      setFeaturedProducts(featuredProductsResponse.items || []);
+      setDealProducts(dealProductsResponse.items || []);
+      setLatestProducts(latestProductsResponse.items || []);
       setCategories(categoriesResponse.filter((category) => category.isActive));
       const rawBanners = Array.isArray(bannersResponse) ? bannersResponse : bannersResponse?.items || [];
       const apiSlides = rawBanners
@@ -212,15 +220,6 @@ function HomePage() {
   }
 
   const featuredCategories = useMemo(() => buildFeaturedCategories(categories), [categories]);
-  const featuredProducts = useMemo(() => products.slice(0, 2), [products]);
-  const dealProducts = useMemo(() => {
-    const discounted = products.filter((product) => Number(product.salePrice) > 0 && product.salePrice < product.basePrice);
-    return (discounted.length ? discounted : products).slice(0, 4);
-  }, [products]);
-  const bestSellerProducts = useMemo(() => {
-    const nextProducts = products.slice(4, 8);
-    return (nextProducts.length ? nextProducts : products.slice(0, 4)).slice(0, 4);
-  }, [products]);
   const activeServiceItem = serviceHighlights[activeService] || serviceHighlights[0];
   const serviceIcons = [FiTool, FiShield, FiZap, FiSettings];
 
@@ -277,16 +276,19 @@ function HomePage() {
       </section>
 
       <section id="deal-noi-bat" className="scroll-mt-32 bg-zinc-50 px-4 py-10 sm:py-12">
-        <div className="mx-auto flex w-full max-w-[1200px] flex-col items-center gap-4">
-          <div className="flex items-center justify-center gap-3">
-            <SectionTitle title="Deal nổi bật" center className="mb-0" />
-            <FiAward className="h-7 w-7 text-[#d71920]" aria-hidden="true" />
+        <div className="mx-auto w-full max-w-[1200px] space-y-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <SectionTitle
+              kicker="Hot deal"
+              title="Deal nổi bật"
+              className="mb-0"
+            />
+            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-red-100 bg-white px-4 py-2 text-xs font-extrabold uppercase tracking-[0.12em] text-[#d71920] shadow-sm">
+              <FiAward className="h-4 w-4" aria-hidden="true" />
+              Giá tốt mỗi ngày
+            </div>
           </div>
-          <div className="inline-flex min-h-11 items-center gap-3 rounded-full bg-gradient-to-r from-[#d71920] to-[#171717] px-5 text-xs font-extrabold uppercase tracking-[0.12em] text-white">
-            <span>Hot deal</span>
-            <strong className="text-[13px]">Giá tốt mỗi ngày</strong>
-          </div>
-          <div className="w-full">{renderProductsBlock(dealProducts, 'Chưa có deal nổi bật.')}</div>
+          {renderProductsBlock(dealProducts, 'Chưa có deal nổi bật.')}
         </div>
       </section>
 
@@ -363,11 +365,11 @@ function HomePage() {
         </div>
       </section>
 
-      <section id="san-pham-ban-chay" className="scroll-mt-32 px-4 py-10 sm:py-12">
+      <section id="san-pham-moi-cap-nhat" className="scroll-mt-32 px-4 py-10 sm:py-12">
         <div className="mx-auto w-full max-w-[1200px] space-y-6">
           <SectionTitle
-            kicker="Mua nhiều"
-            title="Sản phẩm bán chạy"
+            kicker="Mới về"
+            title="Sản phẩm mới cập nhật"
             action={
               <Link
                 className="inline-flex min-h-11 items-center justify-center rounded-xl px-5 text-sm font-extrabold uppercase tracking-[0.08em] text-white transition hover:bg-red-200"
@@ -377,7 +379,7 @@ function HomePage() {
               </Link>
             }
           />
-          {renderProductsBlock(bestSellerProducts, 'Chưa có sản phẩm bán chạy.')}
+          {renderProductsBlock(latestProducts, 'Chưa có sản phẩm mới.')}
         </div>
       </section>
     </>

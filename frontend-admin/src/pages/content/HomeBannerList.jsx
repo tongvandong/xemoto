@@ -90,7 +90,7 @@ const HomeBannerList = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.urlAnh.trim()) {
-      alert('Vui lòng tải lên hoặc nhập URL ảnh banner!');
+      alert('Vui lòng chọn ảnh banner từ máy tính!');
       return;
     }
 
@@ -260,9 +260,11 @@ const HomeBannerList = () => {
                         {uploading ? 'Đang tải ảnh...' : 'Chọn ảnh từ máy tính...'}
                       </label>
                     </div>
-                    <input type="text" className="form-control mt-2" name="urlAnh" value={form.urlAnh} onChange={handleChange} placeholder="Hoặc dán URL ảnh" />
                     {form.urlAnh && (
-                      <img src={form.urlAnh} alt="Preview" className="mt-2 rounded border" style={{ maxHeight: 120, maxWidth: 240, objectFit: 'cover' }} />
+                      <div className="mt-2">
+                        <img src={form.urlAnh} alt="Preview" className="rounded border" style={{ maxHeight: 120, maxWidth: 240, objectFit: 'cover' }} />
+                        <div className="small text-success mt-1">Ảnh đã tải lên thành công.</div>
+                      </div>
                     )}
                   </div>
 

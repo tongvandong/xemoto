@@ -19,12 +19,25 @@ public partial class CatalogService
         var mfg = await ManufacturerMapAsync();
         var skuIds = page.Items.SelectMany(p => p.Skus.Select(s => s.Id)).ToList();
         var onHand = await _inventory.GetOnHandBySkusAsync(skuIds);
+        var productIds = page.Items.Select(p => p.Id).ToList();
+        var reviewStats = await _db.Reviews.AsNoTracking()
+            .Where(r => productIds.Contains(r.ProductId) && r.ReviewStatus == "Approved")
+            .GroupBy(r => r.ProductId)
+            .Select(g => new
+            {
+                ProductId = g.Key,
+                TotalReviews = g.Count(),
+                AverageRating = Math.Round(g.Average(r => (double)r.Rating), 1)
+            })
+            .ToDictionaryAsync(x => x.ProductId);
         return new PagingResponse<ProductListItem>
         {
             Items = page.Items.Select(p => MapListItem(
                 p,
                 p.ManufacturerId.HasValue ? mfg.GetValueOrDefault(p.ManufacturerId.Value) : null,
-                p.Skus.Sum(s => onHand.GetValueOrDefault(s.Id)))).ToList(),
+                p.Skus.Sum(s => onHand.GetValueOrDefault(s.Id)),
+                reviewStats.GetValueOrDefault(p.Id)?.TotalReviews ?? 0,
+                reviewStats.GetValueOrDefault(p.Id)?.AverageRating ?? 0)).ToList(),
             Page = page.Page,
             PageSize = page.PageSize,
             TotalItems = page.TotalItems,

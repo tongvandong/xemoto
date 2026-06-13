@@ -13,7 +13,9 @@ public partial class ContentController
     [HttpGet("home-banners")]
     public async Task<IActionResult> Banners([FromQuery] bool all = false)
     {
-        List<BannerDto> banners = await _content.GetBannersAsync(all);
+        // Chỉ Admin/Staff mới được xem cả banner đang ẩn (đồng bộ với FAQ).
+        bool includeHidden = all && (User.IsInRole(RoleConstant.Admin) || User.IsInRole(RoleConstant.Staff));
+        List<BannerDto> banners = await _content.GetBannersAsync(includeHidden);
         return Ok(new ItemsResponse<BannerDto> { Items = banners });
     }
 

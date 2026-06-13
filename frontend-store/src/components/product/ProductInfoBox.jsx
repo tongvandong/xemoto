@@ -93,6 +93,22 @@ function ProductInfoBox({
     ? Number(stockValue) > 0
     : normalizeText(selectedVariant?.status || product?.status).includes('available');
   const maxQuantity = hasKnownStock ? Math.max(Number(stockValue), 1) : 99;
+  const isPartProduct = Number(product?.kind) === 2 || normalizeText(product?.kind) === 'part';
+  const versionLabel = isPartProduct ? 'Quy cách' : 'Phiên bản';
+  const colorLabel = isPartProduct ? 'Tùy chọn' : 'Màu sắc';
+  const quickInfoItems = isPartProduct
+    ? [
+      ['Mã sản phẩm', product?.productCode || product?.code || 'Đang cập nhật'],
+      ['SKU', selectedVariant?.sku || 'Đang cập nhật'],
+      ['Quy cách', selectedVariant?.version || selectedVariant?.variantName || selectedVersion || 'Đang cập nhật'],
+      ['Tồn kho', stockValue ?? 'Liên hệ'],
+    ]
+    : [
+      ['Động cơ', product?.engine || 'Đang cập nhật'],
+      ['Nhiên liệu', product?.fuelType || 'Đang cập nhật'],
+      ['Màu ngoại thất', selectedVariant?.exteriorColor || product?.exteriorColor || selectedColor || colorStatusText],
+      ['Tồn kho', stockValue ?? 'Liên hệ'],
+    ];
   return (
     <div className="rounded-2xl border border-zinc-200 bg-white p-5 sm:p-6">
       <div className="border-b border-zinc-100 pb-5">
@@ -137,7 +153,7 @@ function ProductInfoBox({
         {showVersionSelector && (
           <div>
             <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="text-base font-bold text-zinc-950">Phiên bản</h2>
+              <h2 className="text-base font-bold text-zinc-950">{versionLabel}</h2>
               {selectedVersion && <span className="text-sm text-zinc-500">{selectedVersion}</span>}
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -163,7 +179,7 @@ function ProductInfoBox({
 
         <div>
           <div className="mb-3 flex items-center justify-between gap-3">
-            <h2 className="text-base font-bold text-zinc-950">Màu sắc</h2>
+            <h2 className="text-base font-bold text-zinc-950">{colorLabel}</h2>
           </div>
           {showColorSelector ? (
             <div className="grid gap-3 sm:grid-cols-2">
@@ -180,7 +196,7 @@ function ProductInfoBox({
                     } ${available ? '' : 'opacity-60'}`}
                     onClick={() => onSelectColor(option)}
                   >
-                    <span className="h-8 w-8 shrink-0 rounded-full border border-white shadow-sm" style={buildColorStyle(option)} />
+                    {!isPartProduct && <span className="h-8 w-8 shrink-0 rounded-full border border-white shadow-sm" style={buildColorStyle(option)} />}
                     <span className="flex-1">{option}</span>
                   </button>
                 );
@@ -191,7 +207,7 @@ function ProductInfoBox({
           )}
         </div>
 
-        {fallbackNotes.length > 0 && (
+        {!isPartProduct && fallbackNotes.length > 0 && (
           <div className="rounded-2xl border border-dashed border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
             {fallbackNotes.join(' ')}
           </div>
@@ -224,18 +240,11 @@ function ProductInfoBox({
         <div className="rounded-2xl border border-zinc-200 bg-white p-4">
           <h3 className="text-base font-bold text-zinc-950">Thông tin nhanh</h3>
           <div className="mt-3 grid gap-3 text-sm text-zinc-600 sm:grid-cols-2">
-            <div>
-              <span className="font-semibold text-zinc-900">Động cơ:</span> {product?.engine || 'Đang cập nhật'}
-            </div>
-            <div>
-              <span className="font-semibold text-zinc-900">Nhiên liệu:</span> {product?.fuelType || 'Đang cập nhật'}
-            </div>
-            <div>
-              <span className="font-semibold text-zinc-900">Màu ngoại thất:</span> {selectedVariant?.exteriorColor || product?.exteriorColor || selectedColor || colorStatusText}
-            </div>
-            <div>
-              <span className="font-semibold text-zinc-900">Tồn kho:</span> {stockValue ?? 'Liên hệ'}
-            </div>
+            {quickInfoItems.map(([label, value]) => (
+              <div key={label}>
+                <span className="font-semibold text-zinc-900">{label}:</span> {value}
+              </div>
+            ))}
           </div>
         </div>
       </div>
