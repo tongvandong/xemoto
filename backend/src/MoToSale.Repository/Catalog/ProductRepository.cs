@@ -290,6 +290,20 @@ public class ProductRepository : Repository<Product>, IProductRepository
             return query.OrderBy(product => product.Skus.Min(sku => sku.SalePrice ?? sku.ListPrice));
         }
 
+        if (sortBy == "newest")
+        {
+            if (sortDescending)
+            {
+                return query
+                    .OrderByDescending(product => product.UpdatedDate ?? product.CreatedDate)
+                    .ThenByDescending(product => product.Id);
+            }
+
+            return query
+                .OrderBy(product => product.UpdatedDate ?? product.CreatedDate)
+                .ThenBy(product => product.Id);
+        }
+
         if (sortDescending)
         {
             return query.OrderByDescending(product => product.Id);
