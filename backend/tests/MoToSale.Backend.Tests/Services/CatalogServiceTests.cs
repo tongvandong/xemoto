@@ -61,7 +61,7 @@ public class CatalogServiceTests
 
         var deleted = await service.GetProductAsync(productId);
         Assert.NotNull(deleted);
-        Assert.Equal((int)EntityStatus.Inactive, deleted.Status);
+        Assert.Equal((int)EntityStatus.Deleted, deleted.Status);
         Assert.Equal("Brake pad updated", deleted.Name);
         Assert.True(deleted.IsHotDeal);
     }

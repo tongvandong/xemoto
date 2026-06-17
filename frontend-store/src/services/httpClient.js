@@ -226,6 +226,11 @@ api.interceptors.response.use(
       error.message = message;
     }
 
+    const isLoginRequest = error.config?.url?.includes('/auth/login');
+    if (!isLoginRequest && error.response?.status === 401) {
+      clearAuthStorage();
+    }
+
     return Promise.reject(error);
   },
 );

@@ -29,6 +29,10 @@ public partial class OrderService
         if (req.OrderType == OrderType.Installment)
             throw new OrderException("Đơn trả góp cần gửi hồ sơ để cửa hàng thẩm định, không đặt trực tiếp.");
 
+        // Số điện thoại nhận hàng bắt buộc và phải đúng định dạng (chặn dữ liệu rác kể cả khi gọi API trực tiếp).
+        if (string.IsNullOrWhiteSpace(req.ShippingPhone) || !PhoneNumberRule.IsValid(req.ShippingPhone))
+            throw new OrderException("Số điện thoại nhận hàng không hợp lệ (phải bắt đầu bằng 0 và gồm 10–11 chữ số).");
+
         var cart = await _cart.GetWithItemsAsync(userId);
         if (cart is null || cart.Items.Count == 0) throw new OrderException("Giỏ hàng trống.");
 
@@ -51,7 +55,7 @@ public partial class OrderService
             PaymentStatus = PaymentStatus.Unpaid,
             FulfillmentStatus = FulfillmentStatus.Unallocated,
             ShippingRecipient = req.ShippingRecipient,
-            ShippingPhone = req.ShippingPhone,
+            ShippingPhone = PhoneNumberRule.Normalize(req.ShippingPhone),
             ShippingEmail = req.ShippingEmail,
             ShippingAddress = req.ShippingAddress,
             ReceivingMethod = req.ReceivingMethod,

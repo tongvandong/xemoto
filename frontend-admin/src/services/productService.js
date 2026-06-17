@@ -59,7 +59,7 @@ const normalizeProduct = (product) => ({
   anhChinhUrl: product.anhChinhUrl ?? product.mainImageUrl ?? null,
   maHangSanXuat: product.maHangSanXuat ?? product.manufacturerId ?? null,
   tenHangSanXuat: product.tenHangSanXuat ?? product.manufacturerName ?? '',
-  trangThaiSanPham: product.trangThaiSanPham ?? (product.status === 0 ? 'Inactive' : 'Available'),
+  trangThaiSanPham: product.trangThaiSanPham ?? (product.status === -1 ? 'Discontinued' : product.status === 0 ? 'Inactive' : 'Available'),
   noiBat: product.noiBat ?? product.isFeatured ?? false,
   hotDeal: product.hotDeal ?? product.isHotDeal ?? false,
   soLuongTon: product.soLuongTon ?? product.stockTotal ?? product.stock ?? 0,
@@ -79,6 +79,7 @@ const mapProductSearchParams = (params = {}) => ({
     if (status === 'Discontinued') return -1;
     return status;
   })(),
+  all: params.all || undefined, // admin xem mọi trạng thái (kể cả Ngừng bán) khi không lọc theo trạng thái cụ thể
   minPrice: params.minPrice,
   maxPrice: params.maxPrice,
   stockStatus: params.stockStatus,

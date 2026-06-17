@@ -12,6 +12,25 @@ const TYPES = {
   PurchaseReceipt: 'Nhận hàng từ NCC',
 };
 
+TYPES[1] = 'Phi\u1ebfu nh\u1eadp kho';
+TYPES[2] = 'Phi\u1ebfu xu\u1ea5t kho';
+TYPES[3] = 'Phi\u1ebfu ki\u1ec3m k\u00ea / \u0111i\u1ec1u ch\u1ec9nh t\u1ed3n';
+TYPES[4] = 'Phi\u1ebfu ki\u1ec3m k\u00ea / \u0111i\u1ec1u ch\u1ec9nh t\u1ed3n';
+TYPES.PurchaseReceipt = 'Nh\u1eadn h\u00e0ng t\u1eeb NCC';
+
+const FILTER_TYPES = [
+  ['1', TYPES[1]],
+  ['2', TYPES[2]],
+  ['stocktake', TYPES[4]],
+  ['PurchaseReceipt', TYPES.PurchaseReceipt],
+];
+
+const CREATE_TYPES = [
+  ['1', TYPES[1]],
+  ['2', TYPES[2]],
+  ['4', TYPES[4]],
+];
+
 const RECEIPT_REASONS = [
   ['OpeningBalance', 'Tồn đầu kỳ'],
   ['Supplement', 'Nhập bù'],
@@ -65,7 +84,11 @@ const StockDocumentList = () => {
       }));
       setDocuments([...manual, ...purchases]
         .filter((item) => !filterStatus || item.status === filterStatus)
-        .filter((item) => !filterType || String(item.type) === String(filterType))
+        .filter((item) => {
+          if (!filterType) return true;
+          if (filterType === 'stocktake') return Number(item.type) === 3 || Number(item.type) === 4;
+          return String(item.type) === String(filterType);
+        })
         .sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate)));
     } catch (err) {
       setError(getApiMessage(err, 'Không thể tải danh sách phiếu kho.'));
@@ -312,7 +335,7 @@ const StockDocumentList = () => {
                 <div className="col-md-3">
                   <select className="form-control" value={filterType} onChange={(e) => setFilterType(e.target.value)}>
                     <option value="">Tất cả loại phiếu</option>
-                    {Object.entries(TYPES).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                    {FILTER_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                   </select>
                 </div>
                 <div className="col-md-3">
@@ -379,14 +402,14 @@ const StockDocumentList = () => {
               </div>
               <div className="modal-body">
                 <div className="alert alert-info">
-                  Hệ thống chỉ quản lý một kho duy nhất. Phiếu nhập, xuất, kiểm kê và điều chỉnh sẽ cập nhật trực tiếp vào tồn kho chung.
+                  Hệ thống chỉ quản lý một kho duy nhất. Phiếu nhập, xuất và kiểm kê/điều chỉnh sẽ cập nhật trực tiếp vào tồn kho chung.
                 </div>
                 <div className="row">
                   <div className="col-md-3">
                     <div className="form-group">
                       <label>Loại phiếu</label>
                       <select className="form-control" value={form.type} onChange={(e) => setForm((prev) => ({ ...prev, type: Number(e.target.value) }))}>
-                        {Object.entries(TYPES).filter(([value]) => value !== 'PurchaseReceipt' && (isAdmin() || value !== '1')).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                        {CREATE_TYPES.filter(([value]) => isAdmin() || value !== '1').map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                       </select>
                     </div>
                   </div>

@@ -92,6 +92,12 @@ public class ProductRepository : Repository<Product>, IProductRepository
             return query.Where(product => product.Status == request.Status.Value);
         }
 
+        // Admin (All=true): xem sản phẩm chưa bị xóa để còn bật/tắt bán. Storefront: chỉ Đang bán.
+        if (request.All)
+        {
+            return query.Where(product => product.Status != (int)EntityStatus.Deleted);
+        }
+
         return query.Where(product => product.Status == (int)EntityStatus.Active);
     }
 

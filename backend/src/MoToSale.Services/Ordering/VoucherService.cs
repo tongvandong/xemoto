@@ -22,9 +22,13 @@ public partial class VoucherService : IVoucherService
     {
         var page = await _vouchers.SearchAsync(request);
 
+        // Lấy phạm vi (scope) của tất cả voucher trong trang bằng 1 truy vấn, rồi gắn vào từng DTO.
+        var voucherIds = page.Items.Select(voucher => voucher.Id).ToList();
+        var scopeMap = await _vouchers.GetScopeMapAsync(voucherIds);
+
         return new PagingResponse<VoucherDto>
         {
-            Items = page.Items.Select(Map).ToList(),
+            Items = page.Items.Select(voucher => Map(voucher, GetScopes(scopeMap, voucher.Id))).ToList(),
             Page = page.Page,
             PageSize = page.PageSize,
             TotalItems = page.TotalItems,
@@ -39,7 +43,13 @@ public partial class VoucherService : IVoucherService
             return null;
         }
 
-        return Map(voucher);
+        var scopeMap = await _vouchers.GetScopeMapAsync(new[] { id });
+        return Map(voucher, GetScopes(scopeMap, id));
+    }
+
+    private static List<VoucherScopeDto> GetScopes(Dictionary<int, List<VoucherScopeDto>> scopeMap, int voucherId)
+    {
+        return scopeMap.TryGetValue(voucherId, out var scopes) ? scopes : new List<VoucherScopeDto>();
     }
 
     public async Task<int> CreateAsync(SaveVoucherRequest request)
@@ -60,6 +70,9 @@ public partial class VoucherService : IVoucherService
 
         _vouchers.Add(voucher);
         await _vouchers.SaveChangesAsync();
+
+        // Lưu phạm vi áp dụng (gắn voucher với sản phẩm/danh mục/hãng) sau khi đã có Id voucher.
+        await _vouchers.ReplaceScopesAsync(voucher.Id, request.ScopeType, request.ScopeRefIds);
 
         return voucher.Id;
     }
@@ -88,6 +101,9 @@ public partial class VoucherService : IVoucherService
 
         _vouchers.Update(voucher);
         await _vouchers.SaveChangesAsync();
+
+        // Ghi đè phạm vi áp dụng theo lựa chọn mới (xoá scope cũ, thêm scope mới).
+        await _vouchers.ReplaceScopesAsync(voucher.Id, request.ScopeType, request.ScopeRefIds);
     }
 
     public async Task DeleteAsync(int id)
@@ -194,7 +210,7 @@ public partial class VoucherService : IVoucherService
         voucher.UpdatedDate = DateTime.UtcNow;
     }
 
-    private static VoucherDto Map(Voucher voucher)
+    private static VoucherDto Map(Voucher voucher, List<VoucherScopeDto>? scopes = null)
     {
         return new VoucherDto(
             voucher.Id,
@@ -209,6 +225,7 @@ public partial class VoucherService : IVoucherService
             voucher.UsedCount,
             voucher.StartAt,
             voucher.EndAt,
-            voucher.Status);
+            voucher.Status,
+            scopes ?? new List<VoucherScopeDto>());
     }
 }

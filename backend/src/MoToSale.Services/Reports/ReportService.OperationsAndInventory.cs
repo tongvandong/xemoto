@@ -38,7 +38,7 @@ public partial class ReportService
             CustomerReceivable: outstandingCustomer,
             SupplierPayable: supplierDebt,
             PendingOrders: orders.Count(order => order.OrderStatus == OrderStatus.Pending),
-            ShippingOrders: orders.Count(order => order.OrderStatus == OrderStatus.Shipping),
+            ShippingOrders: orders.Count(order => order.OrderStatus == OrderStatus.Preparing || order.OrderStatus == OrderStatus.Shipping),
             PendingPurchases: await _db.PurchaseOrders.CountAsync(order => order.PurchaseStatus == "Draft" || order.PurchaseStatus == "Approved" || order.PurchaseStatus == "PartiallyReceived"),
             OpenRepairs: await _db.RepairOrders.CountAsync(repair => repair.RepairStatus != "Delivered" && repair.RepairStatus != "Cancelled"),
             OpenWarranties: await _db.Warranties.CountAsync(warranty => warranty.WarrantyStatus != "Completed" && warranty.WarrantyStatus != "Rejected" && warranty.WarrantyStatus != "Cancelled"),

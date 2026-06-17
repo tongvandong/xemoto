@@ -28,6 +28,8 @@ const shouldSyncDisplayName = (form) => {
   return !current || current === derived || current === version || current === color;
 };
 
+const SHOW_SKU_BARCODE_FIELD = false; // Doi thanh true de bat lai o quan ly ma vach trong form SKU.
+
 const VARIANT_LABELS = {
   XeMay: {
     modalTitle: 'Quản lý SKU / biến thể xe máy',
@@ -78,6 +80,7 @@ const VariantManager = ({ productId, productType = 'XeMay', onClose }) => {
     sku: '',
     phienBan: '',
     mauSac: '',
+    barcode: '',
     giaNiemYet: '',
     giaKhuyenMai: '',
     trangThai: 'Available',
@@ -112,7 +115,7 @@ const VariantManager = ({ productId, productType = 'XeMay', onClose }) => {
 
   const openAdd = () => {
     setEditVariant(null);
-    setForm({ tenBienThe: '', sku: '', phienBan: '', mauSac: '', giaNiemYet: '', giaKhuyenMai: '', trangThai: 'Available' });
+    setForm({ tenBienThe: '', sku: '', phienBan: '', mauSac: '', barcode: '', giaNiemYet: '', giaKhuyenMai: '', trangThai: 'Available' });
     setShowForm(true);
   };
 
@@ -127,6 +130,7 @@ const VariantManager = ({ productId, productType = 'XeMay', onClose }) => {
       sku: v.sku || '',
       phienBan: version,
       mauSac: color,
+      barcode: v.barcode || v.barCode || v.maVach || '',
       giaNiemYet: v.giaNiemYet ?? v.listPrice ?? '',
       giaKhuyenMai: v.giaKhuyenMai ?? v.salePrice ?? '',
       trangThai: v.trangThai || v.status || 'Available',
@@ -225,6 +229,7 @@ const VariantManager = ({ productId, productType = 'XeMay', onClose }) => {
                     <tr>
                       <th>Tên SKU hiển thị</th>
                       <th>SKU</th>
+                      {SHOW_SKU_BARCODE_FIELD && <th>Barcode</th>}
                       <th>{labels.versionLabel}</th>
                       <th>{labels.optionLabel}</th>
                       <th>Giá niêm yết</th>
@@ -238,6 +243,7 @@ const VariantManager = ({ productId, productType = 'XeMay', onClose }) => {
                       <tr key={v.id}>
                         <td>{v.tenBienThe || v.variantName || v.name || buildSkuDisplayName(v.phienBan || v.version, v.mauSac || v.color)}</td>
                         <td>{v.sku}</td>
+                        {SHOW_SKU_BARCODE_FIELD && <td>{v.barcode || v.barCode || v.maVach || ''}</td>}
                         <td>{v.phienBan || v.version || inferVersion(v) || ''}</td>
                         <td>{v.mauSac || v.color || ''}</td>
                         <td>{formatCurrency(v.giaNiemYet ?? v.listPrice ?? 0)}</td>
@@ -302,6 +308,16 @@ const VariantManager = ({ productId, productType = 'XeMay', onClose }) => {
                         </div>
                       </div>
                     </div>
+                    {SHOW_SKU_BARCODE_FIELD && (
+                      <div className="row">
+                        <div className="col-md-4">
+                          <div className="form-group">
+                            <label>Barcode</label>
+                            <input type="text" className="form-control form-control-sm" name="barcode" value={form.barcode} onChange={handleChange} />
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     <div className="row">
                       <div className="col-md-3">
                         <div className="form-group">

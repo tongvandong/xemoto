@@ -104,7 +104,7 @@ public partial class ProductsController : ControllerBase
         try
         {
             await _catalog.DeleteProductAsync(id);
-            return Ok(new MessageResponse { Message = "Đã ngừng kinh doanh sản phẩm." });
+            return Ok(new MessageResponse { Message = "Đã xóa sản phẩm." });
         }
         catch (CatalogException ex)
         {

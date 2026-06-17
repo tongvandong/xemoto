@@ -21,9 +21,61 @@ export function AuthProvider({ children }) {
     setUser(authApi.getCurrentUser());
   }
 
+  async function validateStoredSession() {
+    const currentUser = authApi.getCurrentUser();
+    if (!currentUser) {
+      setUser(null);
+      return null;
+    }
+
+    const validatedUser = await authApi.validateCurrentUser();
+    setUser(validatedUser);
+    return validatedUser;
+  }
+
   useEffect(() => {
-    syncUser();
-    setLoading(false);
+    let cancelled = false;
+
+    async function bootstrapAuth() {
+      try {
+        const validatedUser = await validateStoredSession();
+        if (cancelled) return;
+        setUser(validatedUser);
+      } catch {
+        if (!cancelled) setUser(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    bootstrapAuth();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    async function revalidateWhenActive() {
+      if (document.visibilityState !== 'visible') {
+        return;
+      }
+
+      try {
+        await validateStoredSession();
+      } catch {
+        setUser(null);
+      }
+    }
+
+    const timer = window.setInterval(revalidateWhenActive, 15000);
+    window.addEventListener('focus', revalidateWhenActive);
+    document.addEventListener('visibilitychange', revalidateWhenActive);
+
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', revalidateWhenActive);
+      document.removeEventListener('visibilitychange', revalidateWhenActive);
+    };
   }, []);
 
   useEffect(() => {

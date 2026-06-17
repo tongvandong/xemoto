@@ -205,4 +205,39 @@ public partial class OrderService
         await _orders.SaveChangesAsync();
     }
 
+    // Xuất kho thật cho đơn (nếu chưa xuất) + nhả giữ chỗ. Dùng chung cho việc chuyển đơn
+    // sang Soạn hàng/Đang giao bằng dropdown trạng thái, để hành vi tồn kho GIỐNG nút "Soạn & xuất kho".
+    // Idempotent: nếu đơn đã có allocation (đã xuất) thì không trừ tồn lần nữa.
+    private async Task IssueStockAndReleaseHoldsAsync(Order order, int? userId, DateTime now)
+    {
+        var alreadyIssued = order.Lines.Any(l => l.Allocations.Any(a => a.AllocationStatus != AllocationStatus.Cancelled));
+        if (!alreadyIssued)
+        {
+            foreach (var line in order.Lines)
+            {
+                var item = await _inventory.GetOrCreateItemAsync(line.SkuId);
+                if (item.OnHand < line.Qty) throw new OrderException($"Tồn kho không đủ cho {line.ProductNameSnapshot}.");
+                item.OnHand -= line.Qty;
+                item.UpdatedDate = now;
+                _inventory.AddMovement(new StockMovement
+                {
+                    SkuId = line.SkuId, Type = (int)StockMovementType.Issue,
+                    QtyDelta = -line.Qty, BalanceAfter = item.OnHand, RefType = "Order", RefId = order.Id,
+                    Reason = $"Xuất kho đơn {order.Code}", PerformedBy = userId, OccurredAt = now, CreatedDate = now,
+                });
+                line.Allocations.Add(new Allocation { OrderLineId = line.Id, Qty = line.Qty, AllocationStatus = AllocationStatus.Planned, CreatedDate = now });
+            }
+        }
+
+        foreach (var r in await _reservations.GetByOrderAsync(order.Id))
+        {
+            if (r.ReservationStatus is ReservationStatus.Active or ReservationStatus.Confirmed)
+            {
+                r.ReservationStatus = ReservationStatus.Released;
+                r.UpdatedDate = now;
+                var relItem = await _inventory.GetItemAsync(r.SkuId);
+                if (relItem is not null) { relItem.Reserved = Math.Max(0, relItem.Reserved - r.Qty); relItem.UpdatedDate = now; }
+            }
+        }
+    }
 }

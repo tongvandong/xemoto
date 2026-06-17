@@ -30,6 +30,8 @@ const normalizeVoucher = (item = {}) => ({
   endDate: item.endDate ?? item.endAt ?? item.endsAt ?? item.ngayKetThuc ?? '',
   endAt: item.endAt ?? item.endDate ?? item.endsAt ?? item.ngayKetThuc ?? null,
   status: numberToStatus(item.status ?? item.trangThai ?? 1),
+  // Phạm vi áp dụng: BE trả mảng [{scopeType, refId, refName}]. Rỗng = áp toàn đơn.
+  scopes: Array.isArray(item.scopes) ? item.scopes : [],
 });
 
 const normalizeCollection = async (request) => {
@@ -61,6 +63,11 @@ const mapPayload = (data = {}) => ({
   startAt: data.startAt ?? data.startDate ?? null,
   endAt: data.endAt ?? data.endDate ?? null,
   status: statusToNumber(data.status ?? data.trangThai ?? 1),
+  // Phạm vi áp dụng: 'All' = toàn đơn (không gửi Id); ngược lại gửi danh sách Id đối tượng.
+  scopeType: data.scopeType || 'All',
+  scopeRefIds: (data.scopeType && data.scopeType !== 'All' && Array.isArray(data.scopeRefIds))
+    ? data.scopeRefIds.map(Number)
+    : [],
 });
 
 const voucherService = {
@@ -69,6 +76,10 @@ const voucherService = {
   create: (data) => api.post('/vouchers', mapPayload(data)),
   update: (id, data) => api.put(`/vouchers/${id}`, mapPayload(data)),
   delete: (id) => api.delete(`/vouchers/${id}`),
+  // Kiểm tra mã + tính tiền giảm theo tạm tính (dùng cho POS xem trước giảm giá). Trả {valid, message, discountAmount, voucher}.
+  validate: (code, subtotal) => api.post('/vouchers/validate', { code, subtotal }),
+  // Danh sách voucher đang hiệu lực (còn hạn, còn lượt) để chọn nhanh ở POS.
+  getAvailable: () => normalizeCollection(api.get('/vouchers/available')),
 };
 
 export default voucherService;

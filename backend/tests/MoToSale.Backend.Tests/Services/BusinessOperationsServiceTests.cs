@@ -71,6 +71,7 @@ public class BusinessOperationsServiceTests
         var service = new BusinessOperationsService(f.Db);
         var supplierId = await service.SaveSupplierAsync(null, new SupplierRequest("SUP-3", "Supplier", null, null, null, null, null, null));
         var purchaseId = await service.CreatePurchaseOrderAsync(new CreatePurchaseOrderRequest(supplierId, null, [new PurchaseLineRequest(skuId, 2, 50_000)]), 1);
+        await service.ApprovePurchaseOrderAsync(purchaseId, 1);
 
         await service.PayPurchaseOrderAsync(purchaseId, new PayPurchaseOrderRequest(40_000, "Cash", "First payment"), 1);
 

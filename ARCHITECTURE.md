@@ -72,10 +72,15 @@ Page (src/pages/...)        → màn hình, state, gọi service
 Service (src/services/...)  → gọi API (axios), 1 file 1 nhóm nghiệp vụ
 http (api.js / httpClient)  → cấu hình baseURL, gắn token, interceptor
 ```
-- **Quy ước field**: FE dùng **đúng tên tiếng Anh như DTO của BE** (vd banner: `position/title/imageUrl/sortOrder/status`; FAQ: `question/answer/category/sortOrder/status`). `status` kiểu số: `1` = hiển thị/hoạt động, `0` = ẩn; trên form dùng biến `isActive` (boolean) rồi quy đổi.
+- **Quy ước field & lớp `normalize` (quan trọng — hay bị hỏi khi bảo vệ)**:
+  - BE luôn trả DTO **tiếng Anh** (vd banner: `position/title/imageUrl/sortOrder/status`; FAQ: `question/answer/category/sortOrder/status`). `status` kiểu **số**: `1` = hiển thị/hoạt động, `0` = ẩn; trên form dùng biến `isActive` (boolean) rồi quy đổi 1/0.
+  - **Trang đã dọn sạch (dùng thẳng tên tiếng Anh):** Banner, FAQ, Liên hệ, Đánh giá → service mỏng, không map dư thừa.
+  - **Trang lớn còn lớp `normalize`/adapter:** danh mục, hãng/dòng xe, NSX, voucher, sản phẩm, người dùng, bài viết, bảo hành. Service map DTO tiếng Anh sang shape cho UI và **giữ thêm alias tên cũ (tiếng Việt)** để các trang chưa đổi vẫn chạy. Mỗi service có **comment giải thích ở đầu file**. Quy tắc: **đọc field ưu tiên tên tiếng Anh**, alias chỉ để tương thích; lý do giữ là tránh sửa lại toàn bộ trang lớn (rủi ro cao, lợi ích thấp).
 - **Phân quyền FE**: route bọc `ProtectedRoute`; menu/nút theo vai trò (`isAdmin()`), nhưng quyền thật vẫn do BE kiểm (`[Authorize(Roles=...)]`).
 
-> **Lưu ý lớp "adapter" của `frontend-store`**: store có thêm `normalizers.js` (mapOrder/mapVoucher/normalizeProduct…) — đây là lớp adapter **có chủ đích**: store được dựng lại từ giao diện cũ nên cần chuẩn hóa dữ liệu BE về một shape ổn định cho UI. Khác với `frontend-admin` (trước đây map cả tên tiếng Việt lẫn Anh một cách thừa — đã được dọn để dùng đúng tên tiếng Anh của DTO). Vì store gom toàn bộ việc map vào MỘT chỗ (`normalizers.js`) nên vẫn rõ ràng, dễ giải thích; không cần (và không nên) phá lớp này.
+> **Lưu ý lớp "adapter" của `frontend-store`**: store có thêm `normalizers.js` (mapOrder/mapVoucher/normalizeProduct…) — lớp adapter **có chủ đích**: store dựng lại từ giao diện cũ nên cần chuẩn hóa dữ liệu BE về shape ổn định cho UI, và gom toàn bộ việc map vào MỘT chỗ → vẫn rõ ràng, không nên phá.
+>
+> **Trạng thái dọn ở `frontend-admin`**: nhóm trang nhỏ (Banner/FAQ/Liên hệ/Đánh giá) đã bỏ alias, dùng thẳng tiếng Anh. Nhóm trang lớn (danh mục/hãng/NSX/voucher/sản phẩm/người dùng/bài viết/bảo hành) **vẫn giữ lớp normalize + alias** (đang chạy ổn) nhưng đã **thêm comment giải thích** ở mỗi service — chủ ý không rewrite để tránh rủi ro phá trang phức tạp.
 
 ## 7. Đăng nhập & phân quyền
 - JWT (AuthService cấp token). APIService cấu hình `JwtBearer` validate issuer/audience/lifetime/key.

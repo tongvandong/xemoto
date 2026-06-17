@@ -55,6 +55,8 @@ const PAGE_CONFIG = {
 const getCategoryId = (category) => category.maDanhMuc || category.id;
 const getCategoryName = (category) => category.tenDanhMuc || category.name || '';
 const getParentCategoryId = (category) => category.maDanhMucCha ?? category.parentId ?? category.parentCategoryId ?? category.danhMucChaId ?? null;
+const SHOW_RELATED_PRODUCTS_ACTION = false; // Doi thanh true de bat lai nut "Phu kien / san pham ban kem".
+const SHOW_INVENTORY_AGING_ACTION = false; // Doi thanh true de bat lai nut "Tuoi ton kho".
 const normalizeText = (value) => String(value || '')
   .toLowerCase()
   .normalize('NFD')
@@ -155,6 +157,7 @@ const ProductList = ({ productType = 'XeMay' }) => {
         maDanhMuc: filterCategory || undefined,
         maHangXe: config.showBrand ? filterBrand || undefined : undefined,
         trangThaiSanPham: filterStatus || undefined,
+        all: filterStatus ? undefined : true, // không lọc trạng thái -> admin xem tất cả (kể cả Ngừng bán)
         stockStatus: filterStockStatus || undefined,
         hasPromotion: filterPromotion === '' ? undefined : filterPromotion === 'true',
         minPrice: minPrice === '' ? undefined : Number(minPrice),
@@ -260,6 +263,7 @@ const ProductList = ({ productType = 'XeMay' }) => {
         maDanhMuc: filterCategory || undefined,
         maHangXe: config.showBrand ? filterBrand || undefined : undefined,
         trangThaiSanPham: filterStatus || undefined,
+        all: filterStatus ? undefined : true, // không lọc trạng thái -> admin xem tất cả (kể cả Ngừng bán)
         stockStatus: filterStockStatus || undefined,
         hasPromotion: filterPromotion === '' ? undefined : filterPromotion === 'true',
         minPrice: minPrice === '' ? undefined : Number(minPrice),
@@ -527,12 +531,16 @@ const ProductList = ({ productType = 'XeMay' }) => {
                                 <button type="button" className="btn btn-xs btn-secondary mr-1" title="Khuyến mại áp dụng" onClick={() => setShowPromotions(product)}>
                                   <i className="fas fa-tags"></i>
                                 </button>
-                                <button type="button" className="btn btn-xs btn-dark mr-1" title="Phụ kiện / sản phẩm bán kèm" onClick={() => setShowRelated(product)}>
-                                  <i className="fas fa-project-diagram"></i>
-                                </button>
-                                <button type="button" className="btn btn-xs btn-outline-danger mr-1" title="Tuổi tồn kho" onClick={() => setShowAging(product)}>
-                                  <i className="fas fa-hourglass-half"></i>
-                                </button>
+                                {SHOW_RELATED_PRODUCTS_ACTION && (
+                                  <button type="button" className="btn btn-xs btn-dark mr-1" title="Phụ kiện / sản phẩm bán kèm" onClick={() => setShowRelated(product)}>
+                                    <i className="fas fa-project-diagram"></i>
+                                  </button>
+                                )}
+                                {SHOW_INVENTORY_AGING_ACTION && (
+                                  <button type="button" className="btn btn-xs btn-outline-danger mr-1" title="Tuổi tồn kho" onClick={() => setShowAging(product)}>
+                                    <i className="fas fa-hourglass-half"></i>
+                                  </button>
+                                )}
                                 {isAdmin() && (
                                   <button type="button" className="btn btn-xs btn-danger" title="Xóa" onClick={() => handleDelete(getProductId(product), product.tenSanPham || product.name)}>
                                     <i className="fas fa-trash"></i>

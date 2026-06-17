@@ -3,6 +3,10 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../utils/cn';
 
+const SHOW_SERVICE_CRM_NAV = false;
+const SHOW_POSTS_NAV = false;
+const SHOW_OPERATIONAL_IMPORTS_NAV = false;
+
 const Sidebar = ({ collapsed = false }) => {
   const location = useLocation();
   const { user, isAdmin } = useAuth();
@@ -140,7 +144,7 @@ const Sidebar = ({ collapsed = false }) => {
             <li>
               <Link to="/returns" className={navLinkClass(isActiveGroup('/returns'))}>
                 <i className={cn(navIconClass, 'fas fa-undo')}></i>
-                <p className={labelClass}>Đổi trả & hoàn tiền</p>
+                <p className={labelClass}>Trả hàng & hoàn tiền</p>
               </Link>
             </li>
             <li>
@@ -149,7 +153,7 @@ const Sidebar = ({ collapsed = false }) => {
                 <p className={labelClass}>Bảo hành</p>
               </Link>
             </li>
-            <li>
+            <li className={SHOW_SERVICE_CRM_NAV ? undefined : 'hidden'}>
               <Link to="/service-crm" className={navLinkClass(isActiveGroup('/service-crm'))}>
                 <i className={cn(navIconClass, 'fas fa-tools')}></i>
                 <p className={labelClass}>Dịch vụ & CSKH</p>
@@ -181,7 +185,7 @@ const Sidebar = ({ collapsed = false }) => {
                 <p className={labelClass}>Đánh giá</p>
               </Link>
             </li>
-            <li>
+            <li className={SHOW_POSTS_NAV ? undefined : 'hidden'}>
               <Link to="/posts" className={navLinkClass(isActiveGroup('/posts'))}>
                 <i className={cn(navIconClass, 'fas fa-newspaper')}></i>
                 <p className={labelClass}>Bài viết</p>
@@ -226,7 +230,7 @@ const Sidebar = ({ collapsed = false }) => {
               </Link>
             </li>
             {isAdmin() && (
-              <li>
+              <li className={SHOW_OPERATIONAL_IMPORTS_NAV ? undefined : 'hidden'}>
                 <Link to="/operational-imports" className={navLinkClass(isActiveGroup('/operational-imports'))}>
                   <i className={cn(navIconClass, 'fas fa-file-import')}></i>
                   <p className={labelClass}>Import dữ liệu</p>

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import advancedOperationsService from '../../services/advancedOperationsService';
 import businessOperationsService from '../../services/businessOperationsService';
 import { formatCurrency } from '../../utils/formatCurrency';
-import { formatDate } from '../../utils/formatDate';
+import { formatDate, formatDateShort } from '../../utils/formatDate';
 
 const emptyReturnLine = { orderLineId: '', qty: 1, itemCondition: 'Resellable' };
 const emptyReturn = { orderId: '', reason: '', note: '', lines: [{ ...emptyReturnLine }] };
@@ -11,7 +11,7 @@ const emptyApproval = { refundAmount: 0, refundMethod: 'Cash', note: '' };
 const labels = {
   Draft: 'Chờ duyệt', Approved: 'Đã duyệt', Rejected: 'Từ chối', Paid: 'Đã hoàn',
   Cash: 'Tiền mặt', BankTransfer: 'Chuyển khoản',
-  Resellable: 'Có thể bán lại', Damaged: 'Hư hỏng', Warranty: 'Bảo hành',
+  Resellable: 'Có thể bán lại', Damaged: 'Hư hỏng', Warranty: 'Hư hỏng',
 };
 const badge = (value) => (
   <span className={`badge badge-${value === 'Approved' || value === 'Paid' ? 'success' : value === 'Rejected' ? 'danger' : 'info'}`}>
@@ -19,6 +19,28 @@ const badge = (value) => (
   </span>
 );
 const message = (err, fallback) => err?.response?.data?.message || fallback;
+const getOrderCustomerName = (order) => order.shippingRecipient || order.customerName || order.fullName || '';
+const getOrderCustomerPhone = (order) => order.shippingPhone || order.customerPhone || order.phoneNumber || '';
+const getOrderDate = (order) => order.placedAt || order.createdDate || order.createdAt;
+const getOrderSearchText = (order) => [
+  order.code,
+  getOrderCustomerName(order),
+  getOrderCustomerPhone(order),
+  formatDateShort(getOrderDate(order)),
+  order.grandTotal,
+].filter(Boolean).join(' ').toLowerCase();
+const formatOrderOption = (order) => {
+  const customer = getOrderCustomerName(order) || 'Khach le';
+  const phone = getOrderCustomerPhone(order);
+  const date = formatDateShort(getOrderDate(order));
+  return [
+    order.code,
+    customer,
+    phone,
+    date,
+    formatCurrency(order.grandTotal),
+  ].filter(Boolean).join(' - ');
+};
 
 const ReturnsRefunds = () => {
   const [tab, setTab] = useState('returns');
@@ -34,11 +56,17 @@ const ReturnsRefunds = () => {
   const [approvalTarget, setApprovalTarget] = useState(null);
   const [returnForm, setReturnForm] = useState(emptyReturn);
   const [approvalForm, setApprovalForm] = useState(emptyApproval);
+  const [orderKeyword, setOrderKeyword] = useState('');
 
   const selectedOrder = useMemo(
     () => orders.find((x) => String(x.id) === String(returnForm.orderId)),
     [orders, returnForm.orderId],
   );
+  const filteredOrderOptions = useMemo(() => {
+    const text = orderKeyword.trim().toLowerCase();
+    if (!text) return orders;
+    return orders.filter((order) => getOrderSearchText(order).includes(text));
+  }, [orders, orderKeyword]);
   const filteredReturns = useMemo(() => returns.filter((row) => (!returnStatus || row.returnStatus === returnStatus)
     && (!keyword || `${row.code} ${row.orderCode} ${row.reason}`.toLowerCase().includes(keyword.toLowerCase()))), [returns, returnStatus, keyword]);
   const filteredRefunds = useMemo(() => refunds.filter((row) => !keyword || `${row.code} ${row.orderCode}`.toLowerCase().includes(keyword.toLowerCase())), [refunds, keyword]);
@@ -55,7 +83,7 @@ const ReturnsRefunds = () => {
       setRefunds(refundRes.data.items || []);
       setOrders(lookupRes.data.orders || []);
     } catch (err) {
-      setError(message(err, 'Không thể tải dữ liệu đổi trả/hoàn tiền.'));
+      setError(message(err, 'Không thể tải dữ liệu trả hàng/hoàn tiền.'));
     }
   };
 
@@ -68,11 +96,13 @@ const ReturnsRefunds = () => {
 
   const openCreateReturn = () => {
     resetReturnForm();
+    setOrderKeyword('');
     setShowReturn(true);
   };
 
   const openEditReturn = (row) => {
     setEditingReturn(row);
+    setOrderKeyword('');
     setReturnForm({
       orderId: row.orderId || '',
       reason: row.reason || '',
@@ -90,6 +120,9 @@ const ReturnsRefunds = () => {
 
   const updateReturnLine = (index, field, value) => {
     setReturnForm((prev) => ({ ...prev, lines: prev.lines.map((line, i) => (i === index ? { ...line, [field]: value } : line)) }));
+  };
+  const selectReturnOrder = (orderId) => {
+    setReturnForm((prev) => ({ ...prev, orderId, lines: [{ ...emptyReturnLine }] }));
   };
   const addReturnLine = () => setReturnForm((prev) => ({ ...prev, lines: [...prev.lines, { ...emptyReturnLine }] }));
   const removeReturnLine = (index) => setReturnForm((prev) => ({ ...prev, lines: prev.lines.filter((_, i) => i !== index) }));
@@ -150,14 +183,14 @@ const ReturnsRefunds = () => {
   return (
     <div className="content-wrapper">
       <div className="content-header">
-        <div className="container-fluid"><h1 className="m-0">Đổi trả & hoàn tiền</h1></div>
+        <div className="container-fluid"><h1 className="m-0">Trả hàng & hoàn tiền</h1></div>
       </div>
       <section className="content">
         <div className="container-fluid">
           {error && <div className="alert alert-danger">{error}</div>}
           <div className="card">
             <div className="card-header border-b border-slate-200 px-4 pt-3">
-              <div className="flex flex-wrap gap-x-2 gap-y-1" role="tablist" aria-label="Đổi trả và hoàn tiền">
+              <div className="flex flex-wrap gap-x-2 gap-y-1" role="tablist" aria-label="Trả hàng và hoàn tiền">
                 {[['returns', 'Trả hàng'], ['refunds', 'Hoàn tiền']].map(([key, text]) => (
                   <button key={key} type="button" role="tab" aria-selected={tab === key}
                     className={`border-b-2 px-3 py-2 text-sm font-semibold transition-colors ${tab === key ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-600 hover:border-slate-300 hover:text-slate-900'}`}
@@ -236,12 +269,18 @@ const ReturnsRefunds = () => {
       {showReturn && (
         <Modal title={editingReturn ? `Sửa phiếu trả hàng - ${editingReturn.code}` : 'Tạo phiếu trả hàng'} close={() => setShowReturn(false)} save={saveReturn} saveText={editingReturn ? 'Cập nhật' : 'Lưu'}>
           <div className="alert alert-info">Sản phẩm trả đạt điều kiện bán lại sẽ được nhập về tồn kho chung sau khi duyệt.</div>
-          <Select label="Đơn hàng đã giao" value={returnForm.orderId} set={(v) => setReturnForm({ ...returnForm, orderId: v, lines: [{ ...emptyReturnLine }] })} items={orders} option={(x) => `${x.code} - ${formatCurrency(x.grandTotal)}`} />
+          <OrderPicker
+            keyword={orderKeyword}
+            setKeyword={setOrderKeyword}
+            orders={filteredOrderOptions}
+            selectedOrderId={returnForm.orderId}
+            onSelect={selectReturnOrder}
+          />
           {returnForm.lines.map((line, index) => (
             <div className="row" key={index}>
               <div className="col-md-6"><Select label="Sản phẩm trả" value={line.orderLineId} set={(v) => updateReturnLine(index, 'orderLineId', v)} items={selectedOrder?.lines || []} option={(x) => `${x.productNameSnapshot} - ${x.skuCodeSnapshot} (đã mua ${x.qty})`} /></div>
               <div className="col-md-2"><Field label="Số lượng" type="number" min="1" value={line.qty} set={(v) => updateReturnLine(index, 'qty', v)} /></div>
-              <div className="col-md-3"><Select label="Tình trạng" value={line.itemCondition} set={(v) => updateReturnLine(index, 'itemCondition', v)} items={[{ id: 'Resellable', name: 'Có thể bán lại' }, { id: 'Damaged', name: 'Hư hỏng' }, { id: 'Warranty', name: 'Bảo hành' }]} option={(x) => x.name} /></div>
+              <div className="col-md-3"><Select label="Tình trạng" value={line.itemCondition === 'Warranty' ? 'Damaged' : line.itemCondition} set={(v) => updateReturnLine(index, 'itemCondition', v)} items={[{ id: 'Resellable', name: 'Có thể bán lại' }, { id: 'Damaged', name: 'Hư hỏng' }]} option={(x) => x.name} /></div>
               <div className="col-md-1 d-flex align-items-end"><button className="btn btn-danger mb-3" disabled={returnForm.lines.length === 1} onClick={() => removeReturnLine(index)}><i className="fas fa-trash" /></button></div>
             </div>
           ))}
@@ -288,6 +327,37 @@ const Table = ({ headers, empty, children }) => (
       <thead><tr>{headers.map((x) => <th key={x}>{x}</th>)}</tr></thead>
       <tbody>{React.Children.count(children) ? children : <tr><td colSpan={headers.length} className="text-center text-muted">{empty}</td></tr>}</tbody>
     </table>
+  </div>
+);
+const OrderPicker = ({ keyword, setKeyword, orders, selectedOrderId, onSelect }) => (
+  <div className="form-group">
+    <label>Tìm và chọn đơn hàng đã giao</label>
+    <input
+      className="form-control"
+      placeholder="Nhập mã đơn, tên khách hoặc số điện thoại"
+      value={keyword}
+      onChange={(e) => setKeyword(e.target.value)}
+    />
+    <div className="mt-2 max-h-56 overflow-y-auto rounded border border-slate-200 bg-white">
+      {orders.length === 0 ? (
+        <div className="px-3 py-2 text-sm text-slate-500">Không tìm thấy đơn đã giao phù hợp.</div>
+      ) : orders.map((order) => {
+        const selected = String(order.id) === String(selectedOrderId);
+        return (
+          <button
+            key={order.id}
+            type="button"
+            className={`block w-full border-0 border-b border-slate-100 px-3 py-2 text-left text-sm ${selected ? 'bg-blue-50 text-blue-700' : 'bg-white text-slate-700 hover:bg-slate-50'}`}
+            onClick={() => onSelect(order.id)}
+          >
+            <div className="font-semibold">{order.code} - {getOrderCustomerName(order) || 'Khách lẻ'}</div>
+            <div className="text-xs text-slate-500">
+              {[getOrderCustomerPhone(order), formatDateShort(getOrderDate(order)), formatCurrency(order.grandTotal)].filter(Boolean).join(' - ')}
+            </div>
+          </button>
+        );
+      })}
+    </div>
   </div>
 );
 const Field = ({ label, value, set, type = 'text', min }) => <div className="form-group"><label>{label}</label><input type={type} min={min} className="form-control" value={value} onChange={(e) => set(e.target.value)} /></div>;

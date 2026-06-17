@@ -1,18 +1,31 @@
 import React, { useEffect, useState } from 'react';
 import voucherService from '../../services/voucherService';
+import productService from '../../services/productService';
+import categoryService from '../../services/categoryService';
+import brandService from '../../services/brandService';
 import { formatCurrency } from '../../utils/formatCurrency';
 import { formatDateShort } from '../../utils/formatDate';
 import { formatMoneyInput, normalizeMoneyInput } from '../../utils/moneyInput';
 import { useAuth } from '../../contexts/AuthContext';
 
 // Khớp đúng backend SaveVoucherRequest/VoucherDto:
-// - discountType chỉ có Percent | Amount (backend không hỗ trợ FreeShipping hay phạm vi sản phẩm/danh mục/hãng).
+// - discountType chỉ có Percent | Amount.
 // - status là số (1 = hoạt động, 0 = ngừng).
 // - Tên trường: maxDiscount, startAt, endAt, perUserLimit.
+// - Phạm vi áp dụng (scopeType + scopeRefIds): gắn voucher với Sản phẩm/Danh mục/Hãng.
+//   'All' = áp toàn đơn. Đây chỉ là GẮN ĐỂ HIỂN THỊ; số tiền giảm khi đặt hàng vẫn tính trên toàn đơn.
 const VOUCHER_TYPES = {
   Percent: 'Phần trăm (%)',
   Amount: 'Cố định (VNĐ)',
   Fixed: 'Cố định (VNĐ)',
+};
+
+// Các loại phạm vi áp dụng voucher.
+const SCOPE_TYPES = {
+  All: 'Toàn đơn hàng',
+  Product: 'Theo sản phẩm',
+  Category: 'Theo danh mục',
+  Brand: 'Theo hãng xe',
 };
 
 const defaultForm = {
@@ -27,11 +40,17 @@ const defaultForm = {
   perUserLimit: '',
   description: '',
   status: 1,
+  scopeType: 'All',
+  scopeRefIds: [],
 };
 
 const toDateInputValue = (value) => (value ? String(value).substring(0, 10) : '');
 
 const isExpired = (voucher) => Boolean(voucher.endAt) && new Date(voucher.endAt) < new Date();
+
+// status sau khi normalize là chuỗi 'Active'/'Inactive', nhưng BE/form dùng số 1/0.
+// Hàm dưới hiểu cả hai kiểu để khỏi lệch hiển thị giữa danh sách và form.
+const isInactiveStatus = (status) => status === 0 || status === 'Inactive' || status === 'Expired';
 
 const getApiMessage = (err, fallback) => err?.response?.data?.message || fallback;
 
@@ -46,7 +65,35 @@ const VoucherList = () => {
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({ ...defaultForm });
   const [saving, setSaving] = useState(false);
+  // Danh sách đối tượng để chọn phạm vi (nạp 1 lần khi mở modal lần đầu).
+  const [scopeOptions, setScopeOptions] = useState({ Product: [], Category: [], Brand: [] });
+  const [scopeOptionsLoaded, setScopeOptionsLoaded] = useState(false);
   const pageSize = 10;
+
+  // Nạp danh sách sản phẩm/danh mục/hãng để hiển thị trong ô chọn phạm vi.
+  const ensureScopeOptions = async () => {
+    if (scopeOptionsLoaded) return;
+    try {
+      const [productRes, categoryRes, brandRes] = await Promise.allSettled([
+        productService.getAll({ all: true, pageSize: 1000 }),
+        categoryService.getAll(),
+        brandService.getAll(),
+      ]);
+      const pickItems = (settled) => {
+        if (settled.status !== 'fulfilled') return [];
+        const data = settled.value.data;
+        return Array.isArray(data) ? data : data.items || data.data || [];
+      };
+      setScopeOptions({
+        Product: pickItems(productRes).map((p) => ({ id: p.id ?? p.maSanPham, name: p.name ?? p.tenSanPham ?? `#${p.id}` })),
+        Category: pickItems(categoryRes).map((c) => ({ id: c.id ?? c.maDanhMuc, name: c.name ?? c.tenDanhMuc ?? `#${c.id}` })),
+        Brand: pickItems(brandRes).map((b) => ({ id: b.id ?? b.maHangXe, name: b.name ?? b.tenHang ?? `#${b.id}` })),
+      });
+      setScopeOptionsLoaded(true);
+    } catch (err) {
+      console.error('Không nạp được danh sách phạm vi voucher', err);
+    }
+  };
 
   const fetchVouchers = async () => {
     setLoading(true);
@@ -72,10 +119,15 @@ const VoucherList = () => {
     setEditingId(null);
     setForm({ ...defaultForm });
     setShowModal(true);
+    ensureScopeOptions();
   };
 
   const openEditModal = (voucher) => {
     setEditingId(voucher.id);
+    // Suy ra phạm vi từ mảng scopes: rỗng = toàn đơn; ngược lại lấy loại của dòng đầu + tất cả refId cùng loại.
+    const scopes = Array.isArray(voucher.scopes) ? voucher.scopes : [];
+    const scopeType = scopes.length > 0 ? scopes[0].scopeType : 'All';
+    const scopeRefIds = scopes.filter((s) => s.scopeType === scopeType).map((s) => s.refId);
     setForm({
       code: voucher.code || '',
       discountType: voucher.discountType === 'Amount' || voucher.discountType === 'Fixed' ? 'Amount' : 'Percent',
@@ -87,9 +139,29 @@ const VoucherList = () => {
       usageLimit: voucher.usageLimit ?? '',
       perUserLimit: voucher.perUserLimit ?? '',
       description: voucher.description || '',
-      status: voucher.status === 0 ? 0 : 1,
+      status: isInactiveStatus(voucher.status) ? 0 : 1,
+      scopeType,
+      scopeRefIds,
     });
     setShowModal(true);
+    ensureScopeOptions();
+  };
+
+  // Đổi loại phạm vi: reset danh sách Id đã chọn (vì khác loại đối tượng).
+  const handleScopeTypeChange = (e) => {
+    const scopeType = e.target.value;
+    setForm((prev) => ({ ...prev, scopeType, scopeRefIds: [] }));
+  };
+
+  // Tích/bỏ tích 1 đối tượng trong phạm vi.
+  const handleScopeRefToggle = (refId) => {
+    setForm((prev) => {
+      const exists = prev.scopeRefIds.includes(refId);
+      const scopeRefIds = exists
+        ? prev.scopeRefIds.filter((id) => id !== refId)
+        : [...prev.scopeRefIds, refId];
+      return { ...prev, scopeRefIds };
+    });
   };
 
   const handleChange = (e) => {
@@ -116,6 +188,10 @@ const VoucherList = () => {
       alert('Voucher phần trăm chỉ được giảm từ 1 đến 100%.');
       return;
     }
+    if (form.scopeType !== 'All' && form.scopeRefIds.length === 0) {
+      alert('Vui lòng chọn ít nhất 1 đối tượng cho phạm vi áp dụng, hoặc đổi về "Toàn đơn hàng".');
+      return;
+    }
 
     setSaving(true);
     try {
@@ -132,6 +208,8 @@ const VoucherList = () => {
         startAt: form.startAt ? `${toDateInputValue(form.startAt)}T00:00:00` : null,
         endAt: form.endAt ? `${toDateInputValue(form.endAt)}T23:59:59` : null,
         status: Number(form.status),
+        scopeType: form.scopeType,
+        scopeRefIds: form.scopeType === 'All' ? [] : form.scopeRefIds,
       };
 
       if (editingId) {
@@ -159,20 +237,34 @@ const VoucherList = () => {
   };
 
   const getStatusBadge = (voucher) => {
-    if (voucher.status !== 1) return <span className="badge badge-secondary">Ngừng</span>;
+    if (isInactiveStatus(voucher.status)) return <span className="badge badge-secondary">Ngừng</span>;
     if (isExpired(voucher)) return <span className="badge badge-danger">Hết hạn</span>;
     return <span className="badge badge-success">Hoạt động</span>;
   };
 
   const formatDiscountValue = (voucher) => {
     const value = voucher.discountValue || 0;
-    if (voucher.discountType === 'Percent') return `${value}%`;
+    if (voucher.discountType === 'Percent') {
+      // Hiện kèm mức trần để khỏi hiểu nhầm: "10%" nhưng thực tế bị chặn ở "tối đa X đ".
+      return voucher.maxDiscount ? `${value}% (tối đa ${formatCurrency(voucher.maxDiscount)})` : `${value}%`;
+    }
     return formatCurrency(value);
   };
 
   const formatValidity = (voucher) => {
     if (!voucher.startAt && !voucher.endAt) return 'Không giới hạn';
     return `${voucher.startAt ? formatDateShort(voucher.startAt) : '—'} - ${voucher.endAt ? formatDateShort(voucher.endAt) : '—'}`;
+  };
+
+  // Hiển thị phạm vi gọn: "Toàn đơn" hoặc "Theo sản phẩm: A, B +2".
+  const formatScope = (voucher) => {
+    const scopes = Array.isArray(voucher.scopes) ? voucher.scopes : [];
+    if (scopes.length === 0) return 'Toàn đơn';
+    const typeLabel = SCOPE_TYPES[scopes[0].scopeType] || scopes[0].scopeType;
+    const names = scopes.map((s) => s.refName).filter(Boolean);
+    const shown = names.slice(0, 2).join(', ');
+    const more = names.length > 2 ? ` +${names.length - 2}` : '';
+    return names.length > 0 ? `${typeLabel}: ${shown}${more}` : typeLabel;
   };
 
   return (
@@ -222,6 +314,7 @@ const VoucherList = () => {
                           <th className="table-col-status">Loại giảm</th>
                           <th className="table-col-money">Giá trị</th>
                           <th className="table-col-money">Đơn tối thiểu</th>
+                          <th>Phạm vi</th>
                           <th className="table-col-date">Thời hạn</th>
                           <th className="table-col-number">Đã dùng/Giới hạn</th>
                           <th className="table-col-number">Giới hạn/khách</th>
@@ -236,6 +329,7 @@ const VoucherList = () => {
                             <td className="table-col-status">{VOUCHER_TYPES[voucher.discountType] || voucher.discountType}</td>
                             <td className="table-col-money">{formatDiscountValue(voucher)}</td>
                             <td className="table-col-money">{formatCurrency(voucher.minOrderValue || 0)}</td>
+                            <td><small>{formatScope(voucher)}</small></td>
                             <td className="table-col-date">{formatValidity(voucher)}</td>
                             <td className="table-col-number">
                               {voucher.usedCount || 0} / {voucher.usageLimit || '∞'}
@@ -380,9 +474,48 @@ const VoucherList = () => {
                     </div>
                   </div>
 
-                  <div className="form-group mb-0">
+                  <div className="form-group">
                     <label>Mô tả</label>
                     <textarea className="form-control" name="description" rows="2" value={form.description} onChange={handleChange} placeholder="Mô tả voucher..." />
+                  </div>
+
+                  <div className="row">
+                    <div className="col-md-4">
+                      <div className="form-group mb-0">
+                        <label>Phạm vi áp dụng</label>
+                        <select className="form-control" name="scopeType" value={form.scopeType} onChange={handleScopeTypeChange}>
+                          {Object.entries(SCOPE_TYPES).map(([value, label]) => (
+                            <option key={value} value={value}>{label}</option>
+                          ))}
+                        </select>
+                        <small className="text-muted">Gắn voucher với sản phẩm/danh mục/hãng (chỉ để hiển thị).</small>
+                      </div>
+                    </div>
+                    <div className="col-md-8">
+                      {form.scopeType !== 'All' && (
+                        <div className="form-group mb-0">
+                          <label>Chọn {SCOPE_TYPES[form.scopeType]?.toLowerCase()} ({form.scopeRefIds.length} đã chọn)</label>
+                          <div style={{ maxHeight: 160, overflowY: 'auto', border: '1px solid #ced4da', borderRadius: 4, padding: 8 }}>
+                            {scopeOptions[form.scopeType].length === 0 ? (
+                              <div className="text-muted small">Đang tải danh sách...</div>
+                            ) : (
+                              scopeOptions[form.scopeType].map((opt) => (
+                                <div className="form-check" key={opt.id}>
+                                  <input
+                                    className="form-check-input"
+                                    type="checkbox"
+                                    id={`scope-${form.scopeType}-${opt.id}`}
+                                    checked={form.scopeRefIds.includes(opt.id)}
+                                    onChange={() => handleScopeRefToggle(opt.id)}
+                                  />
+                                  <label className="form-check-label" htmlFor={`scope-${form.scopeType}-${opt.id}`}>{opt.name}</label>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div className="modal-footer" style={{ flex: '0 0 auto', background: '#fff' }}>

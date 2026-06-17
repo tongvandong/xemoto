@@ -66,7 +66,7 @@ public partial class AdvancedOperationsService : IAdvancedOperationsService
                 Qty = line.Qty,
                 UnitPrice = orderLine.UnitPrice,
                 LineTotal = orderLine.UnitPrice * line.Qty,
-                ItemCondition = line.ItemCondition is "Damaged" or "Warranty" ? line.ItemCondition : "Resellable",
+                ItemCondition = NormalizeReturnItemCondition(line.ItemCondition),
                 CreatedDate = now,
             });
         }
@@ -146,7 +146,7 @@ public partial class AdvancedOperationsService : IAdvancedOperationsService
                 Qty = line.Qty,
                 UnitPrice = orderLine.UnitPrice,
                 LineTotal = orderLine.UnitPrice * line.Qty,
-                ItemCondition = line.ItemCondition is "Damaged" or "Warranty" ? line.ItemCondition : "Resellable",
+                ItemCondition = NormalizeReturnItemCondition(line.ItemCondition),
                 CreatedDate = now,
             });
         }
@@ -166,6 +166,9 @@ public partial class AdvancedOperationsService : IAdvancedOperationsService
 
     private async Task<IDbContextTransaction?> BeginSerializableTransactionAsync() =>
         _db.Database.IsRelational() ? await _db.Database.BeginTransactionAsync(IsolationLevel.Serializable) : null;
+
+    private static string NormalizeReturnItemCondition(string? itemCondition) =>
+        itemCondition == "Resellable" ? "Resellable" : "Damaged";
 
     private static decimal CalculateRefundableAmount(Entities.Ordering.Order order, IEnumerable<(int OrderLineId, int Qty)> lines)
     {

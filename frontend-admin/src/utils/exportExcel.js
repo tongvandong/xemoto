@@ -7,10 +7,14 @@ const BORDER = {
   right: { style: 'thin', color: { argb: 'FFD1D5DB' } },
 };
 
+const hasTimeZone = (value) => /(?:z|[+-]\d{2}:?\d{2})$/i.test(value);
+
 const toDate = (value) => {
   if (!value) return null;
   if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
-  const date = new Date(value);
+  const raw = String(value);
+  const normalized = raw.includes('T') && !hasTimeZone(raw) ? `${raw}Z` : raw;
+  const date = new Date(normalized);
   return Number.isNaN(date.getTime()) ? null : date;
 };
 
