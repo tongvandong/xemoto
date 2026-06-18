@@ -70,10 +70,10 @@ function OrderDetailPage() {
     setError('');
 
     try {
-      const res = await orderApi.getById(id);
-      setOrder(res.order || res);
-      setDetails(res.details?.$values || res.details || []);
-      setVouchers(res.vouchers?.$values || res.vouchers || []);
+      const order = await orderApi.getById(id);
+      setOrder(order);
+      setDetails(order.items || []);
+      setVouchers(order.vouchers || []);
 
       try {
         setPaymentInfo(await orderApi.getPaymentInfo(id));

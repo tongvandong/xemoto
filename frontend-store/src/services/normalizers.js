@@ -160,12 +160,6 @@ export const mapAddressBody = (data) => ({
 // Chuyển param UI (sortBy, categoryId...) sang tên query backend (CategoryId, SortBy...).
 export const toQuery = (params = {}) => {
   const sortMap = {
-    'price-asc': { SortBy: 'price', SortDescending: false },
-    'price-desc': { SortBy: 'price', SortDescending: true },
-    'name-asc': { SortBy: 'name', SortDescending: false },
-    'name-desc': { SortBy: 'name', SortDescending: true },
-    'year-asc': { SortBy: 'created', SortDescending: false },
-    'year-desc': { SortBy: 'created', SortDescending: true },
     price_asc: { SortBy: 'price', SortDescending: false },
     price_desc: { SortBy: 'price', SortDescending: true },
     name_asc: { SortBy: 'name', SortDescending: false },

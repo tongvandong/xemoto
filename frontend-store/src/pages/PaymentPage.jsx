@@ -26,7 +26,7 @@ function PaymentPage() {
         orderApi.getById(orderId),
         orderApi.getPaymentInfo(orderId).catch(() => null),
       ]);
-      setOrder(orderRes.order || orderRes);
+      setOrder(orderRes);
       setPaymentInfo(infoRes);
     } catch {
       // keep last state on transient errors

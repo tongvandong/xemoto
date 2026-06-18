@@ -212,8 +212,7 @@ export const orderApi = {
 
   async getById(id) {
     const { data } = await api.get(`/orders/${id}`);
-    const order = mapOrder(data);
-    return { ...order, order, details: order.items, vouchers: order.vouchers };
+    return mapOrder(data);
   },
 
   create: (data) => api.post('/orders', {

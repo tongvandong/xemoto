@@ -99,21 +99,18 @@ export function normalizeProduct(raw) {
     description: raw.description,
     isFeatured: raw.isFeatured,
     isHotDeal: raw.isHotDeal,
-    manufacturerId: raw.manufacturerId,
-    manufacturerName: raw.manufacturerName,
     // Giá tổng hợp: minPrice = giá bán thấp nhất ("Từ {minPrice}"); basePrice = giá niêm yết (gạch ngang).
     minPrice: minSellPrice,
     maxPrice: maxSellPrice,
     basePrice: baseListPrice,
     salePrice: minSellPrice > 0 ? minSellPrice : null,
     discountPercent: null,
-    variantCount: variants.length,
     stockQuantity: totalStock,
     mainImageUrl: normalizeImageUrl(raw.mainImageUrl),
     status: raw.status,
     isActive: raw.status !== 0,
-    averageRating: toNumber(raw.averageRating ?? raw.rating),
-    totalReviews: toNumber(raw.totalReviews ?? raw.reviewCount ?? raw.reviewsCount),
+    averageRating: toNumber(raw.averageRating),
+    totalReviews: toNumber(raw.totalReviews),
     images,
     variants,
     raw,
@@ -123,7 +120,7 @@ export function normalizeProduct(raw) {
 export function normalizeProductList(response) {
   const rawItems = Array.isArray(response) ? response : response?.items || [];
   const pageSize = response?.pageSize || rawItems.length;
-  const totalCount = response?.totalItems ?? response?.totalCount ?? rawItems.length;
+  const totalCount = response?.totalItems ?? rawItems.length;
 
   return {
     items: rawItems.map(normalizeProduct).filter(Boolean),

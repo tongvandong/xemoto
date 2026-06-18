@@ -11,7 +11,7 @@ function CheckoutSuccessPage() {
 
   useEffect(() => {
     if (!orderId) return;
-    orderApi.getById(orderId).then((res) => setOrder(res.order || res)).catch(() => {});
+    orderApi.getById(orderId).then(setOrder).catch(() => {});
   }, [orderId]);
 
   return (
