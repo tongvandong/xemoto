@@ -83,6 +83,7 @@ const VariantManager = ({ productId, productType = 'XeMay', onClose }) => {
     barcode: '',
     giaNiemYet: '',
     giaKhuyenMai: '',
+    soLuongTon: '',
     trangThai: 'Available',
   });
 
@@ -115,7 +116,7 @@ const VariantManager = ({ productId, productType = 'XeMay', onClose }) => {
 
   const openAdd = () => {
     setEditVariant(null);
-    setForm({ tenBienThe: '', sku: '', phienBan: '', mauSac: '', barcode: '', giaNiemYet: '', giaKhuyenMai: '', trangThai: 'Available' });
+    setForm({ tenBienThe: '', sku: '', phienBan: '', mauSac: '', barcode: '', giaNiemYet: '', giaKhuyenMai: '', soLuongTon: '', trangThai: 'Available' });
     setShowForm(true);
   };
 
@@ -234,6 +235,7 @@ const VariantManager = ({ productId, productType = 'XeMay', onClose }) => {
                       <th>{labels.optionLabel}</th>
                       <th>Giá niêm yết</th>
                       <th>Giá khuyến mãi</th>
+                      <th>Tồn kho</th>
                       <th>Trạng thái</th>
                       <th>Thao tác</th>
                     </tr>
@@ -248,6 +250,7 @@ const VariantManager = ({ productId, productType = 'XeMay', onClose }) => {
                         <td>{v.mauSac || v.color || ''}</td>
                         <td>{formatCurrency(v.giaNiemYet ?? v.listPrice ?? 0)}</td>
                         <td>{(v.giaKhuyenMai ?? v.salePrice) ? formatCurrency(v.giaKhuyenMai ?? v.salePrice) : 'Không'}</td>
+                        <td>{v.available ?? v.Available ?? 0}</td>
                         <td>
                           <span className={`badge badge-${(v.trangThai || v.status) === 'Available' || (v.trangThai || v.status) === 'Available' ? 'success' : 'secondary'}`}>
                             {(v.trangThai || v.status) === 'Available' || (v.trangThai || v.status) === 'Available' ? 'Hoạt động' : 'Ngừng'}
@@ -347,6 +350,39 @@ const VariantManager = ({ productId, productType = 'XeMay', onClose }) => {
                         </div>
                       </div>
                     </div>
+                    {!editVariant ? (
+                      <div className="row">
+                        <div className="col-md-3">
+                          <div className="form-group">
+                            <label>Tồn kho ban đầu</label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              className="form-control form-control-sm"
+                              name="soLuongTon"
+                              value={form.soLuongTon}
+                              onChange={handleChange}
+                              placeholder="0"
+                            />
+                          </div>
+                        </div>
+                        <div className="col-md-9">
+                          <div className="form-group mb-0">
+                            <label className="d-none d-md-block">&nbsp;</label>
+                            <small className="text-muted">
+                              Số lượng nhập kho ban đầu cho biến thể này. Tồn kho của sản phẩm = tổng tồn các biến thể. Sau này điều chỉnh tồn ở mục Kho / Nhập hàng.
+                            </small>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="form-group">
+                        <small className="text-muted">
+                          Tồn kho hiện tại: <strong>{editVariant.available ?? editVariant.Available ?? 0}</strong>. Để thay đổi tồn, dùng mục Kho / Nhập hàng (sửa biến thể không làm đổi tồn).
+                        </small>
+                      </div>
+                    )}
                     <button type="submit" className="btn btn-primary btn-sm mr-2" disabled={saving}>
                       {saving ? 'Đang lưu...' : 'Lưu'}
                     </button>

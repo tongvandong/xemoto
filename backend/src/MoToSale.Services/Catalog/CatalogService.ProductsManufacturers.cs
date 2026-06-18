@@ -18,17 +18,16 @@ public partial class CatalogService
         var page = await _products.SearchAsync(request);
         var mfg = await ManufacturerMapAsync();
         var productIds = page.Items.Select(p => p.Id).ToList();
-        var stockByProduct = await _db.Skus.AsNoTracking()
-            .Where(sku => productIds.Contains(sku.ProductId))
-            .GroupJoin(
-                _db.InventoryItems.AsNoTracking(),
-                sku => sku.Id,
+        // Tổng tồn theo sản phẩm = SUM(OnHand) các InventoryItem thuộc SKU của sản phẩm.
+        // Dùng JOIN + GROUP BY 1 cấp. KHÔNG gộp SUM-lồng-SUM (GroupJoin rồi Sum bên trong rồi Sum
+        // bên ngoài) vì SQL Server báo lỗi: "Cannot perform an aggregate function on an expression
+        // containing an aggregate or a subquery" -> trang danh sách 500, không tải được.
+        var stockByProduct = await _db.InventoryItems.AsNoTracking()
+            .Join(
+                _db.Skus.AsNoTracking().Where(sku => productIds.Contains(sku.ProductId)),
                 item => item.SkuId,
-                (sku, inventoryItems) => new
-                {
-                    sku.ProductId,
-                    OnHand = inventoryItems.Sum(item => (int?)item.OnHand) ?? 0,
-                })
+                sku => sku.Id,
+                (item, sku) => new { sku.ProductId, item.OnHand })
             .GroupBy(row => row.ProductId)
             .Select(group => new
             {

@@ -25,7 +25,7 @@ public record SkuDto(int Id, string SkuCode, string? VariantName, string? Color,
 
 public record SkuLookupDto(int Id, string SkuCode, string ProductName, decimal ListPrice, decimal? SalePrice);
 
-public record CreateSkuRequest(string? SkuCode, string? VariantName, string? Color, string? Version, decimal ListPrice, decimal? SalePrice, string? Barcode);
+public record CreateSkuRequest(string? SkuCode, string? VariantName, string? Color, string? Version, decimal ListPrice, decimal? SalePrice, string? Barcode, int OpeningStock = 0);
 
 public record UpdateSkuRequest(string? SkuCode, string? VariantName, string? Color, string? Version, decimal ListPrice, decimal? SalePrice, string? Barcode, int Status);
 

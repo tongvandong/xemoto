@@ -2,6 +2,7 @@
 using MoToSale.DTO.Catalog;
 using MoToSale.DTO.Common;
 using MoToSale.Entities.Catalog;
+using MoToSale.Entities.Inventory;
 using MoToSale.Repository;
 using MoToSale.Repository.Catalog;
 using MoToSale.Repository.EFCore;
@@ -87,7 +88,12 @@ public partial class CatalogService
     public async Task<List<SkuDto>> GetSkusByProductAsync(int productId)
     {
         var skus = await _skus.GetByProductAsync(productId);
-        return skus.Select(s => new SkuDto(s.Id, s.SkuCode, s.VariantName, s.Color, s.Version, s.ListPrice, s.SalePrice, s.Barcode, s.Status)).ToList();
+        // Tồn kho theo từng SKU (OnHand) để bảng biến thể hiển thị được và đối chiếu với cột
+        // "Tồn kho" ở danh sách sản phẩm (vốn = tổng OnHand của các biến thể).
+        var onHandBySku = await _inventory.GetOnHandBySkusAsync(skus.Select(s => s.Id));
+        return skus.Select(s => new SkuDto(
+            s.Id, s.SkuCode, s.VariantName, s.Color, s.Version, s.ListPrice, s.SalePrice, s.Barcode, s.Status,
+            onHandBySku.GetValueOrDefault(s.Id))).ToList();
     }
 
     public async Task<int> CreateSkuAsync(int productId, CreateSkuRequest r)
@@ -113,6 +119,32 @@ public partial class CatalogService
         };
         _skus.Add(sku);
         await _skus.SaveChangesAsync();
+
+        // Tồn kho ban đầu: nếu nhập số lượng khi tạo biến thể thì ghi nhận vào kho ngay
+        // (InventoryItem + một dòng sổ kho Receipt), dùng đúng helper của module Kho để
+        // sổ cái nhất quán. Nhờ đó tồn của sản phẩm (= tổng OnHand các biến thể) tăng tương ứng.
+        // Tồn về sau điều chỉnh ở module Kho/Nhập hàng, không sửa qua form biến thể.
+        if (r.OpeningStock > 0)
+        {
+            DateTime now = DateTime.UtcNow;
+            var item = await _inventory.GetOrCreateItemAsync(sku.Id);
+            item.OnHand += r.OpeningStock;
+            item.UpdatedDate = now;
+            _inventory.AddMovement(new StockMovement
+            {
+                SkuId = sku.Id,
+                Type = (int)StockMovementType.Receipt,
+                QtyDelta = r.OpeningStock,
+                BalanceAfter = item.OnHand,
+                RefType = "Sku",
+                RefId = sku.Id,
+                Reason = "Tồn ban đầu khi tạo biến thể",
+                OccurredAt = now,
+                CreatedDate = now,
+            });
+            await _inventory.SaveChangesAsync();
+        }
+
         return sku.Id;
     }
 

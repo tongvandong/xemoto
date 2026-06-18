@@ -586,7 +586,7 @@ const ProductList = ({ productType = 'XeMay' }) => {
         <VariantManager
           productId={showVariants}
           productType={productType}
-          onClose={() => setShowVariants(null)}
+          onClose={() => { setShowVariants(null); fetchProducts(); }}
         />
       )}
 

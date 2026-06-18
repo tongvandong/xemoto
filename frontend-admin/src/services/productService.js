@@ -112,7 +112,12 @@ const mapSkuPayload = (data, includeStatus = false) => {
     salePrice: salePrice === '' || salePrice == null ? null : Number(salePrice),
     barcode: data.barcode ?? null,
   };
-  if (includeStatus) payload.status = data.status === 0 || data.trangThai === 'Inactive' ? 0 : 1;
+  if (includeStatus) {
+    payload.status = data.status === 0 || data.trangThai === 'Inactive' ? 0 : 1;
+  } else {
+    // Chỉ khi TẠO mới: tồn kho ban đầu (BE seed InventoryItem + sổ kho). Sửa biến thể không đổi tồn.
+    payload.openingStock = Math.max(0, Math.trunc(Number(data.openingStock ?? data.soLuongTon) || 0));
+  }
   return payload;
 };
 
