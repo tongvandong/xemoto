@@ -97,7 +97,8 @@ public partial class AuthService : IAuthService
             return null;
         }
 
-        return phoneNumber.Trim();
+        // Chuẩn hoá: đổi +84 -> 0, bỏ ký tự ngăn cách (việc kiểm tra định dạng làm ở ValidateRegisterRequest).
+        return PhoneNumberRule.Normalize(phoneNumber);
     }
 
     private static void ValidateRegisterRequest(RegisterRequest request, string email)
@@ -129,9 +130,9 @@ public partial class AuthService : IAuthService
         }
 
         string? phoneNumber = NormalizePhoneNumber(request.PhoneNumber);
-        if (phoneNumber != null && phoneNumber.Length > 20)
+        if (phoneNumber != null && !PhoneNumberRule.IsValid(phoneNumber))
         {
-            throw new AuthException("Số điện thoại không hợp lệ (tối đa 20 ký tự).");
+            throw new AuthException("Số điện thoại không hợp lệ (phải bắt đầu bằng 0 và gồm 10–11 chữ số).");
         }
     }
 

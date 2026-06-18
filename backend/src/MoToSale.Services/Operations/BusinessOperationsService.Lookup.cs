@@ -36,6 +36,9 @@ public partial class BusinessOperationsService
                 Id = order.Id,
                 Code = order.Code,
                 UserId = order.UserId,
+                ShippingRecipient = order.ShippingRecipient,
+                ShippingPhone = order.ShippingPhone,
+                PlacedAt = order.PlacedAt,
                 GrandTotal = order.GrandTotal,
                 Lines = order.Lines.Select(line => new LookupOrderLineDto
                 {
@@ -79,6 +82,8 @@ public partial class BusinessOperationsService
     {
         return await _db.Skus
             .AsNoTracking()
+            // Bỏ SKU của sản phẩm đã xóa mềm (status = Deleted) khỏi ô chọn đơn mua hàng/nhập kho/sửa chữa.
+            .Where(sku => sku.Product.Status != (int)EntityStatus.Deleted)
             .OrderBy(sku => sku.SkuCode)
             .Select(sku => new LookupSkuDto
             {

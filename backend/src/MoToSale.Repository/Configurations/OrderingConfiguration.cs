@@ -112,27 +112,5 @@ public static class OrderingConfiguration
             e.HasOne(x => x.Voucher).WithMany().HasForeignKey(x => x.VoucherId);
             e.HasIndex(x => new { x.VoucherId, x.ScopeType, x.RefId }).IsUnique();
         });
-
-        b.Entity<VoucherRedemption>(e =>
-        {
-            e.ToTable("VoucherRedemptions");
-            e.Property(x => x.Amount).HasPrecision(18, 2);
-            e.Property(x => x.RedeemedAt).HasColumnType("datetime2(0)");
-            e.HasOne(x => x.Voucher).WithMany().HasForeignKey(x => x.VoucherId).OnDelete(DeleteBehavior.Restrict);
-            e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
-            e.HasOne<Order>().WithMany().HasForeignKey(x => x.OrderId).OnDelete(DeleteBehavior.Restrict);
-            e.HasIndex(x => new { x.VoucherId, x.OrderId }).IsUnique();
-            e.ToTable(t => t.HasCheckConstraint("CK_VoucherRedemptions_Amount", "[Amount] >= 0"));
-        });
-
-        b.Entity<OrderVoucher>(e =>
-        {
-            e.ToTable("OrderVouchers");
-            e.Property(x => x.VoucherCodeSnapshot).HasMaxLength(40).IsRequired();
-            e.Property(x => x.DiscountAmount).HasPrecision(18, 2);
-            e.HasOne<Order>().WithMany().HasForeignKey(x => x.OrderId).OnDelete(DeleteBehavior.Restrict);
-            e.HasIndex(x => x.OrderId).IsUnique();
-            e.ToTable(t => t.HasCheckConstraint("CK_OrderVouchers_DiscountAmount", "[DiscountAmount] >= 0"));
-        });
     }
 }

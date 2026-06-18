@@ -17,7 +17,7 @@ public partial class VoucherService
             .OrderBy(voucher => voucher.MinOrderValue)
             .ThenByDescending(voucher => voucher.DiscountType == AmountDiscount ? voucher.DiscountValue : 0)
             .ThenByDescending(voucher => voucher.DiscountType == PercentDiscount ? voucher.DiscountValue : 0)
-            .Select(Map)
+            .Select(voucher => Map(voucher))
             .ToList();
     }
 

@@ -27,6 +27,8 @@ const badgeClass = (variant = 'info') => cn(
   }[variant] || 'bg-secondary text-white',
 );
 
+const SHOW_SERVICE_CRM_DASHBOARD = false;
+
 const Dashboard = () => {
   const { isAdmin } = useAuth();
   const [data, setData] = useState({
@@ -92,6 +94,7 @@ const Dashboard = () => {
           customerReceivable: remoteOps.customerReceivable ?? 0,
           supplierPayable: remoteOps.supplierPayable ?? 0,
           todayRevenue: remoteOps.todayRevenue ?? 0,
+          monthRevenue: remoteOps.monthRevenue ?? dashboard.stats?.monthRevenue ?? 0,
           paidTotal: remoteOps.paidTotal ?? 0,
           refundedTotal: remoteOps.refundedTotal ?? 0,
         });
@@ -184,7 +187,7 @@ const Dashboard = () => {
               </div>
 
               <div className="-mx-[7.5px] flex flex-wrap">
-                <StatCard color="primary" icon="fas fa-phone-volume" label="CSKH cần xử lý" value={operations.openCrmTasks || 0} to="/service-crm" />
+                {SHOW_SERVICE_CRM_DASHBOARD && <StatCard color="primary" icon="fas fa-phone-volume" label="CSKH cần xử lý" value={operations.openCrmTasks || 0} to="/service-crm" />}
                 <StatCard color="danger" icon="fas fa-envelope-open-text" label="Liên hệ mới" value={operations.newContacts || 0} to="/contacts" />
               </div>
 
@@ -341,7 +344,7 @@ const Dashboard = () => {
                     </div>
                   </div>
                 </div>
-                <div className="w-full px-[7.5px] lg:w-5/12">
+                <div className={cn('w-full px-[7.5px] lg:w-5/12', !SHOW_SERVICE_CRM_DASHBOARD && 'hidden')}>
                   <div className={cardClass}>
                     <div className={cardHeaderClass}>
                       <h3 className={cardTitleClass}>CSKH cần xử lý</h3>

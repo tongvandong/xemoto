@@ -23,14 +23,12 @@ const HomeBannerList = lazy(() => import('./pages/content/HomeBannerList'));
 const FaqList = lazy(() => import('./pages/faq/FaqList'));
 const ContactList = lazy(() => import('./pages/contacts/ContactList'));
 const ReviewList = lazy(() => import('./pages/reviews/ReviewList'));
-const PostList = lazy(() => import('./pages/posts/PostList'));
 const ReportsPage = lazy(() => import('./pages/reports/ReportsPage'));
 const AuditLogList = lazy(() => import('./pages/audit/AuditLogList'));
 const WarrantyList = lazy(() => import('./pages/warranties/WarrantyList'));
 const OperationsSettings = lazy(() => import('./pages/settings/OperationsSettings'));
 const ReturnsRefunds = lazy(() => import('./pages/operations/ReturnsRefunds'));
 const BusinessOperations = lazy(() => import('./pages/operations/BusinessOperations'));
-const OperationalImports = lazy(() => import('./pages/operations/OperationalImports'));
 const InstallmentApplications = lazy(() => import('./pages/installments/InstallmentApplications'));
 
 const RouteFallback = () => (
@@ -106,7 +104,7 @@ function AppRoutes() {
       <Route path="/faq" element={<ProtectedRoute><MainLayout><FaqList /></MainLayout></ProtectedRoute>} />
       <Route path="/contacts" element={<ProtectedRoute><MainLayout><ContactList /></MainLayout></ProtectedRoute>} />
       <Route path="/reviews" element={<ProtectedRoute><MainLayout><ReviewList /></MainLayout></ProtectedRoute>} />
-      <Route path="/posts" element={<ProtectedRoute><MainLayout><PostList /></MainLayout></ProtectedRoute>} />
+      <Route path="/posts" element={<Navigate to="/" replace />} />
 
       {/* Reports */}
       <Route path="/reports" element={<ProtectedRoute><MainLayout><ReportsPage /></MainLayout></ProtectedRoute>} />
@@ -116,10 +114,10 @@ function AppRoutes() {
       <Route path="/advanced-operations" element={<Navigate to="/returns" replace />} />
       <Route path="/supply" element={<ProtectedRoute><MainLayout><BusinessOperations section="supply" /></MainLayout></ProtectedRoute>} />
       <Route path="/installments" element={<ProtectedRoute><MainLayout><InstallmentApplications /></MainLayout></ProtectedRoute>} />
-      <Route path="/service-crm" element={<ProtectedRoute><MainLayout><BusinessOperations section="service" /></MainLayout></ProtectedRoute>} />
+      <Route path="/service-crm" element={<Navigate to="/customers" replace />} />
       <Route path="/finance" element={<ProtectedRoute roles={['Admin']}><MainLayout><BusinessOperations section="finance" /></MainLayout></ProtectedRoute>} />
       <Route path="/business-operations" element={<Navigate to="/supply" replace />} />
-      <Route path="/operational-imports" element={<ProtectedRoute roles={['Admin']}><MainLayout><OperationalImports /></MainLayout></ProtectedRoute>} />
+      <Route path="/operational-imports" element={<Navigate to="/" replace />} />
 
       {/* Catch all */}
       <Route path="*" element={<Navigate to="/" replace />} />

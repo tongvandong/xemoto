@@ -85,6 +85,28 @@ export const authApi = {
     };
   },
 
+  async validateCurrentUser() {
+    const currentUser = authApi.getCurrentUser();
+    if (!currentUser) {
+      return null;
+    }
+
+    try {
+      const { data } = await api.get('/users/me');
+      return mergeStoredUser({
+        userId: data.id ?? currentUser.userId,
+        name: data.fullName ?? currentUser.name,
+        username: data.email ?? currentUser.username,
+        email: data.email ?? currentUser.email,
+        phone: data.phoneNumber ?? currentUser.phone,
+        status: data.status,
+      });
+    } catch (error) {
+      clearAuthStorage();
+      throw error;
+    }
+  },
+
   updateStoredUser: (data) => mergeStoredUser(data),
 };
 

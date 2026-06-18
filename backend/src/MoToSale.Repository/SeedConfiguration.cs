@@ -34,7 +34,9 @@ public static partial class SeedConfiguration
         await db.SaveChangesAsync();
         await AddMissingVoucherScopesAsync(db, now);
         await db.SaveChangesAsync();
-        await AddMissingOperationalDataAsync(db, now);
-        await db.SaveChangesAsync();
+        // Đã tắt seed đơn hàng/đánh giá/bảo hành DEMO: cửa hàng vận hành bằng dữ liệu thật
+        // (sản phẩm coi như vốn có sẵn đầu kỳ, nhập kho qua phiếu nhập). Bật lại nếu cần dữ liệu demo.
+        // await AddMissingOperationalDataAsync(db, now);
+        // await db.SaveChangesAsync();
     }
 }

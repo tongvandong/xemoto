@@ -125,16 +125,22 @@ public partial class UserManagementService
         return normalized;
     }
 
+    // Số điện thoại không bắt buộc; nếu có nhập thì phải đúng định dạng VN.
+    // Trả về số đã chuẩn hoá (đổi +84 -> 0, bỏ ký tự ngăn cách) để lưu cho thống nhất.
     private static string? ValidateAndNormalizePhone(string? phoneNumber)
     {
         string? phone = NormalizeOptionalText(phoneNumber);
-
-        if (phone != null && phone.Length > 20)
+        if (phone == null)
         {
-            throw new UserManagementException("Số điện thoại không hợp lệ (tối đa 20 ký tự).");
+            return null;
         }
 
-        return phone;
+        if (!PhoneNumberRule.IsValid(phone))
+        {
+            throw new UserManagementException("Số điện thoại không hợp lệ (phải bắt đầu bằng 0 và gồm 10–11 chữ số).");
+        }
+
+        return PhoneNumberRule.Normalize(phone);
     }
 
     private static void ValidateCustomerName(string? fullName)

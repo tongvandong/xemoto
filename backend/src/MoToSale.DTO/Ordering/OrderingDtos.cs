@@ -68,15 +68,24 @@ public record PosOrderRequest(
     string? CustomerEmail = null, string? ShippingAddress = null, string? ReceivingMethod = null);
 
 // ===== Voucher =====
+// Phạm vi áp dụng (scope) của voucher: gắn voucher với Sản phẩm / Danh mục / Hãng cụ thể.
+// ScopeType = "Product" | "Category" | "Brand"; RefId = Id của đối tượng đó; RefName = tên để hiển thị.
+// Nếu voucher KHÔNG có scope nào thì hiểu là áp cho toàn đơn ("All").
+public record VoucherScopeDto(string ScopeType, int RefId, string? RefName);
+
 public record VoucherDto(
     int Id, string Code, string? Description, string DiscountType, decimal DiscountValue,
     decimal? MaxDiscount, decimal MinOrderValue, int? UsageLimit, int? PerUserLimit, int UsedCount,
-    DateTime? StartAt, DateTime? EndAt, int Status);
+    DateTime? StartAt, DateTime? EndAt, int Status,
+    IReadOnlyList<VoucherScopeDto>? Scopes = null);
 
+// ScopeType: "All" (toàn đơn, mặc định) | "Product" | "Category" | "Brand".
+// ScopeRefIds: danh sách Id đối tượng được gắn (chỉ dùng khi ScopeType khác "All").
 public record SaveVoucherRequest(
     string Code, string? Description, string DiscountType, decimal DiscountValue,
     decimal? MaxDiscount, decimal MinOrderValue, int? UsageLimit, int? PerUserLimit,
-    DateTime? StartAt, DateTime? EndAt, int Status);
+    DateTime? StartAt, DateTime? EndAt, int Status,
+    string? ScopeType = null, List<int>? ScopeRefIds = null);
 
 public record VoucherValidationResult(bool Valid, string? Message, decimal DiscountAmount, VoucherDto? Voucher);
 

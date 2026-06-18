@@ -125,8 +125,8 @@ public partial class CatalogService
     public async Task DeleteProductAsync(int id)
     {
         var product = await _products.GetByIdAsync(id) ?? throw new CatalogException("Không tìm thấy sản phẩm.");
-        // Soft-delete: ngừng kinh doanh (giữ lịch sử đơn/tồn), ẩn khỏi danh sách đang bán.
-        product.Status = (int)EntityStatus.Inactive;
+        // Soft-delete: giữ lịch sử đơn/tồn nhưng ẩn khỏi danh sách quản trị mặc định.
+        product.Status = (int)EntityStatus.Deleted;
         product.UpdatedDate = DateTime.UtcNow;
         _products.Update(product);
         await _products.SaveChangesAsync();

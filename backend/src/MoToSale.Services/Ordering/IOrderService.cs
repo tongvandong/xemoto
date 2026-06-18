@@ -30,6 +30,9 @@ public interface IOrderService
     Task CancelOrderAsync(int orderId, string? reason, int? userId);
     Task UpdateStatusAsync(int orderId, UpdateOrderStatusRequest request, int? userId);
     Task UpdateFulfillmentStatusAsync(int orderId, UpdateFulfillmentStatusRequest request, int? userId);
+
+    // Job nền: tự hủy đơn "Chờ xác nhận chuyển khoản" để quá hạn (nhả giữ chỗ). Trả số đơn đã hủy.
+    Task<int> CancelStaleTransferClaimsAsync(int graceHours, int? userId);
 }
 
 public class OrderException : Exception

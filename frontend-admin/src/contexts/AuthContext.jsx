@@ -3,8 +3,17 @@ import authService from '../services/authService';
 
 const AuthContext = createContext(null);
 
+const getResponseMessage = (error) => {
+  const data = error?.response?.data;
+  if (typeof data === 'string') return data;
+  return data?.message || data?.Message || data?.title || error?.message || '';
+};
+
 const normalizeAuthMessage = (message) => {
   const normalized = String(message || '').trim().toLowerCase();
+  if (normalized.includes('kh\u00f3a') || normalized.includes('khoa') || normalized.includes('locked')) {
+    return 'T\u00e0i kho\u1ea3n \u0111\u00e3 b\u1ecb kh\u00f3a.';
+  }
   if (normalized === 'email/so dien thoai hoac mat khau khong dung.') {
     return 'Email/số điện thoại hoặc mật khẩu không đúng.';
   }
@@ -66,8 +75,11 @@ export const AuthProvider = ({ children }) => {
       return { success: true };
     } catch (error) {
       const resp = error.response;
+      const backendMessage = getResponseMessage(error);
       let message = 'Đăng nhập thất bại. Vui lòng thử lại.';
-      if (resp?.status === 401) {
+      if (backendMessage) {
+        message = backendMessage;
+      } else if (resp?.status === 401) {
         message = resp.data?.message || 'Email hoặc mật khẩu không đúng.';
       } else if (resp?.status === 400) {
         message = resp.data?.message || 'Thông tin đăng nhập không hợp lệ.';

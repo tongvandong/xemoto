@@ -39,6 +39,11 @@ public class AuthController : ControllerBase
         }
         catch (AuthException ex)
         {
+            if (ex.Message == "Tài khoản đã bị khóa.")
+            {
+                return StatusCode(423, new MessageResponse { Message = ex.Message });
+            }
+
             return Unauthorized(new MessageResponse { Message = ex.Message });
         }
     }

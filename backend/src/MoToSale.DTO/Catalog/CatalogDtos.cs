@@ -10,6 +10,7 @@ public class ProductSearchRequest : PagingRequest
     public int? CompatibleVehicleModelId { get; set; }
     public int? Kind { get; set; }            // ProductKind
     public int? Status { get; set; }          // EntityStatus
+    public bool All { get; set; }             // true (admin) = lấy mọi trạng thái; false/mặc định = chỉ Đang bán (storefront)
     public bool? IsFeatured { get; set; }
     public bool? IsHotDeal { get; set; }
     public decimal? MinPrice { get; set; }

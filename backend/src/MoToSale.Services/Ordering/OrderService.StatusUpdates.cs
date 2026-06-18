@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using MoToSale.Common;
 using MoToSale.DTO.Common;
 using MoToSale.DTO.Ordering;
@@ -136,15 +137,27 @@ public partial class OrderService
             await _unitOfWork.ExecuteInTransactionAsync(() => FulfillCoreAsync(orderId, userId));
             return;
         }
+        // Soạn hàng / Đang giao: phải XUẤT KHO thật + nhả giữ chỗ (giống nút "Soạn & xuất kho"),
+        // không chỉ lật cờ — nếu không, đơn "đang giao" mà tồn kho vẫn chưa trừ.
+        if (toStatus is OrderStatus.Preparing or OrderStatus.Shipping)
+        {
+            await _unitOfWork.ExecuteInTransactionAsync(() => PrepareOrShipCoreAsync(orderId, toStatus, req.Note, userId));
+            return;
+        }
+
+        // Còn lại: quay về Chờ xác nhận (Pending).
         if (order.OrderStatus is OrderStatus.Delivered or OrderStatus.Cancelled)
             throw new OrderException("Đơn đã kết thúc, không thể cập nhật trạng thái.");
+        // Đã xuất kho rồi thì không cho lùi về Chờ xác nhận (sẽ làm thất thoát tồn). Muốn trả tồn → hủy đơn.
+        bool alreadyIssued = order.Lines.Any(l => l.Allocations.Any(a => a.AllocationStatus != AllocationStatus.Cancelled));
+        if (alreadyIssued)
+            throw new OrderException("Đơn đã xuất kho, không thể quay lại Chờ xác nhận. Hãy hủy đơn nếu muốn trả tồn về kho.");
+
         var from = order.OrderStatus;
         var fulfillmentFrom = order.FulfillmentStatus;
         var now = DateTime.UtcNow;
         order.OrderStatus = toStatus;
-        if (toStatus == OrderStatus.Pending) order.FulfillmentStatus = FulfillmentStatus.Unallocated;
-        if (toStatus == OrderStatus.Preparing) order.FulfillmentStatus = FulfillmentStatus.Allocated;
-        if (toStatus == OrderStatus.Shipping) order.FulfillmentStatus = FulfillmentStatus.Shipped;
+        order.FulfillmentStatus = FulfillmentStatus.Unallocated;
         order.UpdatedDate = now;
         _orders.Update(order);
         _orders.AddStatusHistory(new OrderStatusHistory { OrderId = orderId, FromStatus = from, ToStatus = toStatus, Note = req.Note, ChangedBy = userId, CreatedDate = now });
@@ -157,6 +170,67 @@ public partial class OrderService
             });
         }
         await _orders.SaveChangesAsync();
+    }
+
+    // Chuyển đơn sang Soạn hàng (Allocated) hoặc Đang giao (Shipped): xuất kho thật + nhả giữ chỗ.
+    private async Task PrepareOrShipCoreAsync(int orderId, string toStatus, string? note, int? userId)
+    {
+        var order = await _orders.GetDetailAsync(orderId) ?? throw new OrderException("Không tìm thấy đơn hàng.");
+        if (order.OrderStatus == OrderStatus.Cancelled) throw new OrderException("Đơn đã hủy.");
+        if (order.OrderStatus == OrderStatus.Delivered || order.FulfillmentStatus == FulfillmentStatus.Fulfilled)
+            throw new OrderException("Đơn đã giao, không thể đổi về Soạn hàng/Đang giao.");
+
+        var now = DateTime.UtcNow;
+        var from = order.OrderStatus;
+        var fulfillmentFrom = order.FulfillmentStatus;
+
+        await IssueStockAndReleaseHoldsAsync(order, userId, now);
+
+        order.FulfillmentStatus = toStatus == OrderStatus.Preparing ? FulfillmentStatus.Allocated : FulfillmentStatus.Shipped;
+        order.OrderStatus = toStatus;
+        order.UpdatedDate = now;
+        _orders.AddStatusHistory(new OrderStatusHistory { OrderId = orderId, FromStatus = from, ToStatus = toStatus, Note = note, ChangedBy = userId, CreatedDate = now });
+        if (order.FulfillmentStatus != fulfillmentFrom)
+        {
+            _orders.AddStatusHistory(new OrderStatusHistory
+            {
+                OrderId = orderId, FromStatus = fulfillmentFrom, ToStatus = order.FulfillmentStatus,
+                Note = "Xuất kho khi đổi trạng thái", ChangedBy = userId, CreatedDate = now,
+            });
+        }
+        await _orders.SaveChangesAsync();
+    }
+
+    // #1: tự hủy đơn "Chờ xác nhận chuyển khoản" có phiếu CK chờ quá lâu (quá graceHours)
+    // để nhả giữ chỗ — tránh hàng bị giữ vĩnh viễn khi khách báo CK nhưng không thanh toán.
+    public async Task<int> CancelStaleTransferClaimsAsync(int graceHours, int? userId)
+    {
+        var cutoff = DateTime.UtcNow.AddHours(-graceHours);
+        var orderIds = await _db.Orders
+            .Where(o => o.PaymentStatus == PaymentStatus.PendingConfirmation
+                && o.OrderStatus != OrderStatus.Cancelled
+                && o.OrderStatus != OrderStatus.Delivered
+                && _db.Payments.Any(p => p.OrderId == o.Id
+                    && p.PaymentRecordStatus == PaymentRecordStatus.Pending
+                    && p.CreatedDate < cutoff))
+            .Select(o => o.Id)
+            .ToListAsync();
+
+        int cancelled = 0;
+        foreach (var id in orderIds)
+        {
+            try
+            {
+                await CancelOrderAsync(id, "Chuyển khoản quá hạn xác nhận — hệ thống tự hủy.", userId);
+                cancelled++;
+            }
+            catch (OrderException)
+            {
+                // Đơn vừa đổi trạng thái bởi luồng khác — bỏ qua, vòng sau xử lý nếu còn.
+            }
+        }
+
+        return cancelled;
     }
 
     // Chấp nhận cả giá trị cũ (AwaitingPayment/Confirmed/Allocated/Completed) lẫn mới.

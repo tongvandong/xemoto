@@ -71,9 +71,15 @@ public partial class CatalogService
     public async Task<List<SkuLookupDto>> GetSkusAsync()
     {
         var skus = await _skus.GetAllAsync();
-        var products = (await _products.GetAllAsync()).ToDictionary(p => p.Id, p => p.Name);
-        return skus.OrderBy(s => s.SkuCode)
-            .Select(s => new SkuLookupDto(s.Id, s.SkuCode, products.GetValueOrDefault(s.ProductId, ""), s.ListPrice, s.SalePrice))
+        // Chỉ lấy SKU của sản phẩm CHƯA bị xóa mềm (status != Deleted) — tránh hiện SKU của sản phẩm
+        // đã xóa trong các ô chọn (đơn mua hàng, POS...). Sản phẩm Ngừng bán (Inactive) vẫn cho chọn.
+        var products = (await _products.GetAllAsync())
+            .Where(p => p.Status != (int)EntityStatus.Deleted)
+            .ToDictionary(p => p.Id, p => p.Name);
+        return skus
+            .Where(s => products.ContainsKey(s.ProductId))
+            .OrderBy(s => s.SkuCode)
+            .Select(s => new SkuLookupDto(s.Id, s.SkuCode, products[s.ProductId], s.ListPrice, s.SalePrice))
             .ToList();
     }
 

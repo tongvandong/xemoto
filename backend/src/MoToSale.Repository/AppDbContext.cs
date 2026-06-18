@@ -66,8 +66,6 @@ public partial class AppDbContext : DbContext
     public DbSet<OrderStatusHistory> OrderStatusHistories => Set<OrderStatusHistory>();
     public DbSet<Voucher> Vouchers => Set<Voucher>();
     public DbSet<VoucherScope> VoucherScopes => Set<VoucherScope>();
-    public DbSet<VoucherRedemption> VoucherRedemptions => Set<VoucherRedemption>();
-    public DbSet<OrderVoucher> OrderVouchers => Set<OrderVoucher>();
 
     public DbSet<Payment> Payments => Set<Payment>();
 

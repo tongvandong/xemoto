@@ -65,6 +65,44 @@ public partial class BusinessOperationsService
         return purchaseOrder.Id;
     }
 
+    public async Task UpdatePurchaseOrderAsync(int id, CreatePurchaseOrderRequest request, int? userId)
+    {
+        PurchaseOrder purchaseOrder = await _db.PurchaseOrders
+            .Include(order => order.Lines)
+            .FirstOrDefaultAsync(order => order.Id == id)
+            ?? throw new BusinessOperationsException("Không tìm thấy đơn mua.");
+
+        // Chỉ sửa được đơn còn Nháp (chưa duyệt). Đơn đã duyệt/nhận/hủy thì khóa.
+        if (purchaseOrder.PurchaseStatus != "Draft")
+        {
+            throw new BusinessOperationsException("Chỉ sửa được đơn mua ở trạng thái Nháp (chưa duyệt).");
+        }
+
+        await ValidatePurchaseOrderRequestAsync(request);
+
+        DateTime now = DateTime.UtcNow;
+        purchaseOrder.SupplierId = request.SupplierId;
+        purchaseOrder.Note = request.Note;
+        purchaseOrder.UpdatedDate = now;
+
+        // Thay toàn bộ dòng hàng bằng dữ liệu mới rồi tính lại tổng tiền.
+        _db.PurchaseOrderLines.RemoveRange(purchaseOrder.Lines);
+        purchaseOrder.Lines.Clear();
+        foreach (PurchaseLineRequest line in request.Lines)
+        {
+            purchaseOrder.Lines.Add(new PurchaseOrderLine
+            {
+                SkuId = line.SkuId,
+                OrderedQty = line.Qty,
+                UnitCost = line.UnitCost,
+                CreatedDate = now
+            });
+        }
+        purchaseOrder.TotalAmount = purchaseOrder.Lines.Sum(line => line.OrderedQty * line.UnitCost);
+
+        await _db.SaveChangesAsync();
+    }
+
     public async Task ApprovePurchaseOrderAsync(int id, int? userId)
     {
         PurchaseOrder purchaseOrder = await GetPurchaseOrderOrThrowAsync(id);
@@ -104,6 +142,12 @@ public partial class BusinessOperationsService
     public async Task<int> PayPurchaseOrderAsync(int id, PayPurchaseOrderRequest request, int? userId)
     {
         PurchaseOrder purchaseOrder = await GetPurchaseOrderOrThrowAsync(id);
+
+        // Phải duyệt đơn trước khi thanh toán cho NCC (đơn Nháp/đã hủy không được chi tiền).
+        if (purchaseOrder.PurchaseStatus == "Draft")
+        {
+            throw new BusinessOperationsException("Đơn mua chưa được duyệt, không thể thanh toán. Hãy duyệt đơn trước.");
+        }
 
         if (purchaseOrder.PurchaseStatus == "Cancelled" ||
             request.Amount <= 0 ||
@@ -162,6 +206,7 @@ public partial class BusinessOperationsService
         {
             Id = purchaseOrder.Id,
             Code = purchaseOrder.Code,
+            SupplierId = purchaseOrder.SupplierId,
             SupplierName = purchaseOrder.Supplier.Name,
             PurchaseStatus = purchaseOrder.PurchaseStatus,
             TotalAmount = purchaseOrder.TotalAmount,

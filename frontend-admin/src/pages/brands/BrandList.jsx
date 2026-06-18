@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import brandService from '../../services/brandService';
 import { useAuth } from '../../contexts/AuthContext';
 
+const getApiMessage = (err, fallback) => err?.response?.data?.message || fallback;
+
 /**
  * Tạo slug từ chuỗi tiếng Việt
  */
@@ -181,7 +183,7 @@ const BrandList = () => {
       setShowBrandModal(false);
       fetchBrands();
     } catch (err) {
-      alert('Lưu hãng xe thất bại!');
+      alert(getApiMessage(err, 'Lưu hãng xe thất bại!'));
       console.error(err);
     } finally {
       setSavingBrand(false);
@@ -194,7 +196,7 @@ const BrandList = () => {
       await brandService.delete(id);
       fetchBrands();
     } catch (err) {
-      alert('Xóa hãng xe thất bại!');
+      alert(getApiMessage(err, 'Xóa hãng xe thất bại!'));
       console.error(err);
     }
   };
@@ -252,7 +254,7 @@ const BrandList = () => {
       setShowModelModal(false);
       fetchModels();
     } catch (err) {
-      alert('Lưu dòng xe thất bại!');
+      alert(getApiMessage(err, 'Lưu dòng xe thất bại!'));
       console.error(err);
     } finally {
       setSavingModel(false);
@@ -265,7 +267,7 @@ const BrandList = () => {
       await brandService.deleteModel(id);
       fetchModels();
     } catch (err) {
-      alert('Xóa dòng xe thất bại!');
+      alert(getApiMessage(err, 'Xóa dòng xe thất bại!'));
       console.error(err);
     }
   };

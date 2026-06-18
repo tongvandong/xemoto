@@ -7,9 +7,8 @@ import { formatDate } from '../../utils/formatDate';
 import { createDateStamp, exportWorkbook } from '../../utils/exportExcel';
 
 const CUSTOMER_STATUS = {
-  1: { label: 'Đang hoạt động', color: 'success' },
-  0: { label: 'Ngừng chăm sóc', color: 'warning' },
-  '-1': { label: 'Đã khóa', color: 'secondary' },
+  1: { label: '\u0110ang ho\u1ea1t \u0111\u1ed9ng', color: 'success' },
+  '-1': { label: '\u0110\u00e3 kh\u00f3a', color: 'secondary' },
 };
 
 const emptyCustomerForm = {
@@ -21,15 +20,14 @@ const emptyCustomerForm = {
 };
 
 const getApiMessage = (err, fallback) => err?.response?.data?.message || fallback;
-const normalize = (value) => String(value || '').trim().toLowerCase();
 const asItems = (payload) => payload?.items || payload?.data || payload || [];
 
 const normalizeStatus = (value) => {
   if (value === 'Active') return 1;
-  if (value === 'Inactive') return 0;
-  if (value === 'Deleted' || value === 'Locked') return -1;
+  if (value === 'Inactive' || value === 'Deleted' || value === 'Locked') return -1;
   const numeric = Number(value);
-  return Number.isFinite(numeric) ? numeric : 1;
+  if (!Number.isFinite(numeric)) return 1;
+  return numeric === 1 ? 1 : -1;
 };
 
 const CustomerList = () => {
@@ -54,13 +52,15 @@ const CustomerList = () => {
     setLoading(true);
     setError('');
     try {
+      const statusParam = status === '1' ? '1' : undefined;
       const [customersRes, ordersRes] = await Promise.allSettled([
-        userService.getCustomers({ search: search || undefined, status: status || undefined, pageSize: 100 }),
+        userService.getCustomers({ search: search || undefined, status: statusParam, pageSize: 100 }),
         orderService.getAll({ page: 1, pageSize: 1000 }),
       ]);
 
       if (customersRes.status !== 'fulfilled') throw customersRes.reason;
-      setCustomers(asItems(customersRes.value.data));
+      const customerItems = asItems(customersRes.value.data);
+      setCustomers(status === '-1' ? customerItems.filter((customer) => customerStatus(customer) === -1) : customerItems);
       setOrders(ordersRes.status === 'fulfilled' ? asItems(ordersRes.value.data) : []);
     } catch (err) {
       setError(getApiMessage(err, 'Không thể tải danh sách khách hàng.'));
@@ -73,39 +73,40 @@ const CustomerList = () => {
     fetchData();
   }, [search, status]);
 
+  // Gộp đơn theo userId (OrderListItem.UserId) — khoá khớp đúng với khách hàng (customer.id).
+  // (Trước đây khớp bằng phone/email nhưng API /orders không trả các trường đó nên chi tiêu luôn = 0đ.)
   const statsByCustomer = useMemo(() => {
     const map = new Map();
     orders.forEach((order) => {
-      const phone = normalize(order.soDienThoaiNhanHang || order.soDienThoai || order.shippingPhone || order.phone);
-      const email = normalize(order.emailNhanHang || order.shippingEmail || order.email);
-      [phone, email].filter(Boolean).forEach((key) => {
-        const current = map.get(key) || { totalOrders: 0, totalSpent: 0, cancelledOrders: 0, lastOrderAt: null };
-        current.totalOrders += 1;
-        current.totalSpent += Number(order.tongThanhToan ?? order.tongTien ?? order.grandTotal ?? order.totalAmount ?? 0);
-        if ((order.trangThaiDonHang || order.orderStatus || order.status) === 'Cancelled') current.cancelledOrders += 1;
-        const date = order.ngayTao || order.createdDate || order.placedAt;
-        if (date && (!current.lastOrderAt || new Date(date) > new Date(current.lastOrderAt))) current.lastOrderAt = date;
-        map.set(key, current);
-      });
+      const userId = order.userId ?? order.maNguoiDung;
+      if (userId == null) return;
+      const current = map.get(userId) || { totalOrders: 0, totalSpent: 0, cancelledOrders: 0, lastOrderAt: null };
+      const orderStatus = order.orderStatus ?? order.trangThaiDonHang ?? order.status;
+      current.totalOrders += 1;
+      if (orderStatus === 'Cancelled') {
+        current.cancelledOrders += 1; // đơn huỷ không tính vào chi tiêu
+      } else {
+        current.totalSpent += Number(order.grandTotal ?? order.tongThanhToan ?? order.tongTien ?? order.totalAmount ?? 0);
+      }
+      const date = order.placedAt ?? order.ngayTao ?? order.createdDate;
+      if (date && (!current.lastOrderAt || new Date(date) > new Date(current.lastOrderAt))) current.lastOrderAt = date;
+      map.set(userId, current);
     });
     return map;
   }, [orders]);
 
   const enrichCustomer = (customer) => {
     const stats =
-      statsByCustomer.get(normalize(customer.soDienThoai || customer.phoneNumber)) ||
-      statsByCustomer.get(normalize(customer.email)) ||
+      statsByCustomer.get(customer.id ?? customer.maKhachHang) ||
       { totalOrders: 0, totalSpent: 0, cancelledOrders: 0, lastOrderAt: null };
     return { ...customer, ...stats };
   };
 
   const customerName = (customer) => customer.hoTen || customer.fullName || customer.name || '';
   const customerPhone = (customer) => customer.soDienThoai || customer.phoneNumber || '';
-  const customerRawEmail = (customer) => customer.email || '';
-  const customerEmail = (customer) => {
-    const email = customerRawEmail(customer);
-    return email.endsWith('@motosale.local') ? '' : email;
-  };
+  // Hiển thị đúng email trong DB (kể cả @motosale.local) để admin thấy chính xác
+  // khách đăng nhập bằng gì; không ẩn nữa vì email nội bộ vẫn là tài khoản dùng được.
+  const customerEmail = (customer) => customer.email || '';
   const customerStatus = (customer) => normalizeStatus(customer.trangThai ?? customer.status);
   const customerCareNote = (customer) => customer.ghiChuChamSoc || customer.careNote || '';
 
@@ -298,7 +299,6 @@ const CustomerList = () => {
                   <select className="form-control" value={status} onChange={(e) => setStatus(e.target.value)}>
                     <option value="">Tất cả trạng thái</option>
                     <option value="1">Đang hoạt động</option>
-                    <option value="0">Ngừng chăm sóc</option>
                     <option value="-1">Đã khóa</option>
                   </select>
                 </div>
@@ -387,7 +387,6 @@ const CustomerList = () => {
                         <label>Trạng thái</label>
                         <select className="form-control" name="status" value={customerForm.status} onChange={handleCustomerChange}>
                           <option value="1">Đang hoạt động</option>
-                          <option value="0">Ngừng chăm sóc</option>
                           <option value="-1">Đã khóa</option>
                         </select>
                       </div>

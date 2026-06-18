@@ -10,6 +10,7 @@ public interface IBusinessOperationsService
     Task<int> SaveSupplierAsync(int? id, SupplierRequest request);
     Task<ItemsResponse<PurchaseOrderDto>> GetPurchaseOrdersAsync();
     Task<int> CreatePurchaseOrderAsync(CreatePurchaseOrderRequest request, int? userId);
+    Task UpdatePurchaseOrderAsync(int id, CreatePurchaseOrderRequest request, int? userId);
     Task ApprovePurchaseOrderAsync(int id, int? userId);
     Task CancelPurchaseOrderAsync(int id);
     Task<int> ReceivePurchaseOrderAsync(int id, ReceivePurchaseOrderRequest request, int? userId);

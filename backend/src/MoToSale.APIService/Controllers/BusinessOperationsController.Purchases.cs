@@ -26,6 +26,20 @@ public partial class BusinessOperationsController : ControllerBase
             });
     }
 
+    [HttpPut("purchases/{id:int}")]
+    public async Task<IActionResult> UpdatePurchase(int id, CreatePurchaseOrderRequest request)
+    {
+        var result = await RunAsync(() => _service.UpdatePurchaseOrderAsync(id, request, UserId));
+
+        if (result is OkResult)
+        {
+            string auditValue = $"SupplierId={request.SupplierId};Lines={request.Lines.Count}";
+            await AddAuditAsync("PurchaseOrder", id.ToString(), "Update", auditValue);
+        }
+
+        return result;
+    }
+
     [HttpPost("purchases/{id:int}/approve")]
     [Authorize(Roles = RoleConstant.Admin)]
     public async Task<IActionResult> ApprovePurchase(int id)

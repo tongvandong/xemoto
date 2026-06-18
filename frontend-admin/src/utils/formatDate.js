@@ -1,11 +1,23 @@
+const hasTimeZone = (value) => /(?:z|[+-]\d{2}:?\d{2})$/i.test(value);
+
+const parseDate = (value) => {
+  if (!value) return null;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+
+  const raw = String(value);
+  const normalized = raw.includes('T') && !hasTimeZone(raw) ? `${raw}Z` : raw;
+  const date = new Date(normalized);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
 /**
  * Format datetime string sang dd/MM/yyyy HH:mm
  * @param {string} dateStr
  * @returns {string}
  */
 export function formatDate(dateStr) {
-  if (!dateStr) return '';
-  const d = new Date(dateStr);
+  const d = parseDate(dateStr);
+  if (!d) return '';
   const day = String(d.getDate()).padStart(2, '0');
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const year = d.getFullYear();
@@ -20,8 +32,8 @@ export function formatDate(dateStr) {
  * @returns {string}
  */
 export function formatDateShort(dateStr) {
-  if (!dateStr) return '';
-  const d = new Date(dateStr);
+  const d = parseDate(dateStr);
+  if (!d) return '';
   const day = String(d.getDate()).padStart(2, '0');
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const year = d.getFullYear();

@@ -50,6 +50,9 @@ public class LookupOrderDto
     public int Id { get; set; }
     public string Code { get; set; } = string.Empty;
     public int UserId { get; set; }
+    public string ShippingRecipient { get; set; } = string.Empty;
+    public string ShippingPhone { get; set; } = string.Empty;
+    public DateTime? PlacedAt { get; set; }
     public decimal GrandTotal { get; set; }
     public List<LookupOrderLineDto> Lines { get; set; } = new List<LookupOrderLineDto>();
 }
@@ -82,6 +85,7 @@ public class PurchaseOrderDto
 {
     public int Id { get; set; }
     public string Code { get; set; } = string.Empty;
+    public int SupplierId { get; set; }
     public string SupplierName { get; set; } = string.Empty;
     public string PurchaseStatus { get; set; } = string.Empty;
     public decimal TotalAmount { get; set; }

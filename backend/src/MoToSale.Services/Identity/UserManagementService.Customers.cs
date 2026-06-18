@@ -51,7 +51,7 @@ public partial class UserManagementService
         {
             FullName = request.FullName.Trim(),
             Email = email,
-            PhoneNumber = NormalizeOptionalText(request.PhoneNumber),
+            PhoneNumber = ValidateAndNormalizePhone(request.PhoneNumber),
             CareNote = NormalizeOptionalText(request.CareNote),
             PasswordHash = _hasher.Hash($"{Guid.NewGuid():N}@Customer1"),
             Status = NormalizeEntityStatus(request.Status),
@@ -74,7 +74,7 @@ public partial class UserManagementService
 
         user.FullName = request.FullName.Trim();
         user.Email = email;
-        user.PhoneNumber = NormalizeOptionalText(request.PhoneNumber);
+        user.PhoneNumber = ValidateAndNormalizePhone(request.PhoneNumber);
         user.CareNote = NormalizeOptionalText(request.CareNote);
         user.Status = NormalizeEntityStatus(request.Status);
         user.UpdatedDate = DateTime.UtcNow;

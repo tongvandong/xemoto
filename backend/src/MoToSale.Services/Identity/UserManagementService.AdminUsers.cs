@@ -38,7 +38,7 @@ public partial class UserManagementService
         {
             FullName = request.FullName.Trim(),
             Email = email,
-            PhoneNumber = NormalizeOptionalText(request.PhoneNumber),
+            PhoneNumber = ValidateAndNormalizePhone(request.PhoneNumber),
             PasswordHash = _hasher.Hash(GetPasswordOrDefault(request.Password)),
             Status = (int)EntityStatus.Active,
             CreatedDate = DateTime.UtcNow,
@@ -72,7 +72,7 @@ public partial class UserManagementService
         Role role = await _users.GetRoleByCodeAsync(normalizedRole);
 
         user.FullName = request.FullName.Trim();
-        user.PhoneNumber = NormalizeOptionalText(request.PhoneNumber);
+        user.PhoneNumber = ValidateAndNormalizePhone(request.PhoneNumber);
         user.Status = nextStatus;
         user.UserRoles.Clear();
         user.UserRoles.Add(new UserRole { RoleId = role.Id });

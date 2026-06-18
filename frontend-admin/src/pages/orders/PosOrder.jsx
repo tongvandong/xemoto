@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import inventoryService from '../../services/inventoryService';
 import orderService from '../../services/orderService';
+import voucherService from '../../services/voucherService';
 import operationsService from '../../services/operationsService';
 import businessOperationsService from '../../services/businessOperationsService';
 import { formatCurrency } from '../../utils/formatCurrency';
@@ -18,6 +19,16 @@ const getProductName = (sku) => toText(sku.productName ?? sku.tenSanPham ?? sku.
 const getVariantName = (sku) => toText(sku.variantName ?? sku.tenBienThe ?? sku.skuName);
 const getCartKey = (sku) => toText(getSkuId(sku) ?? getSkuCode(sku) ?? getBarcode(sku));
 const getLineKey = (line) => toText(line.cartKey ?? line.skuId);
+
+// Nhãn hiển thị 1 voucher trong dropdown POS: "MÃ — 10% (tối đa 20.000đ), đơn từ 500.000đ".
+const formatVoucherOption = (voucher) => {
+  const value = voucher.discountValue || 0;
+  const discountText = voucher.discountType === 'Percent'
+    ? `${value}%${voucher.maxDiscount ? ` (tối đa ${formatCurrency(voucher.maxDiscount)})` : ''}`
+    : formatCurrency(value);
+  const minText = voucher.minOrderValue > 0 ? `, đơn từ ${formatCurrency(voucher.minOrderValue)}` : '';
+  return `${voucher.code} — ${discountText}${minText}`;
+};
 
 const getSkuPrice = (sku) => {
   const value = sku.salePrice ?? sku.giaBan ?? sku.listPrice ?? sku.giaNiemYet ?? 0;
@@ -55,6 +66,10 @@ const PosOrder = () => {
   const [orderType, setOrderType] = useState('FullPayment');
   const [depositAmount, setDepositAmount] = useState('');
   const [voucherCode, setVoucherCode] = useState('');
+  // Kết quả kiểm tra voucher (xem trước giảm giá): { valid, message, discountAmount }.
+  const [voucherResult, setVoucherResult] = useState(null);
+  // Danh sách voucher đang hiệu lực để chọn nhanh từ dropdown (thay vì nhớ mã).
+  const [availableVouchers, setAvailableVouchers] = useState([]);
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [paidAmount, setPaidAmount] = useState('');
 
@@ -112,6 +127,7 @@ const PosOrder = () => {
     setOrderType('FullPayment');
     setDepositAmount('');
     setVoucherCode('');
+    setVoucherResult(null);
     setPaidAmount('');
   };
 
@@ -122,6 +138,15 @@ const PosOrder = () => {
         setSkus(Array.isArray(data) ? data : data.items || data.data || []);
       })
       .catch(() => setSkus([]));
+  }, []);
+
+  useEffect(() => {
+    voucherService.getAvailable()
+      .then((res) => {
+        const data = res.data;
+        setAvailableVouchers(Array.isArray(data) ? data : data.items || data.data || []);
+      })
+      .catch(() => setAvailableVouchers([]));
   }, []);
 
   const filteredSkus = useMemo(() => {
@@ -204,11 +229,33 @@ const PosOrder = () => {
     sum + Number(line.unitPrice || 0) * Number(line.qty || 0)
   ), 0);
   const isDeposit = orderType === 'Deposit';
-  const remaining = isDeposit ? Math.max(0, subtotal - Number(depositAmount || 0)) : 0;
+  // Tiền giảm chỉ tính khi voucher hợp lệ; tổng phải thu = tạm tính - giảm.
+  const discount = voucherResult?.valid ? Number(voucherResult.discountAmount || 0) : 0;
+  const grandTotal = Math.max(0, subtotal - discount);
+  const remaining = isDeposit ? Math.max(0, grandTotal - Number(depositAmount || 0)) : 0;
+
+  // Gọi API kiểm tra voucher mỗi khi đổi mã hoặc tạm tính (debounce 400ms) để xem trước giảm giá.
+  useEffect(() => {
+    const code = voucherCode.trim();
+    if (!code || subtotal <= 0) {
+      setVoucherResult(null);
+      return undefined;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const res = await voucherService.validate(code, subtotal);
+        setVoucherResult(res.data);
+      } catch {
+        setVoucherResult({ valid: false, message: 'Không kiểm tra được mã voucher.', discountAmount: 0 });
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [voucherCode, subtotal]);
 
   useEffect(() => {
-    setPaidAmount(isDeposit ? String(depositAmount || '') : String(subtotal || ''));
-  }, [orderType, subtotal, depositAmount, isDeposit]);
+    // Tự điền "Tiền thu" = tổng phải thu (đã trừ voucher) để không bị BE chặn vì thu vượt.
+    setPaidAmount(isDeposit ? String(depositAmount || '') : String(grandTotal || ''));
+  }, [orderType, grandTotal, depositAmount, isDeposit]);
 
   const handleSubmit = async () => {
     setError('');
@@ -225,7 +272,7 @@ const PosOrder = () => {
 
     if (isDeposit) {
       const deposit = Number(depositAmount || 0);
-      if (deposit <= 0 || deposit >= subtotal) {
+      if (deposit <= 0 || deposit >= grandTotal) {
         setError('Tiền đặt cọc phải lớn hơn 0 và nhỏ hơn tổng tiền.');
         return;
       }
@@ -531,12 +578,22 @@ const PosOrder = () => {
                     </div>
                   )}
                   <div className="form-group">
-                    <label>Mã voucher (tùy chọn)</label>
+                    <label>Voucher (tùy chọn)</label>
+                    <select
+                      className="form-control mb-2"
+                      value={availableVouchers.some((v) => v.code === voucherCode) ? voucherCode : ''}
+                      onChange={(event) => setVoucherCode(event.target.value)}
+                    >
+                      <option value="">-- Không dùng voucher --</option>
+                      {availableVouchers.map((v) => (
+                        <option key={v.id ?? v.code} value={v.code}>{formatVoucherOption(v)}</option>
+                      ))}
+                    </select>
                     <input
                       className="form-control"
                       value={voucherCode}
-                      onChange={(event) => setVoucherCode(event.target.value)}
-                      placeholder="VD: SALE50"
+                      onChange={(event) => setVoucherCode(event.target.value.toUpperCase())}
+                      placeholder="Hoặc nhập mã khác..."
                     />
                   </div>
                   <div className="form-group">
@@ -568,6 +625,16 @@ const PosOrder = () => {
                         <td>Tạm tính</td>
                         <td className="text-right">{formatCurrency(subtotal)}</td>
                       </tr>
+                      {discount > 0 && (
+                        <tr className="text-success">
+                          <td>Giảm giá voucher</td>
+                          <td className="text-right">- {formatCurrency(discount)}</td>
+                        </tr>
+                      )}
+                      <tr>
+                        <td>Tổng phải thu</td>
+                        <td className="text-right font-weight-bold">{formatCurrency(grandTotal)}</td>
+                      </tr>
                       {isDeposit && (
                         <tr>
                           <td>Đặt cọc</td>
@@ -582,9 +649,14 @@ const PosOrder = () => {
                       )}
                     </tbody>
                   </table>
-                  <small className="text-muted d-block mb-2">
-                    Giảm giá voucher, nếu có, được áp dụng khi tạo đơn.
-                  </small>
+                  {voucherCode.trim() && voucherResult && (
+                    <small className={`d-block mb-2 ${voucherResult.valid ? 'text-success' : 'text-danger'}`}>
+                      <i className={`fas ${voucherResult.valid ? 'fa-check-circle' : 'fa-times-circle'} mr-1`}></i>
+                      {voucherResult.valid
+                        ? `Áp dụng voucher: giảm ${formatCurrency(discount)}`
+                        : (voucherResult.message || 'Mã voucher không hợp lệ.')}
+                    </small>
+                  )}
                   <button type="button" className="btn btn-success btn-block" onClick={handleSubmit} disabled={saving || lines.length === 0}>
                     {saving ? (
                       <>
