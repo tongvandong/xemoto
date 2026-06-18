@@ -9,8 +9,6 @@ export function formatCurrency(value) {
 
 const VIETNAM_TIME_ZONE = 'Asia/Ho_Chi_Minh';
 
-// Backend lưu DateTime bằng UTC nhưng SQL datetime2 không giữ Kind, nên JSON có thể thiếu hậu tố Z.
-// Nếu gặp chuỗi ISO không có timezone, hiểu nó là UTC rồi hiển thị theo giờ Việt Nam.
 export function parseApiDate(value) {
   if (!value) return null;
   if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;

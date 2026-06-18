@@ -26,3 +26,6 @@ test-results/
 # ===== Thư mục backup tạm (không commit) =====
 *.backup-*
 **/*.backup-*
+
+# ===== Thư mục tạm sinh file .docx tài liệu (không commit) =====
+docs/_build/
