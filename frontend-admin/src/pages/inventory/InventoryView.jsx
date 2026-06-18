@@ -5,6 +5,19 @@ import { createDateStamp, exportWorkbook } from '../../utils/exportExcel';
 
 const PAGE_SIZE = 15;
 
+// Bật/tắt HIỂN THỊ các control của danh sách tồn kho.
+// Lưu ý: fetchInventory LUÔN gửi đủ params (keyword, stockStatus, hasHold, lowStockOnly, sortBy,
+// sortDirection, page, pageSize) lên BE theo state hiện tại — các cờ dưới CHỈ ẩn/hiện giao diện,
+// KHÔNG dùng để cắt bớt query gửi xuống backend.
+const LIST_CONTROLS = {
+  showSearch: true,          // Đổi thành false để ẩn ô tìm kiếm.
+  showStockStatus: true,     // Đổi thành false để ẩn bộ lọc trạng thái tồn.
+  showSort: false,            // Đổi thành false để ẩn phần sắp xếp (theo trường + chiều).
+  showHoldFilter: false,      // Đổi thành false để ẩn lọc "chỉ sản phẩm đang giữ chỗ".
+  showLowStockFilter: false,  // Đổi thành false để ẩn lọc "chỉ tồn thấp/hết hàng".
+  showReload: false,          // Đổi thành false để ẩn nút Tải lại.
+};
+
 const STOCK_STATUS = {
   InStock: { label: 'Còn hàng', color: 'success' },
   LowStock: { label: 'Sắp hết', color: 'warning' },
@@ -134,17 +147,6 @@ const InventoryView = () => {
     e.preventDefault();
     setPage(1);
     setSearch(searchInput.trim());
-  };
-
-  const handleResetFilters = () => {
-    setSearchInput('');
-    setSearch('');
-    setStockStatus('');
-    setHasHold(false);
-    setLowStockOnly(false);
-    setSortBy('name');
-    setSortDirection('asc');
-    setPage(1);
   };
 
   const handleSync = async () => {
@@ -447,6 +449,7 @@ const InventoryView = () => {
             </div>
             <div className="card-body">
               <form onSubmit={handleSearch} className="row mb-3">
+                {LIST_CONTROLS.showSearch && (
                 <div className="col-lg-3 col-md-6 mb-2">
                   <div className="input-group">
                     <input
@@ -463,6 +466,8 @@ const InventoryView = () => {
                     </div>
                   </div>
                 </div>
+                )}
+                {LIST_CONTROLS.showStockStatus && (
                 <div className="col-lg-2 col-md-6 mb-2">
                   <select className="form-control" value={stockStatus} onChange={(e) => { setStockStatus(e.target.value); setPage(1); }}>
                     <option value="">-- Trạng thái tồn --</option>
@@ -471,6 +476,9 @@ const InventoryView = () => {
                     <option value="OutOfStock">Hết hàng</option>
                   </select>
                 </div>
+                )}
+                {LIST_CONTROLS.showSort && (
+                <>
                 <div className="col-lg-2 col-md-6 mb-2">
                   <select className="form-control" value={sortBy} onChange={(e) => { setSortBy(e.target.value); setPage(1); }}>
                     <option value="name">Sắp xếp theo tên</option>
@@ -486,20 +494,28 @@ const InventoryView = () => {
                     <option value="desc">Giảm dần</option>
                   </select>
                 </div>
-                <div className="col-lg-2 col-md-6 mb-2">
-                  <button type="button" className="btn btn-outline-secondary btn-block" onClick={handleResetFilters}>
-                    <i className="fas fa-times"></i> Xóa lọc
+                </>
+                )}
+                {LIST_CONTROLS.showReload && (
+                <div className="col-lg-1 col-md-6 mb-2">
+                  <button type="button" className="btn btn-outline-primary btn-block" onClick={fetchInventory} disabled={loading} title="Tải lại danh sách với bộ lọc hiện tại">
+                    <i className={`fas fa-rotate-right ${loading ? 'fa-spin' : ''}`}></i> Tải lại
                   </button>
                 </div>
+                )}
                 <div className="col-md-12 inventory-filter-checks">
+                  {LIST_CONTROLS.showHoldFilter && (
                   <div className="form-check inventory-filter-check">
                     <input className="form-check-input" id="hasHold" type="checkbox" checked={hasHold} onChange={(e) => { setHasHold(e.target.checked); setPage(1); }} />
                     <label className="form-check-label" htmlFor="hasHold">Chỉ sản phẩm đang giữ chỗ</label>
                   </div>
+                  )}
+                  {LIST_CONTROLS.showLowStockFilter && (
                   <div className="form-check inventory-filter-check">
                     <input className="form-check-input" id="lowStockOnly" type="checkbox" checked={lowStockOnly} onChange={(e) => { setLowStockOnly(e.target.checked); setPage(1); }} />
                     <label className="form-check-label" htmlFor="lowStockOnly">Chỉ tồn thấp/hết hàng</label>
                   </div>
+                  )}
                 </div>
               </form>
 

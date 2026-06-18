@@ -270,6 +270,17 @@ public class InventoryRepository : Repository<InventoryItem>, IInventoryReposito
             return query.OrderBy(row => row.product.Name);
         }
 
+        if (sortBy == "updated")
+        {
+            // Sắp theo ngày cập nhật tồn (chưa có thì lấy ngày tạo) — khớp lựa chọn "Ngày cập nhật" ở FE.
+            if (sortDescending)
+            {
+                return query.OrderByDescending(row => row.inventory.UpdatedDate ?? row.inventory.CreatedDate);
+            }
+
+            return query.OrderBy(row => row.inventory.UpdatedDate ?? row.inventory.CreatedDate);
+        }
+
         // mặc định: ổn định theo tên sản phẩm rồi mã SKU
         return query
             .OrderBy(row => row.product.Name)
