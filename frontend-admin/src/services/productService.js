@@ -72,6 +72,7 @@ const mapProductSearchParams = (params = {}) => ({
   kind: params.kind ?? (params.loaiSanPham === 'PhuTung' ? 2 : params.loaiSanPham === 'XeMay' ? 1 : undefined),
   categoryId: params.categoryId ?? params.maDanhMuc,
   brandId: params.brandId ?? params.maHangXe,
+  manufacturerId: params.manufacturerId ?? params.maHangSanXuat,
   status: (() => {
     const status = params.status ?? params.trangThaiSanPham;
     if (status === 'Available') return 1;

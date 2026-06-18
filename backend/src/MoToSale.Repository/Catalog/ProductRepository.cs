@@ -125,6 +125,12 @@ public class ProductRepository : Repository<Product>, IProductRepository
             query = query.Where(product => product.BrandId == brandId);
         }
 
+        if (request.ManufacturerId.HasValue)
+        {
+            int manufacturerId = request.ManufacturerId.Value;
+            query = query.Where(product => product.ManufacturerId == manufacturerId);
+        }
+
         if (request.VehicleModelId.HasValue)
         {
             int vehicleModelId = request.VehicleModelId.Value;

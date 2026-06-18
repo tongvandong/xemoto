@@ -6,6 +6,7 @@ public class ProductSearchRequest : PagingRequest
 {
     public int? CategoryId { get; set; }
     public int? BrandId { get; set; }
+    public int? ManufacturerId { get; set; }
     public int? VehicleModelId { get; set; }
     public int? CompatibleVehicleModelId { get; set; }
     public int? Kind { get; set; }            // ProductKind
@@ -18,6 +19,33 @@ public class ProductSearchRequest : PagingRequest
     public string? StockStatus { get; set; }  // InStock | LowStock | OutOfStock
     public bool? HasPromotion { get; set; }
     public string? SortBy { get; set; }       // id | code | name | category | brand | manufacturer | listPrice | salePrice | price | stock | status | newest
+    public bool SortDescending { get; set; } = true;
+}
+
+public class BrandSearchRequest : PagingRequest
+{
+    public string? Slug { get; set; }
+    public int? Status { get; set; }
+    public bool? HasLogo { get; set; }
+    public string? SortBy { get; set; }       // id | name | slug | status
+    public bool SortDescending { get; set; } = true;
+}
+
+public class VehicleModelSearchRequest : PagingRequest
+{
+    public int? BrandId { get; set; }
+    public string? Slug { get; set; }
+    public int? Status { get; set; }
+    public string? SortBy { get; set; }       // id | brand | name | slug | status
+    public bool SortDescending { get; set; } = true;
+}
+
+public class ManufacturerSearchRequest : PagingRequest
+{
+    public string? Description { get; set; }
+    public int? Status { get; set; }
+    public bool? HasLogo { get; set; }
+    public string? SortBy { get; set; }       // id | name | description | status
     public bool SortDescending { get; set; } = true;
 }
 
@@ -51,7 +79,7 @@ public record CategoryDto(int Id, int? ParentId, string Name, string Slug, int K
 
 public record BrandDto(int Id, string Name, string Slug, string? LogoUrl, int Status);
 
-public record VehicleModelDto(int Id, int BrandId, string Name, string Slug, int Status);
+public record VehicleModelDto(int Id, int BrandId, string Name, string Slug, int Status, string? BrandName = null);
 
 public record CreateBrandRequest(string Name, string? Slug, string? LogoUrl);
 public record UpdateBrandRequest(string Name, string? Slug, string? LogoUrl, int Status);

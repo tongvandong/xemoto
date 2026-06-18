@@ -58,21 +58,36 @@ const getParentCategoryId = (category) => category.maDanhMucCha ?? category.pare
 const SHOW_RELATED_PRODUCTS_ACTION = false; // Doi thanh true de bat lai nut "Phu kien / san pham ban kem".
 const SHOW_INVENTORY_AGING_ACTION = false; // Doi thanh true de bat lai nut "Tuoi ton kho".
 const SHOW_PRICE_RANGE_FILTER = false; // Doi thanh true de bat lai 2 o loc "Gia tu" va "Gia den".
-const SORT_FIELD_VISIBILITY = {
-  newest: false,
-  code: false,
-  name: false,
-  category: false,
-  brand: false,
-  manufacturer: false,
-  listPrice: false,
-  salePrice: false,
-  stock: false,
-  status: false,
-}; // Doi field can sap xep sang true de bat lai rieng field do.
-const isSortFieldEnabled = (field) => Boolean(SORT_FIELD_VISIBILITY[field]);
-const hasVisibleSortFields = Object.values(SORT_FIELD_VISIBILITY).some(Boolean);
-const DEFAULT_SORT_BY = Object.entries(SORT_FIELD_VISIBILITY).find(([, visible]) => visible)?.[0] || 'newest';
+const SHOW_STOCK_STATUS_FILTER = false; // Đổi thành true để hiện lại bộ lọc "Tồn kho".
+const SHOW_PROMOTION_FILTER = false; // Đổi thành false để ẩn, đổi lại true để hiện bộ lọc "Khuyến mại".
+const SHOW_RELOAD_BUTTON = false; // Đổi thành false để ẩn nút tải lại danh sách.
+const SORT_FIELD_VISIBILITY_BY_PAGE = {
+  XeMay: {
+    newest: false,
+    code: false,
+    name: false,
+    category: false,
+    brand: false,
+    manufacturer: false,
+    listPrice: false,
+    salePrice: false,
+    stock: false,
+    status: false,
+  },
+  PhuTung: {
+    newest: false,
+    code: false,
+    name: false,
+    category: false,
+    brand: false,
+    manufacturer: false,
+    listPrice: false,
+    salePrice: false,
+    stock: false,
+    status: false,
+  },
+};
+const getSortFieldVisibility = (productType) => SORT_FIELD_VISIBILITY_BY_PAGE[productType] || SORT_FIELD_VISIBILITY_BY_PAGE.XeMay;
 const normalizeText = (value) => String(value || '')
   .toLowerCase()
   .normalize('NFD')
@@ -95,6 +110,15 @@ const formatSalePrice = (product) => {
 const ProductList = ({ productType = 'XeMay' }) => {
   const { isAdmin } = useAuth();
   const config = PAGE_CONFIG[productType] || PAGE_CONFIG.XeMay;
+  const sortFieldVisibility = useMemo(() => getSortFieldVisibility(productType), [productType]);
+  const defaultSortBy = useMemo(
+    () => Object.entries(sortFieldVisibility).find(([, visible]) => visible)?.[0] || 'newest',
+    [sortFieldVisibility]
+  );
+  const hasVisibleSortFields = useMemo(
+    () => Object.values(sortFieldVisibility).some(Boolean),
+    [sortFieldVisibility]
+  );
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [brands, setBrands] = useState([]);
@@ -105,12 +129,13 @@ const ProductList = ({ productType = 'XeMay' }) => {
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
   const [filterBrand, setFilterBrand] = useState('');
+  const [filterManufacturer, setFilterManufacturer] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterStockStatus, setFilterStockStatus] = useState('');
   const [filterPromotion, setFilterPromotion] = useState('');
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
-  const [sortBy, setSortBy] = useState(DEFAULT_SORT_BY);
+  const [sortBy, setSortBy] = useState(defaultSortBy);
   const [sortDescending, setSortDescending] = useState(true);
 
   const [page, setPage] = useState(1);
@@ -145,6 +170,8 @@ const ProductList = ({ productType = 'XeMay' }) => {
     || manufacturers.find((item) => String(item.id) === String(product.maHangSanXuat ?? product.manufacturerId))?.ten
     || ''
   ), [manufacturers]);
+
+  const isSortFieldEnabled = useCallback((field) => Boolean(sortFieldVisibility[field]), [sortFieldVisibility]);
 
   const getSortValue = useCallback((product) => {
     if (sortBy === 'code') return product.maSanPhamKinhDoanh || product.maSP || product.sku || product.id || '';
@@ -221,10 +248,11 @@ const ProductList = ({ productType = 'XeMay' }) => {
         keyword: search || undefined,
         maDanhMuc: filterCategory || undefined,
         maHangXe: config.showBrand ? filterBrand || undefined : undefined,
+        maHangSanXuat: config.showManufacturer ? filterManufacturer || undefined : undefined,
         trangThaiSanPham: filterStatus || undefined,
         all: filterStatus ? undefined : true, // không lọc trạng thái -> admin xem tất cả (kể cả Ngừng bán)
-        stockStatus: filterStockStatus || undefined,
-        hasPromotion: filterPromotion === '' ? undefined : filterPromotion === 'true',
+        stockStatus: SHOW_STOCK_STATUS_FILTER ? filterStockStatus || undefined : undefined,
+        hasPromotion: SHOW_PROMOTION_FILTER && filterPromotion !== '' ? filterPromotion === 'true' : undefined,
         minPrice: SHOW_PRICE_RANGE_FILTER && minPrice !== '' ? Number(minPrice) : undefined,
         maxPrice: SHOW_PRICE_RANGE_FILTER && maxPrice !== '' ? Number(maxPrice) : undefined,
         sortBy,
@@ -247,7 +275,7 @@ const ProductList = ({ productType = 'XeMay' }) => {
     } finally {
       setLoading(false);
     }
-  }, [page, search, filterCategory, filterBrand, filterStatus, filterStockStatus, filterPromotion, minPrice, maxPrice, sortBy, sortDescending, productType, config.showBrand]);
+  }, [page, search, filterCategory, filterBrand, filterManufacturer, filterStatus, filterStockStatus, filterPromotion, minPrice, maxPrice, sortBy, sortDescending, productType, config.showBrand, config.showManufacturer]);
 
   const fetchFilters = async () => {
     try {
@@ -281,12 +309,13 @@ const ProductList = ({ productType = 'XeMay' }) => {
     setPage(1);
     setFilterCategory('');
     setFilterBrand('');
+    setFilterManufacturer('');
     setFilterStatus('');
     setFilterStockStatus('');
     setFilterPromotion('');
     setMinPrice('');
     setMaxPrice('');
-    setSortBy(DEFAULT_SORT_BY);
+    setSortBy(defaultSortBy);
     setSortDescending(true);
     setSearch('');
     setEditProduct(null);
@@ -298,7 +327,7 @@ const ProductList = ({ productType = 'XeMay' }) => {
     setShowRelated(null);
     setShowAging(null);
     setShowBarcodes(null);
-  }, [productType]);
+  }, [productType, defaultSortBy]);
 
   useEffect(() => {
     fetchProducts();
@@ -331,10 +360,11 @@ const ProductList = ({ productType = 'XeMay' }) => {
         keyword: search || undefined,
         maDanhMuc: filterCategory || undefined,
         maHangXe: config.showBrand ? filterBrand || undefined : undefined,
+        maHangSanXuat: config.showManufacturer ? filterManufacturer || undefined : undefined,
         trangThaiSanPham: filterStatus || undefined,
         all: filterStatus ? undefined : true, // không lọc trạng thái -> admin xem tất cả (kể cả Ngừng bán)
-        stockStatus: filterStockStatus || undefined,
-        hasPromotion: filterPromotion === '' ? undefined : filterPromotion === 'true',
+        stockStatus: SHOW_STOCK_STATUS_FILTER ? filterStockStatus || undefined : undefined,
+        hasPromotion: SHOW_PROMOTION_FILTER && filterPromotion !== '' ? filterPromotion === 'true' : undefined,
         minPrice: SHOW_PRICE_RANGE_FILTER && minPrice !== '' ? Number(minPrice) : undefined,
         maxPrice: SHOW_PRICE_RANGE_FILTER && maxPrice !== '' ? Number(maxPrice) : undefined,
         sortBy,
@@ -402,7 +432,7 @@ const ProductList = ({ productType = 'XeMay' }) => {
       setSortDescending(!sortDescending);
     } else {
       setSortBy(field);
-      setSortDescending(false);
+      setSortDescending(true);
     }
 
     setPage(1);
@@ -468,6 +498,11 @@ const ProductList = ({ productType = 'XeMay' }) => {
               <div className="card-header">
                 <h3 className="card-title">{config.listTitle}</h3>
                 <div className="card-tools">
+                {SHOW_RELOAD_BUTTON && (
+                  <button className="btn btn-outline-secondary btn-sm mr-2" onClick={fetchProducts} title="Tải lại danh sách">
+                    <i className="fas fa-sync-alt"></i> Tải lại
+                  </button>
+                )}
                 <Link className="btn btn-outline-success btn-sm mr-2" to="/operational-imports">
                   <i className="fas fa-file-import"></i> Nhập nhanh/XLSX
                 </Link>
@@ -504,6 +539,16 @@ const ProductList = ({ productType = 'XeMay' }) => {
                       <option value="">{config.brandPlaceholder}</option>
                       {brands.map((brand) => (
                         <option key={brand.maHangXe || brand.id} value={brand.maHangXe || brand.id}>{brand.tenHang || brand.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                {config.showManufacturer && (
+                  <div className="col-md-2">
+                    <select className="form-control form-control-sm" value={filterManufacturer} onChange={(e) => { setFilterManufacturer(e.target.value); setPage(1); }}>
+                      <option value="">-- Hãng SX phụ tùng --</option>
+                      {manufacturers.map((manufacturer) => (
+                        <option key={manufacturer.id} value={manufacturer.id}>{manufacturer.ten || manufacturer.name}</option>
                       ))}
                     </select>
                   </div>
@@ -547,21 +592,25 @@ const ProductList = ({ productType = 'XeMay' }) => {
                     </div>
                       </>
                     )}
-                    <div className="col-md-2">
-                      <select className="form-control form-control-sm" value={filterStockStatus} onChange={(e) => { setFilterStockStatus(e.target.value); setPage(1); }}>
-                        <option value="">-- Tồn kho --</option>
-                        <option value="InStock">Còn hàng</option>
-                        <option value="LowStock">Sắp hết hàng</option>
-                        <option value="OutOfStock">Hết hàng</option>
-                      </select>
-                    </div>
-                    <div className="col-md-2">
-                      <select className="form-control form-control-sm" value={filterPromotion} onChange={(e) => { setFilterPromotion(e.target.value); setPage(1); }}>
-                        <option value="">-- Khuyến mại --</option>
-                        <option value="true">Có khuyến mại</option>
-                        <option value="false">Không có khuyến mại</option>
-                      </select>
-                    </div>
+                    {SHOW_STOCK_STATUS_FILTER && (
+                      <div className="col-md-2">
+                        <select className="form-control form-control-sm" value={filterStockStatus} onChange={(e) => { setFilterStockStatus(e.target.value); setPage(1); }}>
+                          <option value="">-- Tồn kho --</option>
+                          <option value="InStock">Còn hàng</option>
+                          <option value="LowStock">Sắp hết hàng</option>
+                          <option value="OutOfStock">Hết hàng</option>
+                        </select>
+                      </div>
+                    )}
+                    {SHOW_PROMOTION_FILTER && (
+                      <div className="col-md-2">
+                        <select className="form-control form-control-sm" value={filterPromotion} onChange={(e) => { setFilterPromotion(e.target.value); setPage(1); }}>
+                          <option value="">-- Khuyến mại --</option>
+                          <option value="true">Có khuyến mại</option>
+                          <option value="false">Không có khuyến mại</option>
+                        </select>
+                      </div>
+                    )}
                     {hasVisibleSortFields && (
                       <>
                         <div className="col-md-2">
@@ -570,8 +619,8 @@ const ProductList = ({ productType = 'XeMay' }) => {
                             {isSortFieldEnabled('code') && <option value="code">Mã sản phẩm</option>}
                             {isSortFieldEnabled('name') && <option value="name">Tên sản phẩm</option>}
                             {isSortFieldEnabled('category') && <option value="category">Danh mục</option>}
-                            {config.showBrand && isSortFieldEnabled('brand') && <option value="brand">Hãng xe</option>}
-                            {config.showManufacturer && isSortFieldEnabled('manufacturer') && <option value="manufacturer">Hãng SX</option>}
+                            {isSortFieldEnabled('brand') && <option value="brand">Hãng xe</option>}
+                            {isSortFieldEnabled('manufacturer') && <option value="manufacturer">Hãng SX</option>}
                             {isSortFieldEnabled('listPrice') && <option value="listPrice">Giá gốc</option>}
                             {isSortFieldEnabled('salePrice') && <option value="salePrice">Giá KM</option>}
                             {isSortFieldEnabled('stock') && <option value="stock">Tồn kho</option>}

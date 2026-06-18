@@ -19,6 +19,7 @@ const normalizeModel = (model = {}) => ({
   hangXeId: model.hangXeId ?? model.brandId ?? model.maHangXe,
   tenDongXe: model.tenDongXe ?? model.name ?? '',
   name: model.name ?? model.tenDongXe ?? '',
+  brandName: model.brandName ?? model.tenHang ?? '',
   dangHoatDong: model.dangHoatDong ?? model.status === 1,
 });
 
@@ -58,14 +59,14 @@ const send = (method, url, data) => {
 };
 
 const brandService = {
-  getAll: (params) => normalizeCollection(api.get('/brands', { params }), normalizeBrand),
+  getAll: (params) => normalizeCollection(api.get('/brands', { params: params || { page: 1, pageSize: 100 } }), normalizeBrand),
   create: (data) => api.post('/brands', mapBrandPayload(data)),
   update: (id, data) => api.put(`/brands/${id}`, mapBrandPayload(data)),
   uploadLogo: (id, formData) => send('post', `/brands/${id}/logo`, formData),
   delete: (id) => api.delete(`/brands/${id}`),
   // Vehicle Models
-  getModels: (brandId) => normalizeCollection(api.get('/models', { params: { brandId } }), normalizeModel),
-  getAllModels: (params) => normalizeCollection(api.get('/models', { params }), normalizeModel),
+  getModels: (brandId) => normalizeCollection(api.get('/models', { params: { brandId, page: 1, pageSize: 100 } }), normalizeModel),
+  getAllModels: (params) => normalizeCollection(api.get('/models', { params: params || { page: 1, pageSize: 100 } }), normalizeModel),
   createModel: (data) => api.post('/models', mapModelPayload(data)),
   updateModel: (id, data) => api.put(`/models/${id}`, mapModelPayload(data)),
   deleteModel: (id) => api.delete(`/models/${id}`),

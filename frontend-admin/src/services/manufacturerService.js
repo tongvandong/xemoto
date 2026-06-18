@@ -44,7 +44,7 @@ const send = (method, url, data) => {
 };
 
 const manufacturerService = {
-  getAll: (params) => normalizeCollection(api.get('/manufacturers', { params })),
+  getAll: (params) => normalizeCollection(api.get('/manufacturers', { params: params || { page: 1, pageSize: 100 } })),
   create: (data) => api.post('/manufacturers', mapPayload(data)),
   update: (id, data) => api.put(`/manufacturers/${id}`, mapPayload(data)),
   uploadLogo: (id, formData) => send('post', `/manufacturers/${id}/logo`, formData),

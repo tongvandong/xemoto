@@ -13,6 +13,12 @@ const emptyForm = {
 const getApiMessage = (err, fallback) => err?.response?.data?.message || fallback;
 const getName = (item) => item.ten || item.name || '';
 const getDescription = (item) => item.moTa || item.description || '';
+const SORT_FIELDS = {
+  id: 'ID',
+  name: 'Tên hãng',
+  description: 'Mô tả',
+  status: 'Trạng thái',
+};
 const normalizeLogoUrl = (logoUrl = '') => (logoUrl.includes('logo.clearbit.com') ? '' : logoUrl);
 const getLogo = (item) => {
   const logoUrl = item.logoUrl || item.logo || '';
@@ -51,6 +57,14 @@ const ManufacturerList = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const [descriptionFilter, setDescriptionFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [logoFilter, setLogoFilter] = useState('');
+  const [sortBy, setSortBy] = useState('id');
+  const [sortDescending, setSortDescending] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const pageSize = 20;
 
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState(null);
@@ -62,16 +76,31 @@ const ManufacturerList = () => {
     setLoading(true);
     setError('');
     try {
-      const res = await manufacturerService.getAll();
+      const res = await manufacturerService.getAll({
+        page,
+        pageSize,
+        keyword: search || undefined,
+        description: descriptionFilter || undefined,
+        status: statusFilter === '' ? undefined : Number(statusFilter),
+        hasLogo: logoFilter === '' ? undefined : logoFilter === 'has',
+        sortBy,
+        sortDescending,
+      });
       const data = res.data;
-      setItems(Array.isArray(data) ? data : data.items || data.data || []);
+      if (Array.isArray(data)) {
+        setItems(data);
+        setTotalPages(1);
+      } else {
+        setItems(data.items || data.data || []);
+        setTotalPages(data.totalPages || Math.ceil((data.totalItems || 0) / pageSize) || 1);
+      }
     } catch (err) {
       setError(getApiMessage(err, 'Không thể tải danh sách hãng sản xuất.'));
       console.error(err);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, search, descriptionFilter, statusFilter, logoFilter, sortBy, sortDescending]);
 
   useEffect(() => {
     fetchData();
@@ -170,10 +199,9 @@ const ManufacturerList = () => {
     }
   };
 
-  const keyword = search.trim().toLowerCase();
-  const filtered = keyword
-    ? items.filter((item) => `${getName(item)} ${getDescription(item)}`.toLowerCase().includes(keyword))
-    : items;
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   return (
     <div className="content-wrapper">
@@ -200,14 +228,53 @@ const ManufacturerList = () => {
             </div>
             <div className="card-body">
               <div className="row mb-3">
-                <div className="col-md-4">
+                <div className="col-md-3 mb-2">
                   <input
                     type="text"
                     className="form-control form-control-sm"
                     placeholder="Tìm theo tên, mô tả..."
                     value={search}
-                    onChange={(e) => setSearch(e.target.value)}
+                    onChange={(e) => { setSearch(e.target.value); setPage(1); }}
                   />
+                </div>
+                <div className="col-md-3 mb-2">
+                  <input
+                    type="text"
+                    className="form-control form-control-sm"
+                    placeholder="Lọc mô tả"
+                    value={descriptionFilter}
+                    onChange={(e) => { setDescriptionFilter(e.target.value); setPage(1); }}
+                  />
+                </div>
+                <div className="col-md-2 mb-2">
+                  <select className="form-control form-control-sm" value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}>
+                    <option value="">-- Trạng thái --</option>
+                    <option value="1">Đang hoạt động</option>
+                    <option value="0">Đã xoá (ẩn)</option>
+                  </select>
+                </div>
+                <div className="col-md-2 mb-2">
+                  <select className="form-control form-control-sm" value={logoFilter} onChange={(e) => { setLogoFilter(e.target.value); setPage(1); }}>
+                    <option value="">-- Logo --</option>
+                    <option value="has">Có logo</option>
+                    <option value="none">Không có logo</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="row mb-3">
+                <div className="col-md-3 mb-2">
+                  <select className="form-control form-control-sm" value={sortBy} onChange={(e) => { setSortBy(e.target.value); setPage(1); }}>
+                    {Object.entries(SORT_FIELDS).map(([key, label]) => (
+                      <option key={key} value={key}>{label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="col-md-3 mb-2">
+                  <select className="form-control form-control-sm" value={sortDescending ? 'desc' : 'asc'} onChange={(e) => { setSortDescending(e.target.value === 'desc'); setPage(1); }}>
+                    <option value="desc">Giảm dần</option>
+                    <option value="asc">Tăng dần</option>
+                  </select>
                 </div>
               </div>
 
@@ -219,10 +286,10 @@ const ManufacturerList = () => {
                     <span className="sr-only">Đang tải...</span>
                   </div>
                 </div>
-              ) : filtered.length === 0 ? (
+              ) : items.length === 0 ? (
                 <div className="text-center py-4 text-muted">
                   <i className="fas fa-industry fa-2x mb-2"></i>
-                  <p>Chưa có hãng sản xuất nào.</p>
+                  <p>Không có kết quả phù hợp.</p>
                 </div>
               ) : (
                 <div className="table-responsive">
@@ -238,7 +305,7 @@ const ManufacturerList = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {filtered.map((item) => (
+                      {items.map((item) => (
                         <tr key={item.id}>
                           <td className="table-col-number">{item.id}</td>
                           <td className="table-col-media"><ManufacturerLogo item={item} /></td>
@@ -246,7 +313,7 @@ const ManufacturerList = () => {
                           <td className="table-col-text">{getDescription(item) || '-'}</td>
                           <td className="table-col-status">
                             <span className={`badge badge-${item.status === 1 ? 'success' : 'secondary'}`}>
-                              {item.status === 1 ? 'Đang hoạt động' : 'Ngừng'}
+                              {item.status === 1 ? 'Đang hoạt động' : 'Đã xoá (ẩn)'}
                             </span>
                           </td>
                           <td className="table-col-actions">
@@ -263,6 +330,23 @@ const ManufacturerList = () => {
                       ))}
                     </tbody>
                   </table>
+                  {totalPages > 1 && (
+                    <nav className="mt-3">
+                      <ul className="pagination pagination-sm justify-content-center">
+                        <li className={`page-item ${page <= 1 ? 'disabled' : ''}`}>
+                          <button type="button" className="page-link" onClick={() => setPage((current) => current - 1)}>«</button>
+                        </li>
+                        {Array.from({ length: totalPages }, (_, index) => index + 1).map((pageNumber) => (
+                          <li key={pageNumber} className={`page-item ${pageNumber === page ? 'active' : ''}`}>
+                            <button type="button" className="page-link" onClick={() => setPage(pageNumber)}>{pageNumber}</button>
+                          </li>
+                        ))}
+                        <li className={`page-item ${page >= totalPages ? 'disabled' : ''}`}>
+                          <button type="button" className="page-link" onClick={() => setPage((current) => current + 1)}>»</button>
+                        </li>
+                      </ul>
+                    </nav>
+                  )}
                 </div>
               )}
             </div>
@@ -313,7 +397,7 @@ const ManufacturerList = () => {
                     <label>Trạng thái</label>
                     <select className="form-control" name="status" value={form.status} onChange={handleChange}>
                       <option value={1}>Đang hoạt động</option>
-                      <option value={0}>Ngừng</option>
+                      <option value={0}>Đã xoá (ẩn)</option>
                     </select>
                   </div>
                 </div>

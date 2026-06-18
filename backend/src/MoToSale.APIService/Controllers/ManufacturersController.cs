@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using MoToSale.APIService.Uploads;
 using MoToSale.Common.Auth;
 using MoToSale.DTO.Catalog;
+using MoToSale.DTO.Common;
 using MoToSale.Services.Catalog;
 
 namespace MoToSale.APIService.Controllers;
@@ -21,10 +22,10 @@ public class ManufacturersController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> List()
+    public async Task<IActionResult> List([FromQuery] ManufacturerSearchRequest request)
     {
-        List<ManufacturerDto> items = await _catalog.GetManufacturersAsync();
-        return Ok(new ItemsResponse<ManufacturerDto> { Items = items });
+        PagingResponse<ManufacturerDto> result = await _catalog.SearchManufacturersAsync(request);
+        return Ok(result);
     }
 
     [Authorize(Roles = $"{RoleConstant.Admin},{RoleConstant.Staff}")]

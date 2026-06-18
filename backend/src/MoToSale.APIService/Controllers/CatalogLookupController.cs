@@ -25,17 +25,17 @@ public class CatalogLookupController : ControllerBase
     }
 
     [HttpGet("brands")]
-    public async Task<IActionResult> Brands()
+    public async Task<IActionResult> Brands([FromQuery] BrandSearchRequest request)
     {
-        List<BrandDto> brands = await _catalog.GetBrandsAsync();
-        return Ok(new ItemsResponse<BrandDto> { Items = brands });
+        PagingResponse<BrandDto> brands = await _catalog.SearchBrandsAsync(request);
+        return Ok(brands);
     }
 
     [HttpGet("models")]
-    public async Task<IActionResult> Models([FromQuery] int? brandId)
+    public async Task<IActionResult> Models([FromQuery] VehicleModelSearchRequest request)
     {
-        List<VehicleModelDto> models = await _catalog.GetVehicleModelsAsync(brandId);
-        return Ok(new ItemsResponse<VehicleModelDto> { Items = models });
+        PagingResponse<VehicleModelDto> models = await _catalog.SearchVehicleModelsAsync(request);
+        return Ok(models);
     }
 
     [HttpGet("skus")]
