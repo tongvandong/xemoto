@@ -113,8 +113,6 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await db.Database.MigrateAsync();
-    await SeedConfiguration.RunAsync(db, scope.ServiceProvider.GetRequiredService<IPasswordHasher>());
-    await SeedConfiguration.SeedCatalogAsync(db);
 }
 
 if (app.Environment.IsDevelopment())

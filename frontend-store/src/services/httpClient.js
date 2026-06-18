@@ -1,7 +1,7 @@
 // Lớp hạ tầng HTTP & phiên đăng nhập.
 // - Tạo axios instance dùng chung (gắn interceptor 1 lần).
 // - Quản lý token/người dùng trong storage (session ưu tiên, localStorage cho "ghi nhớ").
-// Không chứa logic gọi endpoint nghiệp vụ (xem api.js) và không map dữ liệu (xem normalizers.js).
+// Không chứa logic gọi endpoint nghiệp vụ hoặc mapping dữ liệu (xem api.js).
 import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
