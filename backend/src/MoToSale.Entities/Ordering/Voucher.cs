@@ -25,21 +25,3 @@ public class VoucherScope : BaseEntity
 
     public Voucher Voucher { get; set; } = null!;
 }
-
-public class VoucherRedemption : BaseEntity
-{
-    public int VoucherId { get; set; }
-    public int UserId { get; set; }
-    public int OrderId { get; set; }
-    public decimal Amount { get; set; }
-    public DateTime RedeemedAt { get; set; }
-
-    public Voucher Voucher { get; set; } = null!;
-}
-
-public class OrderVoucher : BaseEntity
-{
-    public int OrderId { get; set; }
-    public string VoucherCodeSnapshot { get; set; } = string.Empty;
-    public decimal DiscountAmount { get; set; }
-}
