@@ -86,11 +86,12 @@ export const PAYMENT_METHODS = {
   VNPay: 'VNPay',
 };
 
+// Chỉ 2 trạng thái sản phẩm do người quản lý đặt qua form: Đang bán / Ngừng bán.
+// - "Hết hàng" là tình trạng TỒN KHO (đã có ô lọc "Tình trạng tồn" riêng), không phải trạng thái sản phẩm.
+// - "Ngừng kinh doanh" = đã bấm Xóa (xóa mềm) -> ẩn hẳn, không cần hiện/cho lọc nữa.
 export const PRODUCT_STATUS = {
   Available: { label: 'Đang bán', color: 'success' },
   Inactive: { label: 'Ngừng bán', color: 'secondary' },
-  OutOfStock: { label: 'Hết hàng', color: 'danger' },
-  Discontinued: { label: 'Ngừng kinh doanh', color: 'dark' },
 };
 
 export const USER_STATUS = {
