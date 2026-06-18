@@ -76,6 +76,13 @@ public class InventoryController : ControllerBase
         return Ok(result);
     }
 
+    [HttpGet("document-list")]
+    public async Task<IActionResult> SearchStockDocumentList([FromQuery] StockDocumentSearchRequest request)
+    {
+        var result = await _inventory.SearchStockDocumentListAsync(request);
+        return Ok(result);
+    }
+
     [HttpGet("documents/{id:int}")]
     public async Task<IActionResult> GetDocument(int id)
     {

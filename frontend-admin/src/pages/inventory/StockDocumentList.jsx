@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import inventoryService from '../../services/inventoryService';
 import { formatDate } from '../../utils/formatDate';
 import { createDateStamp, exportWorkbook } from '../../utils/exportExcel';
@@ -44,6 +44,31 @@ const STATUS = {
   Cancelled: { label: 'Đã hủy', color: 'danger' },
 };
 
+const SOURCE_OPTIONS = [
+  ['StockDocument', 'Phiếu kho thủ công'],
+  ['GoodsReceipt', 'Nhận hàng từ NCC'],
+];
+
+const STOCK_DOCUMENT_SORT_FIELDS = {
+  createdDate: 'Ngày tạo',
+  code: 'Mã phiếu',
+  type: 'Loại phiếu',
+  source: 'Nguồn chứng từ',
+  lineCount: 'Số dòng',
+  status: 'Trạng thái',
+  approvedAt: 'Ngày duyệt',
+};
+
+const STOCK_DOCUMENT_LIST_CONTROLS = {
+  showSearch: true, // Đổi thành false để ẩn ô tìm kiếm chứng từ kho trên giao diện.
+  showSourceFilter: true, // Đổi thành false để ẩn bộ lọc nguồn chứng từ trên giao diện.
+  showTypeFilter: true, // Đổi thành false để ẩn bộ lọc loại phiếu trên giao diện.
+  showStatusFilter: true, // Đổi thành false để ẩn bộ lọc trạng thái trên giao diện.
+  showDateFilter: true, // Đổi thành false để ẩn bộ lọc ngày tạo trên giao diện.
+  showSort: true, // Đổi thành false để ẩn phần sắp xếp trên giao diện.
+  showReload: true, // Đổi thành false để ẩn nút tải lại trên giao diện.
+};
+
 const emptyLine = { skuId: '', qty: 1, note: '' };
 const getApiMessage = (err, fallback) => err?.response?.data?.message || fallback;
 const asItems = (payload) => payload?.items || payload?.data || payload || [];
@@ -58,44 +83,48 @@ const StockDocumentList = () => {
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState('');
+  const [keyword, setKeyword] = useState('');
+  const [filterSource, setFilterSource] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterType, setFilterType] = useState('');
+  const [createdFrom, setCreatedFrom] = useState('');
+  const [createdTo, setCreatedTo] = useState('');
+  const [sortBy, setSortBy] = useState('createdDate');
+  const [sortDescending, setSortDescending] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [showCreate, setShowCreate] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
   const [form, setForm] = useState({ type: isAdmin() ? 1 : 2, reason: '', note: '', lines: [{ ...emptyLine }] });
+  const pageSize = 20;
 
-  const fetchDocuments = async () => {
+  const fetchDocuments = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const [documentRes, receiptRes] = await Promise.all([
-        inventoryService.getDocuments({ pageSize: 1000 }),
-        inventoryService.getGoodsReceipts({ pageSize: 1000 }),
-      ]);
-      const manual = asItems(documentRes.data).map((item) => ({ ...item, source: 'StockDocument', sourceLabel: 'Phiếu kho thủ công' }));
-      const purchases = asItems(receiptRes.data).map((item) => ({
-        ...item,
-        source: 'GoodsReceipt',
-        sourceLabel: `Đơn mua ${item.purchaseOrderCode}`,
-        type: 'PurchaseReceipt',
-        status: 'Approved',
-        createdDate: item.receivedAt,
-        approvedAt: item.receivedAt,
-      }));
-      setDocuments([...manual, ...purchases]
-        .filter((item) => !filterStatus || item.status === filterStatus)
-        .filter((item) => {
-          if (!filterType) return true;
-          if (filterType === 'stocktake') return Number(item.type) === 3 || Number(item.type) === 4;
-          return String(item.type) === String(filterType);
-        })
-        .sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate)));
+      const res = await inventoryService.getDocumentList({
+        page,
+        pageSize,
+        keyword: keyword.trim() || undefined,
+        source: filterSource || undefined,
+        status: filterStatus || undefined,
+        type: filterType || undefined,
+        createdFrom: createdFrom || undefined,
+        createdTo: createdTo || undefined,
+        sortBy,
+        sortDescending,
+      });
+      const data = res.data;
+      setDocuments(asItems(data));
+      setTotalPages(data.totalPages || Math.ceil(((data.totalItems ?? data.total) || 0) / pageSize) || 1);
     } catch (err) {
+      setDocuments([]);
+      setTotalPages(1);
       setError(getApiMessage(err, 'Không thể tải danh sách phiếu kho.'));
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, keyword, filterSource, filterStatus, filterType, createdFrom, createdTo, sortBy, sortDescending]);
 
   const fetchLookups = async () => {
     const skuRes = await inventoryService.getSkus();
@@ -104,7 +133,7 @@ const StockDocumentList = () => {
 
   useEffect(() => {
     fetchDocuments();
-  }, [filterStatus, filterType]);
+  }, [fetchDocuments]);
 
   useEffect(() => {
     fetchLookups();
@@ -315,6 +344,11 @@ const StockDocumentList = () => {
           <div className="row mb-2">
             <div className="col-sm-6"><h1 className="m-0">Chứng từ kho</h1></div>
             <div className="col-sm-6 text-right">
+              {STOCK_DOCUMENT_LIST_CONTROLS.showReload && (
+                <button className="btn btn-outline-secondary mr-2" onClick={fetchDocuments} disabled={loading}>
+                  <i className="fas fa-sync-alt mr-1"></i>Tải lại
+                </button>
+              )}
               <button className="btn btn-outline-success mr-2" onClick={exportDocuments} disabled={exporting}>
                 <i className="fas fa-file-excel mr-1"></i>{exporting ? 'Đang xuất...' : 'Xuất Excel'}
               </button>
@@ -331,19 +365,63 @@ const StockDocumentList = () => {
           {error && <div className="alert alert-danger">{error}</div>}
           <div className="card">
             <div className="card-body">
-              <div className="row">
-                <div className="col-md-3">
-                  <select className="form-control" value={filterType} onChange={(e) => setFilterType(e.target.value)}>
-                    <option value="">Tất cả loại phiếu</option>
-                    {FILTER_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                  </select>
-                </div>
-                <div className="col-md-3">
-                  <select className="form-control" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-                    <option value="">Tất cả trạng thái</option>
-                    {Object.entries(STATUS).map(([value, meta]) => <option key={value} value={value}>{meta.label}</option>)}
-                  </select>
-                </div>
+              <div className="row mb-2">
+                {STOCK_DOCUMENT_LIST_CONTROLS.showSearch && (
+                  <div className="col-md-3 mb-2">
+                    <input className="form-control" value={keyword} onChange={(e) => { setKeyword(e.target.value); setPage(1); }} placeholder="Tìm mã phiếu, nguồn, ghi chú..." />
+                  </div>
+                )}
+                {STOCK_DOCUMENT_LIST_CONTROLS.showSourceFilter && (
+                  <div className="col-md-2 mb-2">
+                    <select className="form-control" value={filterSource} onChange={(e) => { setFilterSource(e.target.value); setPage(1); }}>
+                      <option value="">Nguồn chứng từ</option>
+                      {SOURCE_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                    </select>
+                  </div>
+                )}
+                {STOCK_DOCUMENT_LIST_CONTROLS.showTypeFilter && (
+                  <div className="col-md-2 mb-2">
+                    <select className="form-control" value={filterType} onChange={(e) => { setFilterType(e.target.value); setPage(1); }}>
+                      <option value="">Loại phiếu</option>
+                      {FILTER_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                    </select>
+                  </div>
+                )}
+                {STOCK_DOCUMENT_LIST_CONTROLS.showStatusFilter && (
+                  <div className="col-md-2 mb-2">
+                    <select className="form-control" value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }}>
+                      <option value="">Trạng thái</option>
+                      {Object.entries(STATUS).map(([value, meta]) => <option key={value} value={value}>{meta.label}</option>)}
+                    </select>
+                  </div>
+                )}
+                {STOCK_DOCUMENT_LIST_CONTROLS.showDateFilter && (
+                  <>
+                    <div className="col-md-2 mb-2">
+                      <input type="date" className="form-control" value={createdFrom} onChange={(e) => { setCreatedFrom(e.target.value); setPage(1); }} title="Ngày tạo từ" />
+                    </div>
+                    <div className="col-md-2 mb-2">
+                      <input type="date" className="form-control" value={createdTo} onChange={(e) => { setCreatedTo(e.target.value); setPage(1); }} title="Ngày tạo đến" />
+                    </div>
+                  </>
+                )}
+                {STOCK_DOCUMENT_LIST_CONTROLS.showSort && (
+                  <>
+                    <div className="col-md-3 mb-2">
+                      <select className="form-control" value={sortBy} onChange={(e) => { setSortBy(e.target.value); setPage(1); }}>
+                        {Object.entries(STOCK_DOCUMENT_SORT_FIELDS).map(([key, label]) => (
+                          <option key={key} value={key}>{label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="col-md-2 mb-2">
+                      <select className="form-control" value={sortDescending ? 'desc' : 'asc'} onChange={(e) => { setSortDescending(e.target.value === 'desc'); setPage(1); }}>
+                        <option value="desc">Giảm dần</option>
+                        <option value="asc">Tăng dần</option>
+                      </select>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
             <div className="card-body p-0">
@@ -387,6 +465,23 @@ const StockDocumentList = () => {
                   </tbody>
                 </table>
               </div>
+              {totalPages > 1 && (
+                <nav className="p-3">
+                  <ul className="pagination justify-content-center mb-0">
+                    <li className={`page-item ${page <= 1 ? 'disabled' : ''}`}>
+                      <button className="page-link" onClick={() => setPage(page - 1)}>«</button>
+                    </li>
+                    {Array.from({ length: totalPages }, (_, index) => index + 1).map((pageNumber) => (
+                      <li key={pageNumber} className={`page-item ${pageNumber === page ? 'active' : ''}`}>
+                        <button className="page-link" onClick={() => setPage(pageNumber)}>{pageNumber}</button>
+                      </li>
+                    ))}
+                    <li className={`page-item ${page >= totalPages ? 'disabled' : ''}`}>
+                      <button className="page-link" onClick={() => setPage(page + 1)}>»</button>
+                    </li>
+                  </ul>
+                </nav>
+              )}
             </div>
           </div>
         </div>

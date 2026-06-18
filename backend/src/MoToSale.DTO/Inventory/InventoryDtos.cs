@@ -30,6 +30,31 @@ public record StockDocumentLineDto(int Id, int SkuId, string SkuCode, string Pro
 public record StockDocumentDto(
     int Id, string Code, int Type, string Status, string? Note, DateTime CreatedDate, DateTime? ApprovedAt, int LineCount);
 
+public class StockDocumentSearchRequest : PagingRequest
+{
+    public string? Source { get; set; }
+    public string? Type { get; set; }
+    public string? Status { get; set; }
+    public DateTime? CreatedFrom { get; set; }
+    public DateTime? CreatedTo { get; set; }
+    public string? SortBy { get; set; }
+    public bool SortDescending { get; set; } = true;
+}
+
+public class StockDocumentListItemDto
+{
+    public int Id { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public string Type { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public string? Note { get; set; }
+    public DateTime CreatedDate { get; set; }
+    public DateTime? ApprovedAt { get; set; }
+    public int LineCount { get; set; }
+    public string Source { get; set; } = string.Empty;
+    public string SourceLabel { get; set; } = string.Empty;
+}
+
 public record StockDocumentDetail(StockDocumentDto Document, IEnumerable<StockDocumentLineDto> Lines);
 
 public record GoodsReceiptDto(

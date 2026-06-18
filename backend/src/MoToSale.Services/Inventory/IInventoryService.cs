@@ -7,6 +7,7 @@ public interface IInventoryService
 {
     Task<InventoryListResult> GetInventoryAsync(InventorySearchRequest request);
     Task<List<StockMovementDto>> GetMovementsAsync(int? skuId);
+    Task<PagingResponse<StockDocumentListItemDto>> SearchStockDocumentListAsync(StockDocumentSearchRequest request);
     Task<PagingResponse<StockDocumentDto>> SearchDocumentsAsync(PagingRequest request, string? status, int? type);
     Task<StockDocumentDetail?> GetDocumentAsync(int id);
     Task<PagingResponse<GoodsReceiptDto>> SearchGoodsReceiptsAsync(PagingRequest request);

@@ -5,6 +5,7 @@ const inventoryService = {
   sync: () => api.post('/inventory/sync'),
   getHolds: (params) => api.get('/inventory/holds', { params }),
   getAdjustments: (params) => api.get('/inventory/adjustments', { params }),
+  getDocumentList: (params) => api.get('/inventory/document-list', { params }),
   getDocuments: (params) => api.get('/inventory/documents', { params }),
   getDocumentById: (id) => api.get(`/inventory/documents/${id}`),
   getGoodsReceipts: (params) => api.get('/inventory/goods-receipts', { params }),
