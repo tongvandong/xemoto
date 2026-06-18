@@ -23,21 +23,32 @@ public partial class UserManagementService
         };
     }
 
-    public async Task<PagingResponse<CustomerDto>> SearchCustomersAsync(PagingRequest request, string? search, string? status)
+    public async Task<PagingResponse<CustomerDto>> SearchCustomersAsync(CustomerSearchRequest request)
     {
-        ApplySearchKeyword(request, search);
+        ApplySearchKeyword(request, request.Search);
 
-        var page = await _users.SearchCustomersAsync(request, ParseStatus(status));
+        var page = await _users.SearchCustomersAsync(request);
+        List<int> customerIds = page.Items
+            .Select(customer => customer.Id)
+            .ToList();
+        Dictionary<int, CustomerOrderStatsDto> statsByCustomerId = await _users.GetOrderStatsByCustomerIdsAsync(customerIds);
 
         return new PagingResponse<CustomerDto>
         {
             Items = page.Items
-                .Select(MapCustomer)
+                .Select(customer => MapCustomer(customer, FindCustomerStats(statsByCustomerId, customer.Id)))
                 .ToList(),
             Page = page.Page,
             PageSize = page.PageSize,
             TotalItems = page.TotalItems
         };
+    }
+
+    private static CustomerOrderStatsDto? FindCustomerStats(Dictionary<int, CustomerOrderStatsDto> statsByCustomerId, int customerId)
+    {
+        return statsByCustomerId.TryGetValue(customerId, out CustomerOrderStatsDto? stats)
+            ? stats
+            : null;
     }
 
     public async Task<int> CreateCustomerAsync(CustomerUpsertRequest request)

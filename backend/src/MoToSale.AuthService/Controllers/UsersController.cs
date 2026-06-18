@@ -138,9 +138,9 @@ public class UsersController : ControllerBase
 
     [Authorize(Roles = $"{RoleConstant.Admin},{RoleConstant.Staff}")]
     [HttpGet("customers")]
-    public async Task<IActionResult> Customers([FromQuery] PagingRequest request, [FromQuery] string? search, [FromQuery] string? status)
+    public async Task<IActionResult> Customers([FromQuery] CustomerSearchRequest request)
     {
-        var result = await _users.SearchCustomersAsync(request, search, status);
+        var result = await _users.SearchCustomersAsync(request);
         return Ok(result);
     }
 

@@ -1,6 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import userService from '../../services/userService';
-import orderService from '../../services/orderService';
 import businessOperationsService from '../../services/businessOperationsService';
 import { formatCurrency } from '../../utils/formatCurrency';
 import { formatDate } from '../../utils/formatDate';
@@ -9,6 +8,26 @@ import { createDateStamp, exportWorkbook } from '../../utils/exportExcel';
 const CUSTOMER_STATUS = {
   1: { label: '\u0110ang ho\u1ea1t \u0111\u1ed9ng', color: 'success' },
   '-1': { label: '\u0110\u00e3 kh\u00f3a', color: 'secondary' },
+};
+
+const CUSTOMER_SORT_FIELDS = {
+  id: 'Mới nhất',
+  fullName: 'Tên khách hàng',
+  phoneNumber: 'Số điện thoại',
+  email: 'Email',
+  status: 'Trạng thái',
+  createdDate: 'Ngày tạo',
+};
+
+const CUSTOMER_LIST_CONTROLS = {
+  showSearch: true, // Đổi thành false để ẩn ô tìm kiếm khách hàng trên giao diện.
+  showStatusFilter: true, // Đổi thành false để ẩn bộ lọc trạng thái khách hàng trên giao diện.
+  showPhoneFilter: true, // Đổi thành false để ẩn bộ lọc số điện thoại trên giao diện.
+  showEmailFilter: true, // Đổi thành false để ẩn bộ lọc email trên giao diện.
+  showCareNoteFilter: true, // Đổi thành false để ẩn bộ lọc ghi chú chăm sóc trên giao diện.
+  showCreatedDateFilter: true, // Đổi thành false để ẩn bộ lọc ngày tạo trên giao diện.
+  showSort: true, // Đổi thành false để ẩn phần sắp xếp trên giao diện.
+  showReload: true, // Đổi thành false để ẩn nút tải lại trên giao diện.
 };
 
 const emptyCustomerForm = {
@@ -32,11 +51,19 @@ const normalizeStatus = (value) => {
 
 const CustomerList = () => {
   const [customers, setCustomers] = useState([]);
-  const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
+  const [phoneFilter, setPhoneFilter] = useState('');
+  const [emailFilter, setEmailFilter] = useState('');
+  const [careNoteFilter, setCareNoteFilter] = useState('');
+  const [createdFrom, setCreatedFrom] = useState('');
+  const [createdTo, setCreatedTo] = useState('');
+  const [sortBy, setSortBy] = useState('id');
+  const [sortDescending, setSortDescending] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [selected, setSelected] = useState(null);
   const [careNote, setCareNote] = useState('');
   const [profile, setProfile] = useState(null);
@@ -47,59 +74,50 @@ const CustomerList = () => {
   const [showCustomerModal, setShowCustomerModal] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
   const [customerForm, setCustomerForm] = useState(emptyCustomerForm);
+  const pageSize = 20;
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const statusParam = status === '1' ? '1' : undefined;
-      const [customersRes, ordersRes] = await Promise.allSettled([
-        userService.getCustomers({ search: search || undefined, status: statusParam, pageSize: 100 }),
-        orderService.getAll({ page: 1, pageSize: 1000 }),
-      ]);
+      const res = await userService.getCustomers({
+        page,
+        pageSize,
+        keyword: search.trim() || undefined,
+        status: status !== '' ? Number(status) : undefined,
+        phoneNumber: phoneFilter.trim() || undefined,
+        email: emailFilter.trim() || undefined,
+        hasCareNote: careNoteFilter === '' ? undefined : careNoteFilter === 'has',
+        createdFrom: createdFrom || undefined,
+        createdTo: createdTo || undefined,
+        sortBy,
+        sortDescending,
+      });
 
-      if (customersRes.status !== 'fulfilled') throw customersRes.reason;
-      const customerItems = asItems(customersRes.value.data);
-      setCustomers(status === '-1' ? customerItems.filter((customer) => customerStatus(customer) === -1) : customerItems);
-      setOrders(ordersRes.status === 'fulfilled' ? asItems(ordersRes.value.data) : []);
+      const data = res.data;
+      setCustomers(asItems(data));
+      setTotalPages(data.totalPages || Math.ceil(((data.totalItems ?? data.total) || 0) / pageSize) || 1);
     } catch (err) {
+      setCustomers([]);
+      setTotalPages(1);
       setError(getApiMessage(err, 'Không thể tải danh sách khách hàng.'));
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, search, status, phoneFilter, emailFilter, careNoteFilter, createdFrom, createdTo, sortBy, sortDescending]);
 
   useEffect(() => {
     fetchData();
-  }, [search, status]);
-
-  // Gộp đơn theo userId (OrderListItem.UserId) — khoá khớp đúng với khách hàng (customer.id).
-  // (Trước đây khớp bằng phone/email nhưng API /orders không trả các trường đó nên chi tiêu luôn = 0đ.)
-  const statsByCustomer = useMemo(() => {
-    const map = new Map();
-    orders.forEach((order) => {
-      const userId = order.userId ?? order.maNguoiDung;
-      if (userId == null) return;
-      const current = map.get(userId) || { totalOrders: 0, totalSpent: 0, cancelledOrders: 0, lastOrderAt: null };
-      const orderStatus = order.orderStatus ?? order.trangThaiDonHang ?? order.status;
-      current.totalOrders += 1;
-      if (orderStatus === 'Cancelled') {
-        current.cancelledOrders += 1; // đơn huỷ không tính vào chi tiêu
-      } else {
-        current.totalSpent += Number(order.grandTotal ?? order.tongThanhToan ?? order.tongTien ?? order.totalAmount ?? 0);
-      }
-      const date = order.placedAt ?? order.ngayTao ?? order.createdDate;
-      if (date && (!current.lastOrderAt || new Date(date) > new Date(current.lastOrderAt))) current.lastOrderAt = date;
-      map.set(userId, current);
-    });
-    return map;
-  }, [orders]);
+  }, [fetchData]);
 
   const enrichCustomer = (customer) => {
-    const stats =
-      statsByCustomer.get(customer.id ?? customer.maKhachHang) ||
-      { totalOrders: 0, totalSpent: 0, cancelledOrders: 0, lastOrderAt: null };
-    return { ...customer, ...stats };
+    return {
+      ...customer,
+      totalOrders: customer.totalOrders ?? customer.tongDon ?? 0,
+      totalSpent: customer.totalSpent ?? customer.tongChiTieu ?? 0,
+      cancelledOrders: customer.cancelledOrders ?? customer.donHuy ?? 0,
+      lastOrderAt: customer.lastOrderAt ?? customer.donGanNhat ?? null,
+    };
   };
 
   const customerName = (customer) => customer.hoTen || customer.fullName || customer.name || '';
@@ -275,6 +293,11 @@ const CustomerList = () => {
           <div className="row mb-2">
             <div className="col-sm-6"><h1 className="m-0">Khách hàng</h1></div>
             <div className="col-sm-6 text-right">
+              {CUSTOMER_LIST_CONTROLS.showReload && (
+                <button className="btn btn-outline-secondary mr-2" onClick={fetchData} disabled={loading}>
+                  <i className="fas fa-sync-alt mr-1"></i>Tải lại
+                </button>
+              )}
               <button className="btn btn-primary mr-2" onClick={openCustomerAdd}>
                 <i className="fas fa-plus mr-1"></i>Thêm khách hàng
               </button>
@@ -291,17 +314,67 @@ const CustomerList = () => {
           {error && <div className="alert alert-danger">{error}</div>}
           <div className="card">
             <div className="card-body">
-              <div className="row">
-                <div className="col-md-8">
-                  <input className="form-control" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Tìm theo tên, SĐT hoặc email..." />
-                </div>
-                <div className="col-md-4">
-                  <select className="form-control" value={status} onChange={(e) => setStatus(e.target.value)}>
-                    <option value="">Tất cả trạng thái</option>
-                    <option value="1">Đang hoạt động</option>
-                    <option value="-1">Đã khóa</option>
-                  </select>
-                </div>
+              <div className="row mb-2">
+                {CUSTOMER_LIST_CONTROLS.showSearch && (
+                  <div className="col-md-4 mb-2">
+                    <input className="form-control" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder="Tìm tên, SĐT hoặc email..." />
+                  </div>
+                )}
+                {CUSTOMER_LIST_CONTROLS.showStatusFilter && (
+                  <div className="col-md-2 mb-2">
+                    <select className="form-control" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}>
+                      <option value="">Trạng thái</option>
+                      <option value="1">Đang hoạt động</option>
+                      <option value="-1">Đã khóa</option>
+                    </select>
+                  </div>
+                )}
+                {CUSTOMER_LIST_CONTROLS.showPhoneFilter && (
+                  <div className="col-md-2 mb-2">
+                    <input className="form-control" value={phoneFilter} onChange={(e) => { setPhoneFilter(e.target.value); setPage(1); }} placeholder="Số điện thoại..." />
+                  </div>
+                )}
+                {CUSTOMER_LIST_CONTROLS.showEmailFilter && (
+                  <div className="col-md-2 mb-2">
+                    <input className="form-control" value={emailFilter} onChange={(e) => { setEmailFilter(e.target.value); setPage(1); }} placeholder="Email..." />
+                  </div>
+                )}
+                {CUSTOMER_LIST_CONTROLS.showCareNoteFilter && (
+                  <div className="col-md-2 mb-2">
+                    <select className="form-control" value={careNoteFilter} onChange={(e) => { setCareNoteFilter(e.target.value); setPage(1); }}>
+                      <option value="">Ghi chú CSKH</option>
+                      <option value="has">Có ghi chú</option>
+                      <option value="none">Chưa có ghi chú</option>
+                    </select>
+                  </div>
+                )}
+                {CUSTOMER_LIST_CONTROLS.showCreatedDateFilter && (
+                  <>
+                    <div className="col-md-2 mb-2">
+                      <input type="date" className="form-control" value={createdFrom} onChange={(e) => { setCreatedFrom(e.target.value); setPage(1); }} title="Ngày tạo từ" />
+                    </div>
+                    <div className="col-md-2 mb-2">
+                      <input type="date" className="form-control" value={createdTo} onChange={(e) => { setCreatedTo(e.target.value); setPage(1); }} title="Ngày tạo đến" />
+                    </div>
+                  </>
+                )}
+                {CUSTOMER_LIST_CONTROLS.showSort && (
+                  <>
+                    <div className="col-md-3 mb-2">
+                      <select className="form-control" value={sortBy} onChange={(e) => { setSortBy(e.target.value); setPage(1); }}>
+                        {Object.entries(CUSTOMER_SORT_FIELDS).map(([key, label]) => (
+                          <option key={key} value={key}>{label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="col-md-2 mb-2">
+                      <select className="form-control" value={sortDescending ? 'desc' : 'asc'} onChange={(e) => { setSortDescending(e.target.value === 'desc'); setPage(1); }}>
+                        <option value="desc">Giảm dần</option>
+                        <option value="asc">Tăng dần</option>
+                      </select>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
             <div className="card-body p-0">
@@ -360,6 +433,23 @@ const CustomerList = () => {
                   </tbody>
                 </table>
               </div>
+              {totalPages > 1 && (
+                <nav className="p-3">
+                  <ul className="pagination justify-content-center mb-0">
+                    <li className={`page-item ${page <= 1 ? 'disabled' : ''}`}>
+                      <button className="page-link" onClick={() => setPage(page - 1)}>«</button>
+                    </li>
+                    {Array.from({ length: totalPages }, (_, index) => index + 1).map((pageNumber) => (
+                      <li key={pageNumber} className={`page-item ${pageNumber === page ? 'active' : ''}`}>
+                        <button className="page-link" onClick={() => setPage(pageNumber)}>{pageNumber}</button>
+                      </li>
+                    ))}
+                    <li className={`page-item ${page >= totalPages ? 'disabled' : ''}`}>
+                      <button className="page-link" onClick={() => setPage(page + 1)}>»</button>
+                    </li>
+                  </ul>
+                </nav>
+              )}
             </div>
           </div>
         </div>

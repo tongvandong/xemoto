@@ -39,7 +39,7 @@ public partial class UserManagementService
         };
     }
 
-    private static CustomerDto MapCustomer(User user)
+    private static CustomerDto MapCustomer(User user, CustomerOrderStatsDto? stats = null)
     {
         return new CustomerDto(
             user.Id,
@@ -48,7 +48,11 @@ public partial class UserManagementService
             user.PhoneNumber,
             user.Status,
             user.CareNote,
-            user.CreatedDate);
+            user.CreatedDate,
+            stats?.TotalOrders ?? 0,
+            stats?.TotalSpent ?? 0,
+            stats?.CancelledOrders ?? 0,
+            stats?.LastOrderAt);
     }
 
     private static UserDetailDto MapUserDetail(User user)

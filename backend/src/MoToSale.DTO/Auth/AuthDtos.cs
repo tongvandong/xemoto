@@ -44,7 +44,24 @@ public record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 
 public record AddressRequest(string RecipientName, string Phone, string Line, string? Ward, string? District, string? Province, bool IsDefault);
 
-public record CustomerDto(int Id, string FullName, string Email, string? PhoneNumber, int Status, string? CareNote, DateTime CreatedDate);
+public record CustomerDto(
+    int Id, string FullName, string Email, string? PhoneNumber, int Status, string? CareNote, DateTime CreatedDate,
+    int TotalOrders = 0, decimal TotalSpent = 0, int CancelledOrders = 0, DateTime? LastOrderAt = null);
+
+public record CustomerOrderStatsDto(int CustomerId, int TotalOrders, decimal TotalSpent, int CancelledOrders, DateTime? LastOrderAt);
+
+public class CustomerSearchRequest : MoToSale.DTO.Common.PagingRequest
+{
+    public string? Search { get; set; }
+    public string? PhoneNumber { get; set; }
+    public string? Email { get; set; }
+    public int? Status { get; set; }
+    public bool? HasCareNote { get; set; }
+    public DateTime? CreatedFrom { get; set; }
+    public DateTime? CreatedTo { get; set; }
+    public string? SortBy { get; set; }
+    public bool SortDescending { get; set; } = true;
+}
 public record CareNoteRequest(string? CareNote);
 public record CustomerUpsertRequest(string FullName, string? Email, string? PhoneNumber, int Status, string? CareNote);
 

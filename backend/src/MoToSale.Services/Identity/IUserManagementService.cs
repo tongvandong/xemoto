@@ -13,7 +13,7 @@ public interface IUserManagementService
     Task SetDefaultAddressAsync(int userId, int addressId);
     Task DeleteAddressAsync(int userId, int addressId);
     Task<PagingResponse<UserListItemDto>> SearchUsersAsync(PagingRequest request, string? search, string? role, string? status);
-    Task<PagingResponse<CustomerDto>> SearchCustomersAsync(PagingRequest request, string? search, string? status);
+    Task<PagingResponse<CustomerDto>> SearchCustomersAsync(CustomerSearchRequest request);
     Task<int> CreateCustomerAsync(CustomerUpsertRequest request);
     Task UpdateCustomerAsync(int id, CustomerUpsertRequest request);
     Task UpdateCareNoteAsync(int id, CareNoteRequest request);
