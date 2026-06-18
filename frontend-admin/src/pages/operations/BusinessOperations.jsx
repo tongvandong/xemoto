@@ -407,9 +407,55 @@ const RepairsTable = ({ rows, run, view, printRecord, edit }) => {
 const CrmTable = ({ rows, run, edit }) => <Table headers={['Khách hàng', 'Loại', 'Nội dung', 'Trạng thái', 'Nhắc lại', 'Thao tác']}>{rows.map((x) => <tr key={x.id}><td>{x.customerName}</td><td>{label(x.interactionType)}</td><td>{x.subject}<div className="text-muted small">{x.note || ''}</div></td><td><StatusBadge value={x.interactionStatus} /></td><td>{formatDate(x.followUpAt)}</td><td className="text-nowrap">{x.interactionStatus === 'Open' && <><button className="btn btn-info btn-xs mr-1" onClick={() => edit(x)}>Sửa</button><button className="btn btn-success btn-xs mr-1" onClick={() => run(() => service.completeInteraction(x.id))}>Hoàn thành</button><button className="btn btn-outline-danger btn-xs" onClick={() => window.confirm('Hủy lịch chăm sóc này?') && run(() => service.cancelInteraction(x.id))}>Hủy</button></>}</td></tr>)}</Table>;
 const ReceivablesTable = ({ rows }) => <Table headers={['Mã đơn', 'Khách hàng', 'Tổng đơn', 'Sau trả hàng', 'Đã thu', 'Đã hoàn', 'Còn phải thu', 'Trạng thái TT']}>{rows.map((x) => <tr key={x.orderId}><td>{x.orderCode}</td><td>{x.customerName || '-'}</td><td className="text-right">{formatCurrency(x.grandTotal)}</td><td className="text-right">{formatCurrency(x.adjustedTotal)}</td><td className="text-right">{formatCurrency(x.totalPaid)}</td><td className="text-right">{formatCurrency(x.totalRefunded)}</td><td className="text-right font-weight-bold text-danger">{formatCurrency(x.outstanding)}</td><td>{x.paymentStatus}</td></tr>)}</Table>;
 const SupplierForm = ({ value, set }) => <><Input label="Mã nhà cung cấp" value={value.code} set={(x) => set({ ...value, code: x })} /><Input label="Tên nhà cung cấp" value={value.name} set={(x) => set({ ...value, name: x })} /><Input label="Người liên hệ" value={value.contactName} set={(x) => set({ ...value, contactName: x })} /><Input label="Điện thoại" value={value.phone} set={(x) => set({ ...value, phone: x })} /><Input label="Email" type="email" value={value.email || ''} set={(x) => set({ ...value, email: x })} /><Input label="Mã số thuế" value={value.taxCode} set={(x) => set({ ...value, taxCode: x })} /><Input label="Địa chỉ" value={value.address || ''} set={(x) => set({ ...value, address: x })} /><Input label="Ghi chú" value={value.note || ''} set={(x) => set({ ...value, note: x })} /><Select label="Trạng thái hợp tác" value={value.status} set={(x) => set({ ...value, status: Number(x) })} items={[{ id: 1, name: 'Hoạt động' }, { id: 0, name: 'Ngừng hợp tác' }]} text={(x) => x.name} /></>;
+// Ô chọn SKU có tìm kiếm: gõ mã SKU / tên sản phẩm để lọc, đỡ phải cuộn cả danh sách dài.
+const SkuPicker = ({ label, value, set, items = [] }) => {
+  const [query, setQuery] = useState('');
+  const selected = items.find((s) => String(s.id) === String(value));
+  const kw = query.trim().toLowerCase();
+  const matches = kw
+    ? items.filter((s) => `${s.skuCode || ''} ${s.productName || ''} ${s.variantName || ''}`.toLowerCase().includes(kw)).slice(0, 15)
+    : [];
+  return (
+    <div className="form-group">
+      <label>{label}</label>
+      {selected && (
+        <div className="small text-success mb-1">
+          Đã chọn: <strong>{selected.skuCode}</strong> - {selected.productName}{selected.variantName ? ` (${selected.variantName})` : ''}
+          <button type="button" className="btn btn-link btn-sm p-0 ml-2" onClick={() => set('')}>bỏ chọn</button>
+        </div>
+      )}
+      <input
+        className="form-control form-control-sm"
+        placeholder="Gõ mã SKU hoặc tên sản phẩm để tìm..."
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+      />
+      {kw && (
+        <div style={{ maxHeight: 180, overflowY: 'auto', border: '1px solid #ced4da', borderTop: 'none' }}>
+          {matches.length === 0 ? (
+            <div className="p-2 text-muted small">Không tìm thấy SKU phù hợp.</div>
+          ) : (
+            matches.map((s) => (
+              <button
+                type="button"
+                key={s.id}
+                className="dropdown-item"
+                style={{ whiteSpace: 'normal' }}
+                onClick={() => { set(String(s.id)); setQuery(''); }}
+              >
+                <strong>{s.skuCode}</strong> - {s.productName}{s.variantName ? ` (${s.variantName})` : ''}
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const PurchaseForm = ({ value, set, lookups }) => {
   const update = (index, key, nextValue) => set({ ...value, lines: value.lines.map((line, lineIndex) => (lineIndex === index ? { ...line, [key]: nextValue } : line)) });
-  return <><Select label="Nhà cung cấp" value={value.supplierId} set={(x) => set({ ...value, supplierId: x })} items={lookups.suppliers || []} text={(x) => `${x.code} - ${x.name}`} />{value.lines.map((line, index) => <div className="border rounded p-2 mb-2" key={index}><Select label={`SKU nhập #${index + 1}`} value={line.skuId} set={(x) => update(index, 'skuId', x)} items={lookups.skus || []} text={(x) => `${x.skuCode} - ${x.productName}`} /><div className="row"><div className="col-md-6"><Input label="Số lượng" type="number" value={line.qty} set={(x) => update(index, 'qty', x)} /></div><div className="col-md-6"><MoneyInput label="Giá nhập" value={line.unitCost} set={(x) => update(index, 'unitCost', x)} /></div></div>{value.lines.length > 1 && <button className="btn btn-outline-danger btn-sm" onClick={() => set({ ...value, lines: value.lines.filter((_, i) => i !== index) })}>Xóa dòng</button>}</div>)}<button className="btn btn-outline-primary btn-sm mb-3" onClick={() => set({ ...value, lines: [...value.lines, { ...emptyPurchaseLine }] })}>Thêm dòng SKU</button><Input label="Ghi chú" value={value.note || ''} set={(x) => set({ ...value, note: x })} /></>;
+  return <><Select label="Nhà cung cấp" value={value.supplierId} set={(x) => set({ ...value, supplierId: x })} items={lookups.suppliers || []} text={(x) => `${x.code} - ${x.name}`} />{value.lines.map((line, index) => <div className="border rounded p-2 mb-2" key={index}><SkuPicker label={`SKU nhập #${index + 1}`} value={line.skuId} set={(x) => update(index, 'skuId', x)} items={lookups.skus || []} /><div className="row"><div className="col-md-6"><Input label="Số lượng" type="number" value={line.qty} set={(x) => update(index, 'qty', x)} /></div><div className="col-md-6"><MoneyInput label="Giá nhập" value={line.unitCost} set={(x) => update(index, 'unitCost', x)} /></div></div>{value.lines.length > 1 && <button className="btn btn-outline-danger btn-sm" onClick={() => set({ ...value, lines: value.lines.filter((_, i) => i !== index) })}>Xóa dòng</button>}</div>)}<button className="btn btn-outline-primary btn-sm mb-3" onClick={() => set({ ...value, lines: [...value.lines, { ...emptyPurchaseLine }] })}>Thêm dòng SKU</button><Input label="Ghi chú" value={value.note || ''} set={(x) => set({ ...value, note: x })} /></>;
 };
 const CashForm = ({ value, set }) => <><Select label="Loại phiếu" value={value.transactionType} set={(x) => set({ ...value, transactionType: x })} items={[{ id: 'Receipt', name: 'Phiếu thu' }, { id: 'Payment', name: 'Phiếu chi' }]} text={(x) => x.name} /><Select label="Nhóm thu chi" value={value.category} set={(x) => set({ ...value, category: x })} items={[{ id: 'Other', name: 'Khác' }, { id: 'Service', name: 'Dịch vụ sửa chữa' }, { id: 'OperatingExpense', name: 'Chi phí vận hành' }, { id: 'SupplierPayment', name: 'Thanh toán nhà cung cấp' }]} text={(x) => x.name} /><Select label="Hình thức" value={value.method} set={(x) => set({ ...value, method: x })} items={[{ id: 'Cash', name: 'Tiền mặt' }, { id: 'BankTransfer', name: 'Chuyển khoản' }]} text={(x) => x.name} /><MoneyInput label="Số tiền" value={value.amount} set={(x) => set({ ...value, amount: x })} /><Input label="Ngày ghi nhận" type="datetime-local" value={value.occurredAt || ''} set={(x) => set({ ...value, occurredAt: x || null })} /><Input label="Ghi chú" value={value.note} set={(x) => set({ ...value, note: x })} /></>;
 const RepairForm = ({ value, set, lookups }) => {
