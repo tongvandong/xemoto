@@ -17,9 +17,25 @@ public partial class CatalogService
     {
         var page = await _products.SearchAsync(request);
         var mfg = await ManufacturerMapAsync();
-        var skuIds = page.Items.SelectMany(p => p.Skus.Select(s => s.Id)).ToList();
-        var onHand = await _inventory.GetOnHandBySkusAsync(skuIds);
         var productIds = page.Items.Select(p => p.Id).ToList();
+        var stockByProduct = await _db.Skus.AsNoTracking()
+            .Where(sku => productIds.Contains(sku.ProductId))
+            .GroupJoin(
+                _db.InventoryItems.AsNoTracking(),
+                sku => sku.Id,
+                item => item.SkuId,
+                (sku, inventoryItems) => new
+                {
+                    sku.ProductId,
+                    OnHand = inventoryItems.Sum(item => (int?)item.OnHand) ?? 0,
+                })
+            .GroupBy(row => row.ProductId)
+            .Select(group => new
+            {
+                ProductId = group.Key,
+                StockTotal = group.Sum(row => row.OnHand),
+            })
+            .ToDictionaryAsync(row => row.ProductId, row => row.StockTotal);
         var reviewStats = await _db.Reviews.AsNoTracking()
             .Where(r => productIds.Contains(r.ProductId) && r.ReviewStatus == "Approved")
             .GroupBy(r => r.ProductId)
@@ -35,7 +51,7 @@ public partial class CatalogService
             Items = page.Items.Select(p => MapListItem(
                 p,
                 p.ManufacturerId.HasValue ? mfg.GetValueOrDefault(p.ManufacturerId.Value) : null,
-                p.Skus.Sum(s => onHand.GetValueOrDefault(s.Id)),
+                stockByProduct.GetValueOrDefault(p.Id),
                 reviewStats.GetValueOrDefault(p.Id)?.TotalReviews ?? 0,
                 reviewStats.GetValueOrDefault(p.Id)?.AverageRating ?? 0)).ToList(),
             Page = page.Page,

@@ -286,7 +286,7 @@ const ProductList = ({ productType = 'XeMay' }) => {
           manufacturer: manufacturerName,
           listPrice: product.giaGoc ?? product.listPrice ?? 0,
           salePrice: getSalePrice(product),
-          stock: product.soLuongTon ?? product.stock ?? 0,
+          stock: product.soLuongTon ?? product.stockTotal ?? product.stock ?? 0,
           status: status.label,
         };
       });
@@ -506,7 +506,7 @@ const ProductList = ({ productType = 'XeMay' }) => {
                               {config.showManufacturer && <td className="table-col-text">{manufacturerName}</td>}
                               <td className="table-col-money">{formatCurrency(product.giaGoc ?? product.basePrice ?? 0)}</td>
                               <td className="table-col-money">{formatSalePrice(product)}</td>
-                              <td className="table-col-number">{product.soLuongTon ?? product.stock ?? 0}</td>
+                              <td className="table-col-number">{product.soLuongTon ?? product.stockTotal ?? product.stock ?? 0}</td>
                               <td className="table-col-status"><span className={`badge badge-${status.color}`}>{status.label}</span></td>
                               <td className="table-col-actions">
                                 <button type="button" className="btn btn-xs btn-info mr-1" title="Sửa" onClick={() => openEdit(product)}>
