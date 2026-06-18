@@ -12,10 +12,6 @@ public interface IAdvancedOperationsService
     Task RejectReturnAsync(int id, string? note, int? userId);
     Task<List<RefundDto>> GetRefundsAsync(int? orderId);
     Task<List<OrderReceivableDto>> GetReceivablesAsync();
-    Task<List<StaffShiftDto>> GetShiftsAsync(DateTime? from, DateTime? to, int? staffUserId);
-    Task<int> CreateShiftAsync(CreateStaffShiftRequest request, int? userId);
-    Task UpdateShiftAsync(int id, UpdateStaffShiftRequest request);
-    Task DeleteShiftAsync(int id);
 }
 
 public class AdvancedOperationsException : Exception

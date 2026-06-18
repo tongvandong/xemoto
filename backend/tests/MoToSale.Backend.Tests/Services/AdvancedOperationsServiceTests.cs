@@ -107,18 +107,4 @@ public class AdvancedOperationsServiceTests
             service.UpdateReturnAsync(id, new UpdateSalesReturnRequest(order.Id, "Updated reason", null,
                 [new CreateSalesReturnLineRequest(order.Lines.Single().Id, 1, "Resellable")]), 1));
     }
-
-    [Fact]
-    public async Task CreateShift_RejectsOverlapForSameStaff()
-    {
-        var f = new TestBackendFactory();
-        await f.SeedCoreAsync();
-        var service = new AdvancedOperationsService(f.Db);
-        var from = DateTime.UtcNow.Date.AddHours(8);
-
-        await service.CreateShiftAsync(new CreateStaffShiftRequest(1, from, from.AddHours(8), null), 1);
-
-        await Assert.ThrowsAsync<AdvancedOperationsException>(() =>
-            service.CreateShiftAsync(new CreateStaffShiftRequest(1, from.AddHours(4), from.AddHours(10), null), 1));
-    }
 }

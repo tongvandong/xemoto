@@ -10,7 +10,3 @@ public record SalesReturnDto(int Id, string Code, int OrderId, string OrderCode,
 
 public record RefundDto(int Id, string Code, int OrderId, string OrderCode, int? SalesReturnId, decimal Amount, string Method, string RefundStatus, string? Reason, string? TransactionRef, DateTime RefundedAt);
 public record OrderReceivableDto(int OrderId, string OrderCode, string? CustomerName, decimal GrandTotal, decimal AdjustedTotal, decimal DepositRequired, decimal TotalPaid, decimal TotalRefunded, decimal NetPaid, decimal Outstanding, string PaymentStatus);
-
-public record CreateStaffShiftRequest(int StaffUserId, DateTime StartsAt, DateTime EndsAt, string? Note);
-public record UpdateStaffShiftRequest(DateTime StartsAt, DateTime EndsAt, string ShiftStatus, string? Note);
-public record StaffShiftDto(int Id, int StaffUserId, string StaffName, DateTime StartsAt, DateTime EndsAt, string ShiftStatus, string? Note);

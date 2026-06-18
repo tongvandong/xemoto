@@ -84,6 +84,8 @@ const mapProductSearchParams = (params = {}) => ({
   maxPrice: params.maxPrice,
   stockStatus: params.stockStatus,
   hasPromotion: params.hasPromotion,
+  sortBy: params.sortBy,
+  sortDescending: params.sortDescending,
 });
 
 const mapCollection = async (request, mapper) => {

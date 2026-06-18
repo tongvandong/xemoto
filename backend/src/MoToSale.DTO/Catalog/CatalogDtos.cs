@@ -17,7 +17,7 @@ public class ProductSearchRequest : PagingRequest
     public decimal? MaxPrice { get; set; }
     public string? StockStatus { get; set; }  // InStock | LowStock | OutOfStock
     public bool? HasPromotion { get; set; }
-    public string? SortBy { get; set; }       // name | price | newest
+    public string? SortBy { get; set; }       // id | code | name | category | brand | manufacturer | listPrice | salePrice | price | stock | status | newest
     public bool SortDescending { get; set; } = true;
 }
 

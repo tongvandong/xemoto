@@ -271,29 +271,95 @@ public class ProductRepository : Repository<Product>, IProductRepository
                         || (scope.ScopeType == "Brand" && product.BrandId.HasValue && scope.RefId == product.BrandId.Value))));
     }
 
-    private static IQueryable<Product> ApplySorting(IQueryable<Product> query, ProductSearchRequest request)
+    private IQueryable<Product> ApplySorting(IQueryable<Product> query, ProductSearchRequest request)
     {
         string sortBy = (request.SortBy ?? string.Empty).ToLowerInvariant();
         bool sortDescending = request.SortDescending;
 
-        if (sortBy == "name")
+        if (sortBy == "code")
         {
             if (sortDescending)
             {
-                return query.OrderByDescending(product => product.Name);
+                return query.OrderByDescending(product => product.Code);
             }
 
+            return query.OrderBy(product => product.Code);
+        }
+
+        if (sortBy == "name")
+        {
+            if (sortDescending) return query.OrderByDescending(product => product.Name);
             return query.OrderBy(product => product.Name);
+        }
+
+        if (sortBy == "category")
+        {
+            if (sortDescending) return query.OrderByDescending(product => product.Category.Name);
+            return query.OrderBy(product => product.Category.Name);
+        }
+
+        if (sortBy == "brand")
+        {
+            if (sortDescending) return query.OrderByDescending(product => product.Brand == null ? string.Empty : product.Brand.Name);
+            return query.OrderBy(product => product.Brand == null ? string.Empty : product.Brand.Name);
+        }
+
+        if (sortBy == "manufacturer")
+        {
+            if (sortDescending)
+            {
+                return query.OrderByDescending(product =>
+                    Context.Manufacturers
+                        .Where(manufacturer => manufacturer.Id == product.ManufacturerId)
+                        .Select(manufacturer => manufacturer.Name)
+                        .FirstOrDefault() ?? string.Empty);
+            }
+
+            return query.OrderBy(product =>
+                Context.Manufacturers
+                    .Where(manufacturer => manufacturer.Id == product.ManufacturerId)
+                    .Select(manufacturer => manufacturer.Name)
+                    .FirstOrDefault() ?? string.Empty);
+        }
+
+        if (sortBy == "listprice")
+        {
+            if (sortDescending) return query.OrderByDescending(product => product.Skus.Select(sku => (decimal?)sku.ListPrice).Min() ?? 0);
+            return query.OrderBy(product => product.Skus.Select(sku => (decimal?)sku.ListPrice).Min() ?? 0);
+        }
+
+        if (sortBy == "saleprice")
+        {
+            if (sortDescending) return query.OrderByDescending(product => product.Skus.Select(sku => sku.SalePrice).Min() ?? 0);
+            return query.OrderBy(product => product.Skus.Select(sku => sku.SalePrice).Min() ?? 0);
         }
 
         if (sortBy == "price")
         {
+            if (sortDescending) return query.OrderByDescending(product => product.Skus.Select(sku => (decimal?)(sku.SalePrice ?? sku.ListPrice)).Min() ?? 0);
+            return query.OrderBy(product => product.Skus.Select(sku => (decimal?)(sku.SalePrice ?? sku.ListPrice)).Min() ?? 0);
+        }
+
+        if (sortBy == "stock")
+        {
             if (sortDescending)
             {
-                return query.OrderByDescending(product => product.Skus.Min(sku => sku.SalePrice ?? sku.ListPrice));
+                return query.OrderByDescending(product =>
+                    Context.InventoryItems
+                        .Where(item => product.Skus.Select(sku => sku.Id).Contains(item.SkuId))
+                        .Sum(item => (int?)(item.OnHand - item.Reserved)) ?? 0);
             }
 
-            return query.OrderBy(product => product.Skus.Min(sku => sku.SalePrice ?? sku.ListPrice));
+            return query.OrderBy(product =>
+                Context.InventoryItems
+                    .Where(item => product.Skus.Select(sku => sku.Id).Contains(item.SkuId))
+                    .Sum(item => (int?)(item.OnHand - item.Reserved)) ?? 0);
+        }
+
+        if (sortBy == "status")
+        {
+            if (sortDescending) return query.OrderByDescending(product => product.Status);
+            return query.OrderBy(product => product.Status);
         }
 
         if (sortBy == "newest")
@@ -310,10 +376,7 @@ public class ProductRepository : Repository<Product>, IProductRepository
                 .ThenBy(product => product.Id);
         }
 
-        if (sortDescending)
-        {
-            return query.OrderByDescending(product => product.Id);
-        }
+        if (sortDescending) return query.OrderByDescending(product => product.Id);
 
         return query.OrderBy(product => product.Id);
     }

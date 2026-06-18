@@ -62,18 +62,5 @@ public static class AdvancedOperationsConfiguration
             e.HasOne<User>().WithMany().HasForeignKey(x => x.RecordedBy).OnDelete(DeleteBehavior.Restrict);
             e.ToTable(t => t.HasCheckConstraint("CK_Refunds_Amount", "[Amount] > 0"));
         });
-
-        b.Entity<StaffShift>(e =>
-        {
-            e.ToTable("StaffShifts");
-            e.Property(x => x.ShiftStatus).HasMaxLength(20).IsUnicode(false).IsRequired();
-            e.Property(x => x.Note).HasMaxLength(500);
-            e.Property(x => x.StartsAt).HasColumnType("datetime2(0)");
-            e.Property(x => x.EndsAt).HasColumnType("datetime2(0)");
-            e.HasIndex(x => new { x.StaffUserId, x.StartsAt });
-            e.HasOne<User>().WithMany().HasForeignKey(x => x.StaffUserId).OnDelete(DeleteBehavior.Restrict);
-            e.HasOne<User>().WithMany().HasForeignKey(x => x.AssignedBy).OnDelete(DeleteBehavior.Restrict);
-            e.ToTable(t => t.HasCheckConstraint("CK_StaffShifts_Time", "[StartsAt] < [EndsAt]"));
-        });
     }
 }

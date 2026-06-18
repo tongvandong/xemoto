@@ -82,7 +82,6 @@ public partial class AppDbContext : DbContext
     public DbSet<SalesReturnLine> SalesReturnLines => Set<SalesReturnLine>();
     public DbSet<Refund> Refunds => Set<Refund>();
     public DbSet<InstallmentApplication> InstallmentApplications => Set<InstallmentApplication>();
-    public DbSet<StaffShift> StaffShifts => Set<StaffShift>();
     public DbSet<Supplier> Suppliers => Set<Supplier>();
     public DbSet<PurchaseOrder> PurchaseOrders => Set<PurchaseOrder>();
     public DbSet<PurchaseOrderLine> PurchaseOrderLines => Set<PurchaseOrderLine>();

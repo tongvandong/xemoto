@@ -57,6 +57,22 @@ const getCategoryName = (category) => category.tenDanhMuc || category.name || ''
 const getParentCategoryId = (category) => category.maDanhMucCha ?? category.parentId ?? category.parentCategoryId ?? category.danhMucChaId ?? null;
 const SHOW_RELATED_PRODUCTS_ACTION = false; // Doi thanh true de bat lai nut "Phu kien / san pham ban kem".
 const SHOW_INVENTORY_AGING_ACTION = false; // Doi thanh true de bat lai nut "Tuoi ton kho".
+const SHOW_PRICE_RANGE_FILTER = false; // Doi thanh true de bat lai 2 o loc "Gia tu" va "Gia den".
+const SORT_FIELD_VISIBILITY = {
+  newest: false,
+  code: false,
+  name: false,
+  category: false,
+  brand: false,
+  manufacturer: false,
+  listPrice: false,
+  salePrice: false,
+  stock: false,
+  status: false,
+}; // Doi field can sap xep sang true de bat lai rieng field do.
+const isSortFieldEnabled = (field) => Boolean(SORT_FIELD_VISIBILITY[field]);
+const hasVisibleSortFields = Object.values(SORT_FIELD_VISIBILITY).some(Boolean);
+const DEFAULT_SORT_BY = Object.entries(SORT_FIELD_VISIBILITY).find(([, visible]) => visible)?.[0] || 'newest';
 const normalizeText = (value) => String(value || '')
   .toLowerCase()
   .normalize('NFD')
@@ -94,6 +110,8 @@ const ProductList = ({ productType = 'XeMay' }) => {
   const [filterPromotion, setFilterPromotion] = useState('');
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
+  const [sortBy, setSortBy] = useState(DEFAULT_SORT_BY);
+  const [sortDescending, setSortDescending] = useState(true);
 
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -111,6 +129,53 @@ const ProductList = ({ productType = 'XeMay' }) => {
   const [showBarcodes, setShowBarcodes] = useState(null);
 
   const getProductId = (product) => product.maSanPham || product.id;
+
+  const getProductCategoryName = useCallback((product) => {
+    const category = categories.find((item) => String(getCategoryId(item)) === String(product.maDanhMuc ?? product.categoryId));
+    return category?.tenDanhMuc || category?.name || '';
+  }, [categories]);
+
+  const getProductBrandName = useCallback((product) => {
+    const brand = brands.find((item) => String(item.maHangXe || item.id) === String(product.maHangXe ?? product.brandId));
+    return brand?.tenHang || brand?.name || '';
+  }, [brands]);
+
+  const getProductManufacturerName = useCallback((product) => (
+    product.tenHangSanXuat
+    || manufacturers.find((item) => String(item.id) === String(product.maHangSanXuat ?? product.manufacturerId))?.ten
+    || ''
+  ), [manufacturers]);
+
+  const getSortValue = useCallback((product) => {
+    if (sortBy === 'code') return product.maSanPhamKinhDoanh || product.maSP || product.sku || product.id || '';
+    if (sortBy === 'name') return product.tenSanPham || product.name || '';
+    if (sortBy === 'category') return getProductCategoryName(product);
+    if (sortBy === 'brand') return getProductBrandName(product);
+    if (sortBy === 'manufacturer') return getProductManufacturerName(product);
+    if (sortBy === 'listPrice') return Number(product.giaGoc ?? product.basePrice ?? product.listPrice ?? 0);
+    if (sortBy === 'salePrice') return Number(getSalePrice(product) ?? 0);
+    if (sortBy === 'stock') return Number(product.soLuongTon ?? product.stock ?? 0);
+    if (sortBy === 'status') return product.trangThaiSanPham || product.trangThai || product.status || '';
+    return Number(product.id ?? product.maSanPham ?? 0);
+  }, [sortBy, getProductCategoryName, getProductBrandName, getProductManufacturerName]);
+
+  const displayProducts = useMemo(() => {
+    const collator = new Intl.Collator('vi', { sensitivity: 'base', numeric: true });
+
+    return [...products].sort((left, right) => {
+      const leftValue = getSortValue(left);
+      const rightValue = getSortValue(right);
+
+      let result;
+      if (typeof leftValue === 'number' && typeof rightValue === 'number') {
+        result = leftValue - rightValue;
+      } else {
+        result = collator.compare(String(leftValue), String(rightValue));
+      }
+
+      return sortDescending ? -result : result;
+    });
+  }, [products, getSortValue, sortDescending]);
 
   const filteredCategories = useMemo(() => {
     const byParent = new Map();
@@ -160,8 +225,10 @@ const ProductList = ({ productType = 'XeMay' }) => {
         all: filterStatus ? undefined : true, // không lọc trạng thái -> admin xem tất cả (kể cả Ngừng bán)
         stockStatus: filterStockStatus || undefined,
         hasPromotion: filterPromotion === '' ? undefined : filterPromotion === 'true',
-        minPrice: minPrice === '' ? undefined : Number(minPrice),
-        maxPrice: maxPrice === '' ? undefined : Number(maxPrice),
+        minPrice: SHOW_PRICE_RANGE_FILTER && minPrice !== '' ? Number(minPrice) : undefined,
+        maxPrice: SHOW_PRICE_RANGE_FILTER && maxPrice !== '' ? Number(maxPrice) : undefined,
+        sortBy,
+        sortDescending,
       };
       const res = await productService.getAll(params);
       const data = res.data;
@@ -180,7 +247,7 @@ const ProductList = ({ productType = 'XeMay' }) => {
     } finally {
       setLoading(false);
     }
-  }, [page, search, filterCategory, filterBrand, filterStatus, filterStockStatus, filterPromotion, minPrice, maxPrice, productType, config.showBrand]);
+  }, [page, search, filterCategory, filterBrand, filterStatus, filterStockStatus, filterPromotion, minPrice, maxPrice, sortBy, sortDescending, productType, config.showBrand]);
 
   const fetchFilters = async () => {
     try {
@@ -219,6 +286,8 @@ const ProductList = ({ productType = 'XeMay' }) => {
     setFilterPromotion('');
     setMinPrice('');
     setMaxPrice('');
+    setSortBy(DEFAULT_SORT_BY);
+    setSortDescending(true);
     setSearch('');
     setEditProduct(null);
     setShowForm(false);
@@ -266,8 +335,10 @@ const ProductList = ({ productType = 'XeMay' }) => {
         all: filterStatus ? undefined : true, // không lọc trạng thái -> admin xem tất cả (kể cả Ngừng bán)
         stockStatus: filterStockStatus || undefined,
         hasPromotion: filterPromotion === '' ? undefined : filterPromotion === 'true',
-        minPrice: minPrice === '' ? undefined : Number(minPrice),
-        maxPrice: maxPrice === '' ? undefined : Number(maxPrice),
+        minPrice: SHOW_PRICE_RANGE_FILTER && minPrice !== '' ? Number(minPrice) : undefined,
+        maxPrice: SHOW_PRICE_RANGE_FILTER && maxPrice !== '' ? Number(maxPrice) : undefined,
+        sortBy,
+        sortDescending,
       });
       const allProducts = response.data.items || response.data.data || response.data || [];
       const rows = allProducts.map((product) => {
@@ -323,6 +394,40 @@ const ProductList = ({ productType = 'XeMay' }) => {
     setEditProduct(product);
     setShowForm(true);
   };
+
+  const changeSort = (field) => {
+    if (!isSortFieldEnabled(field)) return;
+
+    if (sortBy === field) {
+      setSortDescending(!sortDescending);
+    } else {
+      setSortBy(field);
+      setSortDescending(false);
+    }
+
+    setPage(1);
+  };
+
+  const sortIconClass = (field) => {
+    if (sortBy !== field) return 'fas fa-sort text-muted ml-1';
+    return sortDescending ? 'fas fa-sort-down ml-1' : 'fas fa-sort-up ml-1';
+  };
+
+  const renderSortHeader = (field, label, className) => (
+    <th className={className}>
+      {isSortFieldEnabled(field) ? (
+        <button
+          type="button"
+          className="btn btn-link btn-sm p-0 font-weight-bold text-dark text-decoration-none"
+          onClick={() => changeSort(field)}
+          title={`Sắp xếp theo ${label}`}
+        >
+          {label}
+          <i className={sortIconClass(field)}></i>
+        </button>
+      ) : label}
+    </th>
+  );
 
   const renderPagination = () => {
     if (totalPages <= 1) return null;
@@ -418,6 +523,8 @@ const ProductList = ({ productType = 'XeMay' }) => {
                 </div>
                 <div className="col-md-12 mt-2">
                   <div className="row">
+                    {SHOW_PRICE_RANGE_FILTER && (
+                      <>
                     <div className="col-md-2">
                       <input
                         type="number"
@@ -438,6 +545,8 @@ const ProductList = ({ productType = 'XeMay' }) => {
                         onChange={(e) => { setMaxPrice(e.target.value); setPage(1); }}
                       />
                     </div>
+                      </>
+                    )}
                     <div className="col-md-2">
                       <select className="form-control form-control-sm" value={filterStockStatus} onChange={(e) => { setFilterStockStatus(e.target.value); setPage(1); }}>
                         <option value="">-- Tồn kho --</option>
@@ -453,6 +562,30 @@ const ProductList = ({ productType = 'XeMay' }) => {
                         <option value="false">Không có khuyến mại</option>
                       </select>
                     </div>
+                    {hasVisibleSortFields && (
+                      <>
+                        <div className="col-md-2">
+                          <select className="form-control form-control-sm" value={sortBy} onChange={(e) => { setSortBy(e.target.value); setPage(1); }}>
+                            {isSortFieldEnabled('newest') && <option value="newest">Sắp xếp: Mới nhất</option>}
+                            {isSortFieldEnabled('code') && <option value="code">Mã sản phẩm</option>}
+                            {isSortFieldEnabled('name') && <option value="name">Tên sản phẩm</option>}
+                            {isSortFieldEnabled('category') && <option value="category">Danh mục</option>}
+                            {config.showBrand && isSortFieldEnabled('brand') && <option value="brand">Hãng xe</option>}
+                            {config.showManufacturer && isSortFieldEnabled('manufacturer') && <option value="manufacturer">Hãng SX</option>}
+                            {isSortFieldEnabled('listPrice') && <option value="listPrice">Giá gốc</option>}
+                            {isSortFieldEnabled('salePrice') && <option value="salePrice">Giá KM</option>}
+                            {isSortFieldEnabled('stock') && <option value="stock">Tồn kho</option>}
+                            {isSortFieldEnabled('status') && <option value="status">Trạng thái</option>}
+                          </select>
+                        </div>
+                        <div className="col-md-2">
+                          <select className="form-control form-control-sm" value={sortDescending ? 'desc' : 'asc'} onChange={(e) => { setSortDescending(e.target.value === 'desc'); setPage(1); }}>
+                            <option value="asc">Tăng dần</option>
+                            <option value="desc">Giảm dần</option>
+                          </select>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               </form>
@@ -465,7 +598,7 @@ const ProductList = ({ productType = 'XeMay' }) => {
                     <span className="sr-only">Đang tải...</span>
                   </div>
                 </div>
-              ) : products.length === 0 ? (
+              ) : displayProducts.length === 0 ? (
                 <div className="text-center py-4 text-muted">
                   <i className="fas fa-box-open fa-2x mb-2"></i>
                   <p>{config.emptyText}</p>
@@ -476,20 +609,20 @@ const ProductList = ({ productType = 'XeMay' }) => {
                     <table className="table table-bordered table-striped table-sm">
                       <thead>
                         <tr>
-                          <th className="table-col-code">{config.codeHeader}</th>
-                          <th className="table-col-text">{config.nameHeader}</th>
-                          <th className="table-col-text">Danh mục</th>
-                          {config.showBrand && <th className="table-col-text">Hãng xe</th>}
-                          {config.showManufacturer && <th className="table-col-text">Hãng SX</th>}
-                          <th className="table-col-money">Giá gốc</th>
-                          <th className="table-col-money">Giá KM</th>
-                          <th className="table-col-number">Tồn kho</th>
-                          <th className="table-col-status">Trạng thái</th>
+                          {renderSortHeader('code', config.codeHeader, 'table-col-code')}
+                          {renderSortHeader('name', config.nameHeader, 'table-col-text')}
+                          {renderSortHeader('category', 'Danh mục', 'table-col-text')}
+                          {config.showBrand && renderSortHeader('brand', 'Hãng xe', 'table-col-text')}
+                          {config.showManufacturer && renderSortHeader('manufacturer', 'Hãng SX', 'table-col-text')}
+                          {renderSortHeader('listPrice', 'Giá gốc', 'table-col-money')}
+                          {renderSortHeader('salePrice', 'Giá KM', 'table-col-money')}
+                          {renderSortHeader('stock', 'Tồn kho', 'table-col-number')}
+                          {renderSortHeader('status', 'Trạng thái', 'table-col-status')}
                           <th className="table-col-actions">Thao tác</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {products.map((product) => {
+                        {displayProducts.map((product) => {
                           const statusKey = product.trangThaiSanPham || product.trangThai || product.status;
                           const status = PRODUCT_STATUS[statusKey] || { label: statusKey || 'N/A', color: 'secondary' };
                           const category = categories.find((item) => String(getCategoryId(item)) === String(product.maDanhMuc ?? product.categoryId));
@@ -556,7 +689,7 @@ const ProductList = ({ productType = 'XeMay' }) => {
 
                   <div className="row mt-3">
                     <div className="col-sm-6">
-                      <span className="text-muted">Hiển thị {products.length} / {totalItems} {productType === 'XeMay' ? 'xe máy' : 'phụ tùng'}</span>
+                      <span className="text-muted">Hiển thị {displayProducts.length} / {totalItems} {productType === 'XeMay' ? 'xe máy' : 'phụ tùng'}</span>
                     </div>
                     <div className="col-sm-6">
                       {renderPagination()}
