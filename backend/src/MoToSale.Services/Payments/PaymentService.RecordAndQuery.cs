@@ -109,6 +109,11 @@ public partial class PaymentService
         {
             throw new PaymentException("Đơn đã hủy.");
         }
+
+        if (order.OrderType == OrderType.Installment)
+        {
+            throw new PaymentException("Đơn trả góp chỉ ghi nhận khoản trả trước khi duyệt hồ sơ. Phần còn lại do đối tác tài chính xử lý.");
+        }
     }
 
     private async Task<Payment?> FindPendingPaymentAsync(int orderId)

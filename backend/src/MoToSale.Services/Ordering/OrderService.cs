@@ -33,7 +33,8 @@ namespace MoToSale.Services.Ordering;
 //      ├─ thu đủ tiền mặt/COD ────────────────────────────────────────────────────────▶ Paid
 //      ├─ hủy đơn đã thu tiền ─────────────────────────────────────────────────────────▶ Refunded
 //      └─ hủy đơn đang chờ CK / CK quá hạn ────────────────────────────────────────────▶ Failed
-//   • Đơn đặt cọc / trả góp: chưa thu đủ vẫn là Unpaid (số đã thu xem ở DepositAmount/RemainingAmount + phiếu thu).
+//   • Đơn đặt cọc: chưa thu đủ vẫn là Unpaid.
+//   • Đơn trả góp: cửa hàng chỉ ghi nhận khoản trả trước; phần còn lại do đối tác tài chính xử lý.
 //
 // Logic chia theo file partial:
 //   - OrderService.Checkout.cs                : khách đặt đơn online (giữ chỗ tồn).

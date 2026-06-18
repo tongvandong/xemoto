@@ -90,7 +90,7 @@ export default function InstallmentPage() {
       <h1 className="text-2xl font-bold text-zinc-900">Đăng ký tư vấn trả góp</h1>
       <p className="mt-2 text-sm text-zinc-600">
         Mua xe trả góp được hỗ trợ qua <strong>đối tác tài chính</strong> (Home Credit, FE Credit, HD SAISON…).
-        Bạn để lại thông tin, nhân viên showroom sẽ liên hệ tư vấn hồ sơ, lãi suất và kỳ hạn. Khoản vay và lịch trả hằng tháng do công ty tài chính quản lý.
+        Bạn để lại thông tin, nhân viên showroom sẽ liên hệ tư vấn hồ sơ, khoản trả trước và đối tác phù hợp. Phần còn lại do công ty tài chính thẩm định, giải ngân và quản lý trực tiếp.
       </p>
 
       {done ? (

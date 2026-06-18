@@ -15,7 +15,14 @@ export const ORDER_TYPES = [
 ];
 
 export const INSTALLMENT_TERMS = [6, 9, 12];
-export const INSTALLMENT_MIN_DOWN_PERCENT = 30;
+// Đối tác tài chính liên kết — khách chọn 1 đối tác để thẩm định & giải ngân (giống các sàn lớn).
+export const FINANCE_PARTNERS = [
+  { name: 'HD SAISON', tagline: 'Thủ tục nhanh, chỉ cần CCCD + GPLX' },
+  { name: 'Home Credit', tagline: 'Nhiều gói trả góp ưu đãi 0% lãi suất' },
+  { name: 'FE Credit', tagline: 'Hạn mức cao, kỳ hạn linh hoạt' },
+  { name: 'Mirae Asset', tagline: 'Lãi suất tốt cho khách thu nhập ổn định' },
+];
+export const FINANCE_PARTNER_NAMES = FINANCE_PARTNERS.map((partner) => partner.name);
 export const DEPOSIT_MIN_PERCENT = 20;
 
 // Backend chỉ hỗ trợ 2 phương thức cho đơn online: BankTransfer (quét QR) và COD.
@@ -37,6 +44,7 @@ export const initialCheckoutForm = {
   paymentMethod: 'BankTransfer',
   depositAmount: '',
   installmentTerm: 6,
+  installmentFinancePartner: FINANCE_PARTNERS[0].name,
   installmentBorrowerName: '',
   installmentIdNumber: '',
   installmentIdIssueDate: '',
@@ -90,10 +98,8 @@ export function validateCheckoutForm(form, totalAmount) {
   }
 
   if (form.orderType === 'Installment') {
-    const down = Number(form.depositAmount);
-    const minDown = Math.round((totalAmount * INSTALLMENT_MIN_DOWN_PERCENT) / 100);
-    if (!down || down < minDown) errors.depositAmount = `Trả trước tối thiểu ${INSTALLMENT_MIN_DOWN_PERCENT}% (${formatCurrency(minDown)})`;
-    else if (down >= totalAmount) errors.depositAmount = 'Tiền trả trước phải nhỏ hơn tổng tiền';
+    // Hồ sơ trả góp không thu trước bất kỳ khoản nào — đối tác tài chính xử lý toàn bộ.
+    if (!form.installmentFinancePartner?.trim()) errors.installmentFinancePartner = 'Vui lòng chọn đối tác tài chính';
     if (!INSTALLMENT_TERMS.includes(Number(form.installmentTerm))) errors.installmentTerm = 'Vui lòng chọn kỳ hạn trả góp';
     if (!form.installmentBorrowerName.trim()) errors.installmentBorrowerName = 'Vui lòng nhập họ tên người vay';
     if (!/^[0-9]{9,15}$/.test(form.installmentIdNumber.trim())) errors.installmentIdNumber = 'Số CCCD/CMND không hợp lệ';
@@ -108,7 +114,7 @@ export function validateCheckoutForm(form, totalAmount) {
 
 // Đơn trả góp KHÔNG tạo order ngay: gửi hồ sơ cho admin thẩm định (trang "Hồ sơ trả góp"),
 // duyệt xong cửa hàng mới lập đơn bán. Map form checkout -> CreateInstallmentApplicationRequest.
-export function buildInstallmentApplication({ form, items, subtotal, depositNum }) {
+export function buildInstallmentApplication({ form, items, subtotal }) {
   const firstItem = items[0] || {};
   const productNames = items
     .map((item) => {
@@ -123,7 +129,8 @@ export function buildInstallmentApplication({ form, items, subtotal, depositNum 
     .join(', ');
 
   const noteLines = [
-    `Hồ sơ trả góp gửi từ website — tạm tính ${formatCurrency(subtotal)}, trả trước ${formatCurrency(depositNum)}, kỳ hạn ${form.installmentTerm} tháng.`,
+    `Hồ sơ trả góp gửi từ website — tạm tính ${formatCurrency(subtotal)}, kỳ hạn ${form.installmentTerm} tháng.`,
+    `Đối tác tài chính khách chọn: ${form.installmentFinancePartner?.trim() || ''}`,
     `Người liên hệ: ${form.shippingFullName.trim()} — ${form.shippingPhoneNumber.trim()}`,
     form.receivingMethod === 'Delivery'
       ? `Nhận hàng: giao tận nơi — ${deliveryAddress}`
@@ -145,11 +152,60 @@ export function buildInstallmentApplication({ form, items, subtotal, depositNum 
     customerName: form.installmentBorrowerName.trim(),
     customerPhone: form.installmentPhone.trim(),
     customerEmail: form.shippingEmail.trim() || null,
-    financePartner: null,
-    downPayment: depositNum,
+    financePartner: form.installmentFinancePartner?.trim() || null,
+    downPayment: 0,
     months: Number(form.installmentTerm),
     note: noteLines.filter(Boolean).join('\n'),
   };
+}
+
+// Tách hồ sơ trả góp đã lưu (field DTO + note có cấu trúc) để prefill form sửa.
+export function parseInstallmentApplication(app = {}) {
+  const note = String(app.note || '');
+  const pick = (prefix) => {
+    const line = note.split(/\r?\n/).map((s) => s.trim()).find((s) => s.toLowerCase().startsWith(prefix.toLowerCase()));
+    return line ? line.slice(prefix.length).trim() : '';
+  };
+  const idLine = pick('CCCD/CMND:');
+  const idMatch = idLine.match(/^([0-9]{9,15})(?:\s+\(cấp\s+([^)]*?)(?:\s+tại\s+([^)]*))?\))?/i);
+  return {
+    borrowerName: app.customerName || '',
+    phone: app.customerPhone || '',
+    email: app.customerEmail || '',
+    financePartner: app.financePartner || FINANCE_PARTNERS[0].name,
+    downPayment: Number(app.downPayment) || 0,
+    months: Number(app.months) || INSTALLMENT_TERMS[0],
+    idNumber: idMatch?.[1] || '',
+    idIssueDate: idMatch?.[2] || '',
+    idIssuePlace: idMatch?.[3] || '',
+    birthDate: pick('Ngày sinh:'),
+    residence: pick('Địa chỉ thường trú:'),
+    occupation: pick('Nghề nghiệp:'),
+    company: pick('Công ty:'),
+    workMonths: pick('Thâm niên:').replace(/[^\d]/g, ''),
+    monthlyIncome: pick('Thu nhập:').replace(/[^\d]/g, ''),
+    receiving: pick('Nhận hàng:'),
+    customerNote: pick('Ghi chú của khách:'),
+  };
+}
+
+// Dựng lại note có cấu trúc khi khách sửa hồ sơ (đúng prefix để parser hợp đồng/admin đọc được).
+export function buildInstallmentNote(p) {
+  const lines = [
+    `Hồ sơ trả góp (cập nhật) — kỳ hạn ${p.months} tháng.`,
+    `Đối tác tài chính khách chọn: ${p.financePartner || ''}`,
+    `Người liên hệ: ${(p.borrowerName || '').trim()} — ${(p.phone || '').trim()}`,
+    p.receiving ? `Nhận hàng: ${p.receiving}` : '',
+    `CCCD/CMND: ${(p.idNumber || '').trim()}${p.idIssueDate ? ` (cấp ${p.idIssueDate}` : ''}${(p.idIssuePlace || '').trim() ? ` tại ${p.idIssuePlace.trim()})` : (p.idIssueDate ? ')' : '')}`,
+    p.birthDate ? `Ngày sinh: ${p.birthDate}` : '',
+    (p.residence || '').trim() ? `Địa chỉ thường trú: ${p.residence.trim()}` : '',
+    (p.occupation || '').trim() ? `Nghề nghiệp: ${p.occupation.trim()}` : '',
+    (p.company || '').trim() ? `Công ty: ${p.company.trim()}` : '',
+    p.workMonths ? `Thâm niên: ${p.workMonths} tháng` : '',
+    p.monthlyIncome ? `Thu nhập: ${formatCurrency(Number(p.monthlyIncome))}/tháng` : '',
+    (p.customerNote || '').trim() ? `Ghi chú của khách: ${p.customerNote.trim()}` : '',
+  ];
+  return lines.filter(Boolean).join('\n');
 }
 
 export function buildOrderPayload({ form, cart, items, appliedVoucher, voucherDiscount, amounts }) {

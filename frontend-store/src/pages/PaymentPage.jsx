@@ -17,7 +17,6 @@ function PaymentPage() {
   const [paymentInfo, setPaymentInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState(false);
-  const [claiming, setClaiming] = useState(false);
   const timerRef = useRef(null);
 
   const load = useCallback(async () => {
@@ -79,21 +78,6 @@ function PaymentPage() {
   }, [order, orderId, navigate, notify]);
 
   const amountDue = Number(paymentInfo?.soTienCanThanhToan ?? 0);
-  const awaitingConfirmation = order?.paymentStatus === 'PendingConfirmation';
-
-  // Khách báo đã chuyển khoản → backend tạo phiếu chờ xác nhận cho admin (trang Thanh toán).
-  async function handleClaimTransfer() {
-    setClaiming(true);
-    try {
-      await orderApi.claimTransfer(orderId);
-      notify('Đã gửi xác nhận chuyển khoản. Cửa hàng sẽ kiểm tra và duyệt sớm nhất.', 'success');
-      await load();
-    } catch (err) {
-      notify(err?.response?.data?.message || err?.message || 'Không thể gửi xác nhận chuyển khoản.', 'error');
-    } finally {
-      setClaiming(false);
-    }
-  }
 
   async function handleCancel() {
     if (!window.confirm('Bạn có chắc muốn hủy đơn hàng này?')) return;
@@ -160,24 +144,10 @@ function PaymentPage() {
                   Vui lòng liên hệ cửa hàng để được hướng dẫn.
                 </p>
               )}
-              {awaitingConfirmation ? (
-                <div className="mt-5 flex items-center justify-center gap-2 text-xs font-semibold text-zinc-400">
-                  <FiLoader className="h-3.5 w-3.5 animate-spin" />
-                  Đang chờ cửa hàng xác nhận thanh toán...
-                </div>
-              ) : (
-                <div className="mt-5 flex flex-col items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleClaimTransfer}
-                    disabled={claiming}
-                    className="inline-flex min-h-12 items-center justify-center rounded-full bg-[#d71920] px-8 text-sm font-extrabold uppercase tracking-[0.08em] text-white transition hover:bg-[#b61016] disabled:cursor-not-allowed disabled:bg-zinc-300"
-                  >
-                    {claiming ? 'Đang gửi...' : 'Tôi đã chuyển khoản'}
-                  </button>
-                  <p className="text-xs font-medium text-zinc-400">Bấm sau khi chuyển khoản xong để cửa hàng kiểm tra và xác nhận.</p>
-                </div>
-              )}
+              <div className="mt-5 flex items-center justify-center gap-2 text-xs font-semibold text-zinc-400">
+                <FiLoader className="h-3.5 w-3.5 animate-spin" />
+                Sau khi bạn chuyển khoản, cửa hàng sẽ kiểm tra và cập nhật thanh toán. Trang sẽ tự chuyển khi hoàn tất.
+              </div>
             </div>
           )}
 

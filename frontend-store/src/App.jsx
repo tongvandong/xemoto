@@ -28,7 +28,7 @@ const RegisterPage = lazy(() => import('./pages/RegisterPage.jsx'));
 const FaqPage = lazy(() => import('./pages/FaqPage.jsx'));
 const VouchersPage = lazy(() => import('./pages/VouchersPage.jsx'));
 const ContactPage = lazy(() => import('./pages/ContactPage.jsx'));
-const InstallmentPage = lazy(() => import('./pages/InstallmentPage.jsx'));
+const InstallmentApplicationPage = lazy(() => import('./pages/InstallmentApplicationPage.jsx'));
 
 const authPaths = ['/login', '/register', '/forgot-password'];
 
@@ -71,7 +71,6 @@ function AppRoutes() {
         <Route path="/vouchers" element={<VouchersPage />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/faq" element={<FaqPage />} />
-        <Route path="/tra-gop" element={<InstallmentPage />} />
         <Route
           path="/cart"
           element={
@@ -125,6 +124,14 @@ function AppRoutes() {
           element={
             <ProtectedRoute>
               <OrderDetailPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/installments/:id"
+          element={
+            <ProtectedRoute>
+              <InstallmentApplicationPage />
             </ProtectedRoute>
           }
         />

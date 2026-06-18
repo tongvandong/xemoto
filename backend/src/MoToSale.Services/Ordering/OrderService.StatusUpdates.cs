@@ -23,6 +23,8 @@ public partial class OrderService
         if (order.OrderStatus == OrderStatus.Cancelled) throw new OrderException("Đơn đã hủy.");
         if (order.OrderStatus == OrderStatus.Delivered || order.FulfillmentStatus == FulfillmentStatus.Fulfilled)
             throw new OrderException("Đơn đã giao, không thể hủy. Hãy tạo phiếu đổi trả/hoàn tiền nếu cần.");
+        if (order.OrderType == OrderType.Installment)
+            throw new OrderException("Đơn trả góp đã được duyệt không thể hủy từ hệ thống. Vui lòng xử lý với đối tác tài chính nếu cần điều chỉnh.");
 
         var now = DateTime.UtcNow;
 

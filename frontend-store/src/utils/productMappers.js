@@ -24,7 +24,6 @@ function normalizeVariant(sku) {
     id: sku.id,
     variantName: sku.variantName || '',
     sku: sku.skuCode || '',
-    // basePrice = giá niêm yết; sellPrice = giá bán hiệu lực (KM nếu có, không thì niêm yết).
     basePrice: listPrice,
     salePrice,
     sellPrice,

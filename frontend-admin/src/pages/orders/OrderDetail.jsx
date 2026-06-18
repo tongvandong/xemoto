@@ -16,9 +16,10 @@ import { formatCurrency } from '../../utils/formatCurrency';
 import { formatDate } from '../../utils/formatDate';
 import { formatMoneyInput, normalizeMoneyInput } from '../../utils/moneyInput';
 import { printVatInvoice } from '../../utils/vatInvoice';
+import { printInstallmentContract } from '../../utils/installmentContract';
 
 const isLockedOrder = (status) => ['Cancelled', 'Delivered', 'Completed'].includes(status);
-const canCancelOrder = (status) => !['Cancelled', 'Delivered', 'Completed'].includes(status);
+const canCancelOrder = (status, orderType) => orderType !== 'Installment' && !['Cancelled', 'Delivered', 'Completed'].includes(status);
 const EVENT_LABELS = {
   Created: 'Tạo đơn',
   OrderStatus: 'Trạng thái đơn',
@@ -105,27 +106,39 @@ const OrderDetail = () => {
   const orderStatus = order?.trangThaiDonHang || order?.trangThai || order?.status || order?.orderStatus || '';
   const paymentStatus = order?.trangThaiThanhToan || order?.paymentStatus || order?.thanhToan?.trangThai || order?.payment?.status || '';
   const currentPayments = order?.payments || [];
-  const getPaymentRecordStatus = (item) => item?.status || item?.paymentRecordStatus || item?.trangThai || '';
-  const pendingPayments = currentPayments.filter((item) => getPaymentRecordStatus(item) === 'Pending');
-  const hasPendingPayment = pendingPayments.length > 0;
   const orderType = order?.orderType || order?.loaiDon || 'FullPayment';
+  const isInstallmentOrder = orderType === 'Installment';
+  const paymentStatusMeta = isInstallmentOrder && paymentStatus === 'Paid'
+    ? { label: 'Đã trả trước', color: 'success' }
+    : getPaymentStatusMeta(paymentStatus);
   const depositAmount = Number(order?.depositAmount ?? order?.tienCoc ?? 0);
   const remainingAmount = Number(order?.remainingAmount ?? order?.tienConLai ?? 0);
+  // Đơn trả góp: tách đối tác + kỳ hạn từ ghi chú để hiển thị, không để trống.
+  const installmentInfo = isInstallmentOrder ? (() => {
+    const note = String(order?.note ?? order?.ghiChu ?? '');
+    const partner = note.match(/Trả góp qua\s+([^\n,—]+)/i)?.[1]?.trim()
+      || note.split(/\r?\n/).map((s) => s.trim()).find((s) => s.toLowerCase().startsWith('đối tác tài chính khách chọn:'))?.slice('Đối tác tài chính khách chọn:'.length).trim()
+      || 'Đối tác tài chính';
+    const months = Number(note.match(/kỳ hạn\s+(\d+)\s+tháng/i)?.[1]) || 0;
+    return { partner, months };
+  })() : null;
   const grandTotalAmount = Number(order?.grandTotal ?? order?.tongThanhToan ?? order?.tongTien ?? order?.totalAmount ?? 0);
   const paidSoFar = Math.max(0, grandTotalAmount - remainingAmount);
   const isFullyPaid = grandTotalAmount > 0 && remainingAmount <= 0;
-  // Loại thanh toán hợp lệ theo trạng thái: chưa thu gì → Thu đủ/Đặt cọc; đã thu một phần → Thu phần còn lại/Trả góp.
+  // Trả góp qua đối tác không thu từng kỳ trong hệ thống; admin chỉ ghi nhận thu đủ/cọc/phần còn lại cho đơn thường.
   const paymentTypeOptions = paidSoFar > 0
-    ? [['Remaining', 'Thu phần còn lại'], ['Installment', 'Trả góp/đợt']]
-    : [['Full', 'Thanh toán đủ'], ['Deposit', 'Đặt cọc'], ['Installment', 'Trả góp/đợt']];
+    ? [['Remaining', 'Thu phần còn lại']]
+    : [['Full', 'Thanh toán đủ'], ['Deposit', 'Đặt cọc']];
 
   const openPaymentModal = () => {
-    if (hasPendingPayment) {
-      alert('Đơn đang có phiếu chuyển khoản chờ xác nhận. Hãy xác nhận hoặc hủy phiếu chuyển khoản đó trước khi ghi nhận thanh toán thủ công.');
+    if (isInstallmentOrder) {
+      alert('Đơn trả góp chỉ ghi nhận khoản cọc/trả trước ban đầu. Các kỳ thanh toán còn lại do đối tác tài chính xử lý.');
       return;
     }
+    const isFirstDeposit = paidSoFar <= 0 && orderType === 'Deposit' && depositAmount > 0;
     setPaymentType(paidSoFar > 0 ? 'Remaining' : (orderType === 'Deposit' ? 'Deposit' : 'Full'));
-    setPaymentAmount(remainingAmount > 0 ? String(remainingAmount) : '');
+    // Đơn đặt cọc chưa thu: gợi ý đúng số tiền cọc; còn lại gợi ý toàn bộ phần còn phải thu.
+    setPaymentAmount(isFirstDeposit ? String(depositAmount) : (remainingAmount > 0 ? String(remainingAmount) : ''));
     setPaymentMethod('Cash');
     setPaymentNote('');
     setShowPaymentModal(true);
@@ -133,8 +146,8 @@ const OrderDetail = () => {
 
   const nextStatusOptions = useMemo(() => {
     const allowed = ORDER_NEXT_STATUS[orderStatus] || [];
-    return ORDER_STATUS_OPTIONS.filter((opt) => allowed.includes(opt.value));
-  }, [orderStatus]);
+    return ORDER_STATUS_OPTIONS.filter((opt) => allowed.includes(opt.value) && !(isInstallmentOrder && opt.value === 'Cancelled'));
+  }, [orderStatus, isInstallmentOrder]);
 
   const renderBadge = (meta) => <span className={`badge badge-${meta.color}`}>{meta.label}</span>;
 
@@ -186,17 +199,6 @@ const OrderDetail = () => {
         setPaymentNote('');
       }
     );
-  };
-
-  const handleConfirmPayment = async (paymentId) => {
-    if (!window.confirm('Xác nhận đã nhận được khoản chuyển khoản này? Đơn sẽ chuyển sang đã thanh toán.')) return;
-    await runUpdate(() => paymentService.confirm(paymentId));
-  };
-
-  const handleCancelPendingPayment = async (paymentId) => {
-    const reason = window.prompt('Nhập lý do hủy phiếu chuyển khoản chờ xác nhận:', 'Khách đổi phương thức thanh toán');
-    if (reason === null) return;
-    await runUpdate(() => paymentService.cancel(paymentId, { reason: reason.trim() || 'Hủy phiếu chuyển khoản chờ xác nhận' }));
   };
 
   const openEditModal = () => {
@@ -353,7 +355,7 @@ const OrderDetail = () => {
               <h2>Thông tin đơn</h2>
               <div>Ngày tạo: ${formatDate(order.ngayTao || order.createdAt || order.placedAt)}</div>
               <div>Trạng thái đơn: ${getOrderStatusMeta(orderStatus).label}</div>
-              <div>Thanh toán: ${getPaymentStatusMeta(paymentStatus).label}</div>
+              <div>Thanh toán: ${paymentStatusMeta.label}</div>
             </div>
             <div>
               <h2>Khách hàng</h2>
@@ -383,45 +385,7 @@ const OrderDetail = () => {
   };
 
   const handlePrintVatInvoice = () => printVatInvoice(order, settings);
-
-  const renderPendingPaymentCard = () => pendingPayments.length > 0 && (
-    <div className="card">
-      <div className="card-header">
-        <h3 className="card-title">Chuyển khoản chờ xác nhận</h3>
-      </div>
-      <div className="card-body p-0">
-        <table className="table table-bordered mb-0">
-          <thead>
-            <tr>
-              <th className="table-col-code">Mã phiếu</th>
-              <th className="table-col-text">Phương thức</th>
-              <th className="table-col-money">Số tiền</th>
-              <th className="table-col-date">Thời gian</th>
-              <th className="table-col-action"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {pendingPayments.map((p) => (
-              <tr key={p.id || p.maThanhToan}>
-                <td className="table-col-code">{p.code || p.maThanhToan || p.id}</td>
-                <td className="table-col-text">{PAYMENT_METHODS[p.method || p.phuongThuc] || p.method || p.phuongThuc || 'Chuyển khoản'}</td>
-                <td className="table-col-money">{formatCurrency(p.amount || p.soTien || 0)}</td>
-                <td className="table-col-date">{formatDate(p.createdAt || p.ngayTao || p.paidAt)}</td>
-                <td className="table-col-action text-right">
-                  <button className="btn btn-sm btn-success mr-2" disabled={updating} onClick={() => handleConfirmPayment(p.id)}>
-                    Xác nhận thanh toán
-                  </button>
-                  <button className="btn btn-sm btn-outline-danger" disabled={updating} onClick={() => handleCancelPendingPayment(p.id)}>
-                    Hủy phiếu
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
+  const handlePrintInstallmentContract = () => printInstallmentContract(order, settings);
 
   return (
     <div className="content-wrapper">
@@ -436,6 +400,11 @@ const OrderDetail = () => {
           <button className="btn btn-outline-success mb-2 ml-2" onClick={handlePrintVatInvoice}>
             <i className="fas fa-file-invoice-dollar"></i> Hóa đơn VAT
           </button>
+          {isInstallmentOrder && (
+            <button className="btn btn-outline-info mb-2 ml-2" onClick={handlePrintInstallmentContract}>
+              <i className="fas fa-file-contract"></i> Hợp đồng trả góp
+            </button>
+          )}
           {!['Delivered', 'Completed', 'Cancelled'].includes(orderStatus) && (
             <button className="btn btn-outline-warning mb-2 ml-2" onClick={openEditModal} disabled={updating}>
               <i className="fas fa-pen"></i> Sửa đơn
@@ -481,8 +450,6 @@ const OrderDetail = () => {
             </div>
           </div>
 
-          {renderPendingPaymentCard()}
-
           <div className="row">
             <StatusCard
               title="Trạng thái đơn hàng"
@@ -493,9 +460,9 @@ const OrderDetail = () => {
             />
             <StatusCard
               title="Thanh toán"
-              badge={renderBadge(getPaymentStatusMeta(paymentStatus))}
-              buttonText={hasPendingPayment ? 'Đang chờ xác nhận CK' : 'Cập nhật thanh toán'}
-              disabled={orderStatus === 'Cancelled' || hasPendingPayment}
+              badge={renderBadge(paymentStatusMeta)}
+              buttonText={isInstallmentOrder ? 'Do đối tác tài chính xử lý' : 'Cập nhật thanh toán'}
+              disabled={orderStatus === 'Cancelled' || isInstallmentOrder}
               onClick={openPaymentModal}
             />
           </div>
@@ -541,7 +508,26 @@ const OrderDetail = () => {
             </div>
           </div>
 
-          {(orderType === 'Deposit' || depositAmount > 0 || remainingAmount > 0) && (
+          {isInstallmentOrder && (
+            <div className="card">
+              <div className="card-header"><h3 className="card-title">Thông tin trả góp</h3></div>
+              <div className="card-body">
+                <p className="text-muted small mb-2">
+                  Khoản trả trước được ghi nhận tại cửa hàng. Phần còn lại do <strong>{installmentInfo.partner}</strong> thẩm định, giải ngân và quản lý trực tiếp; đơn tiếp tục xử lý giao hàng bình thường.
+                </p>
+                <table className="table table-sm mb-0">
+                  <tbody>
+                    <tr><td style={{ width: 220 }}><strong>Đối tác tài chính:</strong></td><td>{installmentInfo.partner}</td></tr>
+                    <tr><td><strong>Kỳ hạn:</strong></td><td>{installmentInfo.months ? `${installmentInfo.months} tháng` : <span className="text-muted">—</span>}</td></tr>
+                    <tr><td><strong>Tiền trả trước:</strong></td><td>{formatCurrency(depositAmount)}</td></tr>
+                    <tr><td><strong>Phần còn lại đối tác xử lý:</strong></td><td className="font-weight-bold text-danger">{formatCurrency(remainingAmount)}</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {!isInstallmentOrder && (orderType === 'Deposit' || depositAmount > 0 || remainingAmount > 0) && (
             <div className="card">
               <div className="card-header"><h3 className="card-title">Cọc & công nợ</h3></div>
               <div className="card-body">
@@ -617,7 +603,7 @@ const OrderDetail = () => {
           )}
 
           <div className="mb-4">
-            <button className="btn btn-danger" onClick={() => setShowCancelModal(true)} disabled={!canCancelOrder(orderStatus)}>
+            <button className="btn btn-danger" onClick={() => setShowCancelModal(true)} disabled={!canCancelOrder(orderStatus, orderType)}>
               <i className="fas fa-times"></i> Hủy đơn
             </button>
           </div>
@@ -659,7 +645,7 @@ const OrderDetail = () => {
               <div>Tổng đơn: <strong>{formatCurrency(grandTotalAmount)}</strong></div>
               {paidSoFar > 0 && <div>Đã thu: <strong>{formatCurrency(paidSoFar)}</strong></div>}
               {depositAmount > 0 && <div>Tiền cọc: <strong>{formatCurrency(depositAmount)}</strong></div>}
-              <div>Còn phải thu: <strong className="text-danger">{formatCurrency(remainingAmount)}</strong></div>
+              <div>{isInstallmentOrder ? 'Còn lại do đối tác xử lý' : 'Còn phải thu'}: <strong className="text-danger">{formatCurrency(remainingAmount)}</strong></div>
             </div>
           )}
           <div className="form-group">

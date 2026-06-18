@@ -22,7 +22,7 @@ public partial class OrderService
         var items = new List<OrderListItem>();
         foreach (var o in orders)
         {
-            items.Add(new OrderListItem(o.Id, o.Code, o.OrderStatus, o.PaymentStatus, o.FulfillmentStatus, o.GrandTotal, o.PlacedAt, o.UserId, null, await MapLineSummariesAsync(o)));
+            items.Add(new OrderListItem(o.Id, o.Code, o.OrderStatus, o.PaymentStatus, o.FulfillmentStatus, o.GrandTotal, o.PlacedAt, o.UserId, null, o.OrderType, o.DepositAmount, o.DiscountTotal, await MapLineSummariesAsync(o)));
         }
 
         return items;
@@ -41,7 +41,7 @@ public partial class OrderService
         var items = new List<OrderListItem>();
         foreach (var o in page.Items)
         {
-            items.Add(new OrderListItem(o.Id, o.Code, o.OrderStatus, o.PaymentStatus, o.FulfillmentStatus, o.GrandTotal, o.PlacedAt, o.UserId, names.GetValueOrDefault(o.UserId), await MapLineSummariesAsync(o)));
+            items.Add(new OrderListItem(o.Id, o.Code, o.OrderStatus, o.PaymentStatus, o.FulfillmentStatus, o.GrandTotal, o.PlacedAt, o.UserId, names.GetValueOrDefault(o.UserId), o.OrderType, o.DepositAmount, o.DiscountTotal, await MapLineSummariesAsync(o)));
         }
 
         return new PagingResponse<OrderListItem>
@@ -168,7 +168,7 @@ public partial class OrderService
         }
 
         // Giao tiền mặt/COD: thu tiền ngay khi giao (Đã giao + Đã thanh toán).
-        // KHÔNG áp dụng cho đơn trả góp: phần còn lại do đối tác tài chính giải ngân (ghi phiếu thu riêng), không tự thu khi giao.
+        // KHÔNG áp dụng cho đơn trả góp: phần còn lại do đối tác tài chính xử lý, không tự thu khi giao.
         if (order.PaymentMethod is PaymentMethod.COD or PaymentMethod.Cash
             && order.OrderType != OrderType.Installment
             && order.PaymentStatus is not (PaymentStatus.Paid or PaymentStatus.Refunded))

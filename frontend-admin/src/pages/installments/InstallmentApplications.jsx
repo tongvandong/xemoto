@@ -13,7 +13,43 @@ const badge = (v) => (
 );
 const message = (err, fallback) => err?.response?.data?.message || fallback;
 
-const emptyApprove = { skuId: '', qty: 1, unitPrice: '', downPayment: 0, paymentMethod: 'Cash', financePartner: '', note: '' };
+// Hồ sơ khách gửi từ web nằm trong note có cấu trúc; tách ra để hiển thị đầy đủ, không để trống.
+const pickNoteLine = (note, prefix) => {
+  const line = String(note || '')
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .find((s) => s.toLowerCase().startsWith(prefix.toLowerCase()));
+  return line ? line.slice(prefix.length).trim() : '';
+};
+
+const parseProfile = (row) => {
+  const note = row?.note || '';
+  const idLine = pickNoteLine(note, 'CCCD/CMND:');
+  const idMatch = idLine.match(/^([0-9]{9,15})(?:\s+\(cấp\s+([^)]*?)(?:\s+tại\s+([^)]*))?\))?/i);
+  return {
+    idNumber: idMatch?.[1] || '',
+    idIssueDate: idMatch?.[2] || '',
+    idIssuePlace: idMatch?.[3] || '',
+    birthDate: pickNoteLine(note, 'Ngày sinh:'),
+    residence: pickNoteLine(note, 'Địa chỉ thường trú:'),
+    occupation: pickNoteLine(note, 'Nghề nghiệp:'),
+    company: pickNoteLine(note, 'Công ty:'),
+    workMonths: pickNoteLine(note, 'Thâm niên:'),
+    monthlyIncome: pickNoteLine(note, 'Thu nhập:'),
+    receiving: pickNoteLine(note, 'Nhận hàng:'),
+    contact: pickNoteLine(note, 'Người liên hệ:'),
+    customerNote: pickNoteLine(note, 'Ghi chú của khách:'),
+  };
+};
+
+const DetailRow = ({ label, value }) => (
+  <tr>
+    <td style={{ width: 200 }}><strong>{label}</strong></td>
+    <td>{value || <span className="text-muted">—</span>}</td>
+  </tr>
+);
+
+const emptyApprove = { skuId: '', qty: 1, unitPrice: '', downPayment: 0, paymentMethod: 'Cash', note: '' };
 
 const InstallmentApplications = () => {
   const [items, setItems] = useState([]);
@@ -26,6 +62,7 @@ const InstallmentApplications = () => {
   const [approveForm, setApproveForm] = useState(emptyApprove);
   const [rejectTarget, setRejectTarget] = useState(null);
   const [rejectNote, setRejectNote] = useState('');
+  const [detailTarget, setDetailTarget] = useState(null);
 
   const load = async () => {
     setLoading(true);
@@ -57,7 +94,6 @@ const InstallmentApplications = () => {
       unitPrice: sku ? Number(sku.salePrice ?? sku.listPrice ?? 0) : '',
       downPayment: Number(row.downPayment) || 0,
       paymentMethod: 'Cash',
-      financePartner: row.financePartner || '',
       note: '',
     });
     setApproveTarget(row);
@@ -70,6 +106,7 @@ const InstallmentApplications = () => {
 
   const submitApprove = async () => {
     if (!approveForm.skuId) { setError('Vui lòng chọn SKU để lập đơn.'); return; }
+    if (!(Number(approveForm.downPayment) > 0)) { setError('Tiền trả trước phải lớn hơn 0.'); return; }
     try {
       await installmentService.approve(approveTarget.id, {
         skuId: Number(approveForm.skuId),
@@ -77,7 +114,7 @@ const InstallmentApplications = () => {
         unitPrice: approveForm.unitPrice === '' ? null : Number(approveForm.unitPrice),
         downPayment: Number(approveForm.downPayment) || 0,
         paymentMethod: approveForm.paymentMethod,
-        financePartner: approveForm.financePartner || null,
+        financePartner: approveTarget.financePartner || null,
         note: approveForm.note || null,
       });
       setApproveTarget(null);
@@ -148,12 +185,13 @@ const InstallmentApplications = () => {
                     <td>{x.orderId ? <Link to={`/orders/${x.orderId}`}>{x.orderCode || `#${x.orderId}`}</Link> : '-'}</td>
                     <td>{formatDate(x.createdDate)}</td>
                     <td className="text-right">
-                      {x.applicationStatus === 'Pending' ? (
+                      <button className="btn btn-sm btn-outline-secondary mr-1" onClick={() => setDetailTarget(x)}>Chi tiết</button>
+                      {x.applicationStatus === 'Pending' && (
                         <>
                           <button className="btn btn-sm btn-success mr-1" onClick={() => openApprove(x)}>Duyệt</button>
                           <button className="btn btn-sm btn-outline-danger" onClick={() => { setRejectTarget(x); setRejectNote(''); }}>Từ chối</button>
                         </>
-                      ) : <span className="text-muted">—</span>}
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -175,7 +213,7 @@ const InstallmentApplications = () => {
               <div className="modal-body">
                 <p className="text-muted small">
                   Khách: <strong>{approveTarget.customerName}</strong> · {approveTarget.customerPhone} · SP quan tâm: {approveTarget.productSnapshot}.
-                  Đơn tạo ra sẽ <strong>giữ chỗ tồn</strong>, thu trả trước, phần còn lại do đối tác giải ngân khi giao xe.
+                  Đơn tạo ra sẽ <strong>giữ chỗ tồn</strong>, ghi nhận khoản trả trước ban đầu và đi tiếp luồng giao hàng bình thường. Phần còn lại do đối tác tài chính xử lý, hệ thống không tạo lịch thu góp hằng tháng.
                 </p>
                 <div className="form-row">
                   <div className="form-group col-md-6">
@@ -208,7 +246,8 @@ const InstallmentApplications = () => {
                   </div>
                   <div className="form-group col-md-4">
                     <label>Đối tác tài chính</label>
-                    <input className="form-control" value={approveForm.financePartner} onChange={(e) => setApproveForm((f) => ({ ...f, financePartner: e.target.value }))} />
+                    <input className="form-control" value={approveTarget.financePartner || 'Khách chưa chọn'} readOnly />
+                    <small className="text-muted">Đối tác do khách chọn khi gửi hồ sơ.</small>
                   </div>
                 </div>
                 <div className="form-group">
@@ -216,7 +255,7 @@ const InstallmentApplications = () => {
                   <input className="form-control" value={approveForm.note} onChange={(e) => setApproveForm((f) => ({ ...f, note: e.target.value }))} />
                 </div>
                 <div className="alert alert-info py-2 mb-0 small">
-                  Còn lại (đối tác giải ngân khi giao): <strong>{formatCurrency(Math.max(0, (Number(approveForm.unitPrice) || 0) * (Number(approveForm.qty) || 0) - (Number(approveForm.downPayment) || 0)))}</strong>
+                  Còn lại do đối tác tài chính xử lý: <strong>{formatCurrency(Math.max(0, (Number(approveForm.unitPrice) || 0) * (Number(approveForm.qty) || 0) - (Number(approveForm.downPayment) || 0)))}</strong>
                 </div>
               </div>
               <div className="modal-footer">
@@ -249,6 +288,70 @@ const InstallmentApplications = () => {
           </div>
         </div>
       )}
+
+      {/* Modal chi tiết hồ sơ */}
+      {detailTarget && (() => {
+        const p = parseProfile(detailTarget);
+        return (
+          <div className="modal d-block" style={{ background: 'rgba(0,0,0,.5)' }}>
+            <div className="modal-dialog modal-lg">
+              <div className="modal-content">
+                <div className="modal-header">
+                  <h5 className="modal-title">Hồ sơ trả góp {detailTarget.code}</h5>
+                  <button className="close" onClick={() => setDetailTarget(null)}>&times;</button>
+                </div>
+                <div className="modal-body">
+                  <h6 className="text-muted text-uppercase small font-weight-bold">Thông tin chung</h6>
+                  <table className="table table-sm mb-3">
+                    <tbody>
+                      <DetailRow label="Khách hàng" value={detailTarget.customerName} />
+                      <DetailRow label="Số điện thoại" value={detailTarget.customerPhone} />
+                      <DetailRow label="Email" value={detailTarget.customerEmail} />
+                      <DetailRow label="Sản phẩm quan tâm" value={detailTarget.productSnapshot} />
+                      <DetailRow label="Đối tác tài chính" value={detailTarget.financePartner} />
+                      <DetailRow label="Kỳ hạn" value={detailTarget.months ? `${detailTarget.months} tháng` : ''} />
+                      <DetailRow label="Tiền trả trước" value={formatCurrency(detailTarget.downPayment)} />
+                      <DetailRow label="Trạng thái" value={STATUS_LABELS[detailTarget.applicationStatus] || detailTarget.applicationStatus} />
+                      <DetailRow label="Ngày gửi" value={formatDate(detailTarget.createdDate)} />
+                      <DetailRow label="Đơn bán" value={detailTarget.orderId ? (detailTarget.orderCode || `#${detailTarget.orderId}`) : ''} />
+                    </tbody>
+                  </table>
+
+                  <h6 className="text-muted text-uppercase small font-weight-bold">Hồ sơ người vay</h6>
+                  <table className="table table-sm mb-3">
+                    <tbody>
+                      <DetailRow label="Số CCCD/CMND" value={p.idNumber} />
+                      <DetailRow label="Ngày cấp" value={p.idIssueDate} />
+                      <DetailRow label="Nơi cấp" value={p.idIssuePlace} />
+                      <DetailRow label="Ngày sinh" value={p.birthDate} />
+                      <DetailRow label="Địa chỉ thường trú" value={p.residence} />
+                      <DetailRow label="Nghề nghiệp" value={p.occupation} />
+                      <DetailRow label="Công ty" value={p.company} />
+                      <DetailRow label="Thâm niên" value={p.workMonths} />
+                      <DetailRow label="Thu nhập" value={p.monthlyIncome} />
+                    </tbody>
+                  </table>
+
+                  <h6 className="text-muted text-uppercase small font-weight-bold">Giao nhận & ghi chú</h6>
+                  <table className="table table-sm mb-0">
+                    <tbody>
+                      <DetailRow label="Người liên hệ" value={p.contact} />
+                      <DetailRow label="Hình thức nhận" value={p.receiving} />
+                      <DetailRow label="Ghi chú khách" value={p.customerNote} />
+                    </tbody>
+                  </table>
+                </div>
+                <div className="modal-footer">
+                  {detailTarget.applicationStatus === 'Pending' && (
+                    <button className="btn btn-success mr-auto" onClick={() => { const t = detailTarget; setDetailTarget(null); openApprove(t); }}>Duyệt &amp; tạo đơn</button>
+                  )}
+                  <button className="btn btn-secondary" onClick={() => setDetailTarget(null)}>Đóng</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

@@ -114,17 +114,21 @@ export function getPaymentStatusLabel(status) {
 /**
  * Cùng paymentStatus 'PartiallyPaid' có nghĩa khác nhau tùy LoaiDonHang:
  *   - Deposit: "Đã đặt cọc, chờ thanh toán phần còn lại"
- *   - Installment: "Đang trả góp" (đã đóng cọc + có thể một vài kỳ)
+ *   - Installment: "Đã trả trước" (phần còn lại do đối tác tài chính xử lý)
  * Helper này trả về nhãn phù hợp ngữ cảnh để hiển thị cho khách/admin.
  */
 export function getPaymentStatusContextual(paymentStatus, orderType) {
+  if (orderType === 'Installment') {
+    if (paymentStatus === 'Paid') return 'Đã trả trước';
+    if (paymentStatus === 'Unpaid') return 'Chờ xác nhận trả trước';
+  }
+
   if (paymentStatus === 'PartiallyPaid') {
     if (orderType === 'Deposit') return 'Đã đặt cọc';
-    if (orderType === 'Installment') return 'Đang trả góp';
+    if (orderType === 'Installment') return 'Đã trả trước';
     return 'Đã thanh toán một phần';
   }
   if (paymentStatus === 'Paid') {
-    if (orderType === 'Installment') return 'Đã trả góp xong';
     return 'Đã thanh toán đủ';
   }
   return getPaymentStatusLabel(paymentStatus);
@@ -167,7 +171,8 @@ export function isOrderPaid(paymentStatus) {
 // Đơn còn được phép hủy — khớp đúng điều kiện backend OrderService.CancelOrderAsync:
 // chưa hủy, chưa giao xong (orderStatus Delivered / fulfillment Fulfilled).
 export function canCancelOrder(order) {
-  return order?.orderStatus !== 'Cancelled'
+  return order?.orderType !== 'Installment'
+    && order?.orderStatus !== 'Cancelled'
     && order?.orderStatus !== 'Delivered'
     && order?.orderStatus !== 'Completed'
     && order?.shippingStatus !== 'Fulfilled';
@@ -200,25 +205,4 @@ export function getRefundStatusLabel(status) {
 
 export function getRefundStatusColor(status) {
   return REFUND_STATUS_COLOR_MAP[status] || 'bg-amber-100 text-amber-700';
-}
-
-// ===== Kỳ trả góp =====
-export const INSTALLMENT_TERM_STATUS_MAP = {
-  Paid: 'Đã trả',
-  Pending: 'Chờ trả',
-  Cancelled: 'Đã hủy',
-};
-
-const INSTALLMENT_TERM_STATUS_COLOR_MAP = {
-  Paid: 'bg-green-100 text-green-700',
-  Pending: 'bg-amber-100 text-amber-700',
-  Cancelled: 'bg-zinc-100 text-zinc-500',
-};
-
-export function getInstallmentTermStatusLabel(status) {
-  return INSTALLMENT_TERM_STATUS_MAP[status] || status || 'Chưa cập nhật';
-}
-
-export function getInstallmentTermStatusColor(status) {
-  return INSTALLMENT_TERM_STATUS_COLOR_MAP[status] || 'bg-zinc-100 text-zinc-600';
 }

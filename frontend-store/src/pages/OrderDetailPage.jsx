@@ -1,16 +1,15 @@
 import { useEffect, useState } from 'react';
-import { FiCheck, FiStar } from 'react-icons/fi';
+import { FiCheck, FiFileText, FiStar } from 'react-icons/fi';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { orderApi, reviewApi } from '../services/api.js';
+import { orderApi, reviewApi, shopApi } from '../services/api.js';
 import Breadcrumb from '../components/Breadcrumb.jsx';
 import LoadingState from '../components/LoadingState.jsx';
 import StatusBadge from '../components/common/StatusBadge.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
-import { useNotification } from '../contexts/NotificationContext.jsx';
 import { formatCurrency, formatDateTime } from '../utils/formatters.js';
 import {
   getShippingStatusLabel, getShippingStatusColor,
-  getPaymentStatusColor, getPaymentStatusContextual, getPaymentStatusLabel,
+  getPaymentStatusColor, getPaymentStatusContextual,
   getPaymentMethodLabel, getOrderTypeLabel, getReceivingMethodLabel,
   canCancelOrder,
 } from '../utils/statusMappings.js';
@@ -19,6 +18,7 @@ import {
 } from '../utils/reviewEligibility.js';
 import ReviewProductPicker from '../components/orders/ReviewProductPicker.jsx';
 import ReviewModal from '../components/product/ReviewModal.jsx';
+import { getInstallmentFinancePartner, parseInstallmentProfile, printInstallmentContract } from '../utils/installmentContract.js';
 
 // Huy hiệu trong trang chi tiết dùng cỡ to hơn mặc định một chút.
 function Badge({ label, colorClass }) {
@@ -42,21 +42,19 @@ function OrderDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { isAuthenticated: isAuth } = useAuth();
-  const { notify } = useNotification();
   const [order, setOrder] = useState(null);
   const [details, setDetails] = useState([]);
   const [vouchers, setVouchers] = useState([]);
-  const [payments, setPayments] = useState([]);
   const [paymentInfo, setPaymentInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [cancelling, setCancelling] = useState(false);
-  const [claimingTransfer, setClaimingTransfer] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [reviewProduct, setReviewProduct] = useState(null);
   const [reviewPickerOrder, setReviewPickerOrder] = useState(null);
   const [reviewStatusByProductId, setReviewStatusByProductId] = useState({});
+  const [shopProfile, setShopProfile] = useState({});
 
   useEffect(() => {
     if (!isAuth) {
@@ -76,9 +74,6 @@ function OrderDetailPage() {
       setOrder(res.order || res);
       setDetails(res.details?.$values || res.details || []);
       setVouchers(res.vouchers?.$values || res.vouchers || []);
-      // Lịch sử thanh toán nằm sẵn trong chi tiết đơn (payments[]),
-      // không gọi /payments/order vì endpoint đó chỉ dành cho admin/staff.
-      setPayments(res.payments || []);
 
       try {
         setPaymentInfo(await orderApi.getPaymentInfo(id));
@@ -105,19 +100,15 @@ function OrderDetailPage() {
     }
   }
 
-  async function handleClaimTransfer() {
-    if (!id || order?.paymentStatus === 'PendingConfirmation') return;
-    setClaimingTransfer(true);
-    try {
-      await orderApi.claimTransfer(id);
-      notify('Đã gửi thông báo chuyển khoản. Cửa hàng sẽ kiểm tra và xác nhận thanh toán.', 'success');
-      await fetchOrder();
-    } catch (err) {
-      notify(err?.response?.data?.message || err?.message || 'Không thể gửi thông báo chuyển khoản.', 'error');
-    } finally {
-      setClaimingTransfer(false);
-    }
-  }
+  // Thông tin cửa hàng (Bên A) để in lên hợp đồng trả góp — chỉ tải khi là đơn trả góp.
+  useEffect(() => {
+    if (order?.orderType !== 'Installment') return;
+    let active = true;
+    shopApi.getShowroomProfile()
+      .then((profile) => { if (active) setShopProfile(profile || {}); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [order?.orderType]);
 
   // Tra trạng thái đã-đánh-giá cho từng sản phẩm khi đơn đủ điều kiện (dùng chung quy tắc với OrdersPage).
   useEffect(() => {
@@ -169,11 +160,18 @@ function OrderDetailPage() {
 
   if (!order) return null;
 
-  const canCancel = canCancelOrder(order);
+  // Đơn trả góp đã được duyệt (đối tác đã/đang xử lý tín dụng) thì không cho khách yêu cầu hủy nữa.
+  const canCancel = canCancelOrder(order) && order.orderType !== 'Installment';
   const shippingSteps = SHIPPING_STEPS;
   const currentShipIdx = FULFILLMENT_STEP_INDEX[order.shippingStatus] ?? -1;
   const amountDue = Number(paymentInfo?.soTienCanThanhToan ?? 0);
-  const showPaymentBox = order.orderStatus !== 'Cancelled' && order.paymentStatus !== 'Paid' && amountDue > 0;
+  const isInstallmentOrder = order.orderType === 'Installment';
+  const installmentFinancePartner = isInstallmentOrder ? getInstallmentFinancePartner(order) : '';
+  const installmentMonths = isInstallmentOrder ? Number(parseInstallmentProfile(order).months) || 0 : 0;
+  const installmentFinanced = isInstallmentOrder
+    ? Math.max(0, Number(order.remainingAmount ?? (Number(order.totalAmount || 0) - Number(order.depositAmount || 0))))
+    : 0;
+  const showPaymentBox = !isInstallmentOrder && order.orderStatus !== 'Cancelled' && order.paymentStatus !== 'Paid' && amountDue > 0;
   const reviewableItems = getReviewableOrderItems(order, reviewStatusByProductId);
 
   function openReviewShortcut() {
@@ -183,8 +181,6 @@ function OrderDetailPage() {
     }
     setReviewPickerOrder(order);
   }
-
-  const isAwaitingTransferConfirmation = order.paymentStatus === 'PendingConfirmation';
 
   return (
     <>
@@ -209,6 +205,16 @@ function OrderDetailPage() {
             </div>
             {canCancel && (
               <button onClick={() => setShowCancelModal(true)} className="mt-4 rounded-full border border-red-200 px-5 py-2 text-sm font-bold text-red-600 transition hover:bg-red-50">Hủy đơn hàng</button>
+            )}
+            {isInstallmentOrder && (
+              <button
+                type="button"
+                onClick={() => printInstallmentContract(order, shopProfile)}
+                className="ml-0 mt-4 inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#d71920] px-5 text-sm font-extrabold text-white shadow-sm transition hover:bg-[#b61016] sm:ml-2"
+              >
+                <FiFileText className="h-4 w-4" />
+                In hợp đồng trả góp
+              </button>
             )}
           </div>
 
@@ -257,14 +263,7 @@ function OrderDetailPage() {
                       <span className="text-zinc-500">Số tiền cần thanh toán</span>
                       <strong className="text-xl font-black text-[#d71920]">{formatCurrency(amountDue)}</strong>
                     </div>
-                    <button
-                      type="button"
-                      onClick={handleClaimTransfer}
-                      disabled={claimingTransfer || isAwaitingTransferConfirmation}
-                      className="mt-4 flex min-h-11 w-full items-center justify-center rounded-full bg-[#d71920] px-5 text-sm font-extrabold uppercase tracking-[0.08em] text-white transition hover:bg-[#b9151b] disabled:cursor-not-allowed disabled:bg-zinc-300"
-                    >
-                      {isAwaitingTransferConfirmation ? 'Đã báo chuyển khoản' : claimingTransfer ? 'Đang gửi...' : 'Tôi đã chuyển khoản'}
-                    </button>
+                    <p className="mt-3 text-xs leading-5 text-zinc-500">Sau khi chuyển khoản, cửa hàng sẽ kiểm tra và cập nhật trạng thái thanh toán cho đơn của bạn.</p>
                   </div>
                 </div>
               ) : (
@@ -311,6 +310,22 @@ function OrderDetailPage() {
             </dl>
           </div>
 
+          {/* ── Installment info ── */}
+          {isInstallmentOrder && (
+            <div className="rounded-[28px] border border-indigo-200 bg-indigo-50/40 p-6 shadow-sm">
+              <h2 className="text-lg font-black text-zinc-950">Thông tin trả góp</h2>
+              <p className="mt-1 text-sm text-zinc-600">
+                Khoản trả trước được ghi nhận tại cửa hàng. Phần còn lại do <strong>{installmentFinancePartner}</strong> thẩm định, giải ngân và quản lý trực tiếp; đơn hàng tiếp tục xử lý giao nhận bình thường.
+              </p>
+              <dl className="mt-4 grid gap-3 sm:grid-cols-2">
+                <DT label="Đối tác tài chính" value={installmentFinancePartner} />
+                <DT label="Kỳ hạn" value={installmentMonths ? `${installmentMonths} tháng` : '—'} />
+                <DT label="Trả trước" value={formatCurrency(order.depositAmount)} />
+                <DT label="Phần còn lại đối tác xử lý" value={formatCurrency(installmentFinanced)} />
+              </dl>
+            </div>
+          )}
+
           {/* ── Products ── */}
           <div className="rounded-[28px] border border-zinc-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-black text-zinc-950">Sản phẩm đã đặt</h2>
@@ -354,6 +369,9 @@ function OrderDetailPage() {
             <h2 className="text-lg font-black text-zinc-950">Thông tin thanh toán</h2>
             <dl className="mt-4 space-y-3 text-sm">
               <div className="flex justify-between"><span className="text-zinc-500">Loại đơn</span><span className="font-bold">{getOrderTypeLabel(order.orderType)}</span></div>
+              {isInstallmentOrder && (
+                <div className="flex justify-between"><span className="text-zinc-500">Đối tác tài chính</span><span className="font-bold">{installmentFinancePartner}</span></div>
+              )}
               {order.paymentMethod && (
                 <div className="flex justify-between"><span className="text-zinc-500">Phương thức thanh toán</span><span className="font-bold">{getPaymentMethodLabel(order.paymentMethod)}</span></div>
               )}
@@ -365,8 +383,8 @@ function OrderDetailPage() {
               <div className="flex justify-between border-t border-zinc-200 pt-3 text-base text-[#d71920]"><span className="font-extrabold">Tổng cộng</span><span className="text-xl font-black">{formatCurrency(order.totalAmount)}</span></div>
               {order.depositAmount > 0 && (
                 <>
-                  <div className="flex justify-between text-amber-600"><span>Đặt cọc</span><span className="font-bold">{formatCurrency(order.depositAmount)}</span></div>
-                  <div className="flex justify-between"><span className="text-zinc-500">Còn lại</span><span className="font-bold text-red-600">{formatCurrency(order.remainingAmount)}</span></div>
+                  <div className="flex justify-between text-amber-600"><span>{isInstallmentOrder ? 'Trả trước' : 'Đặt cọc'}</span><span className="font-bold">{formatCurrency(order.depositAmount)}</span></div>
+                  <div className="flex justify-between"><span className="text-zinc-500">{isInstallmentOrder ? 'Còn lại do đối tác xử lý' : 'Còn lại sau đặt cọc'}</span><span className="font-bold text-red-600">{formatCurrency(isInstallmentOrder ? installmentFinanced : Math.max(0, Number(order.totalAmount || 0) - Number(order.depositAmount || 0)))}</span></div>
                 </>
               )}
             </dl>
@@ -388,30 +406,6 @@ function OrderDetailPage() {
               </div>
             )}
           </div>
-
-          {/* ── Payment History ── */}
-          {payments.length > 0 && (
-            <div className="rounded-[28px] border border-zinc-200 bg-white p-6 shadow-sm">
-              <h2 className="text-lg font-black text-zinc-950">Lịch sử thanh toán</h2>
-              <div className="mt-4 space-y-3">
-                {payments.map((p, i) => (
-                  <div key={p.id || i} className="flex flex-wrap items-center gap-3 rounded-2xl bg-zinc-50 p-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-bold text-zinc-900">{getPaymentMethodLabel(p.paymentMethod)}</div>
-                      <div className="mt-0.5 text-xs text-zinc-500">
-                        {p.paymentCode} • {formatDateTime(p.createdAt)}
-                      </div>
-                      {p.transactionRef && <div className="text-xs text-zinc-400 mt-0.5">Ref: {p.transactionRef}</div>}
-                    </div>
-                    <div className="text-right">
-                      <div className="text-base font-black text-zinc-900">{formatCurrency(p.amount)}</div>
-                      <Badge label={getPaymentStatusLabel(p.paymentStatus || p.status)} colorClass={getPaymentStatusColor(p.paymentStatus || p.status)} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
 
           {/* Actions */}
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">

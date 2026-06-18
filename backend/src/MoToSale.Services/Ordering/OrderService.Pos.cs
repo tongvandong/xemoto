@@ -26,7 +26,7 @@ public partial class OrderService
 
         var now = DateTime.UtcNow;
         var isDeposit = req.OrderType == OrderType.Deposit;
-        var isInstallment = req.OrderType == OrderType.Installment;  // trả góp qua đối tác: giữ chỗ + nhận đủ khi giao
+        var isInstallment = req.OrderType == OrderType.Installment;  // trả góp qua đối tác: giữ chỗ + giao hàng bình thường sau duyệt
         var reserveOnly = isDeposit || isInstallment;               // giữ chỗ tồn, xuất kho khi giao
         var paymentMethod = string.IsNullOrWhiteSpace(req.PaymentMethod) ? PaymentMethod.Cash : req.PaymentMethod;
         if (!IsManualPaymentMethod(paymentMethod))
@@ -47,7 +47,9 @@ public partial class OrderService
             FulfillmentStatus = FulfillmentStatus.Unallocated,
             ShippingRecipient = string.IsNullOrWhiteSpace(req.CustomerName) ? "Khách lẻ" : req.CustomerName.Trim(),
             ShippingPhone = req.CustomerPhone ?? "",
-            ReceivingMethod = "Pickup",
+            ShippingEmail = string.IsNullOrWhiteSpace(req.CustomerEmail) ? null : req.CustomerEmail.Trim(),
+            ShippingAddress = string.IsNullOrWhiteSpace(req.ShippingAddress) ? null : req.ShippingAddress.Trim(),
+            ReceivingMethod = string.IsNullOrWhiteSpace(req.ReceivingMethod) ? "Pickup" : req.ReceivingMethod.Trim(),
             Note = req.Note,
             PlacedAt = now,
             CreatedDate = now,
@@ -93,8 +95,8 @@ public partial class OrderService
         else
         {
             // Trả góp: trả trước (DepositAmount) chỉ tham chiếu, 0 <= trả trước < tổng; còn lại do đối tác giải ngân.
-            if (isInstallment && (req.DepositAmount < 0 || req.DepositAmount >= order.GrandTotal))
-                throw new OrderException("Tiền trả trước không hợp lệ (0 <= trả trước < tổng tiền).");
+            if (isInstallment && (req.DepositAmount <= 0 || req.DepositAmount >= order.GrandTotal))
+                throw new OrderException("Tiền trả trước không hợp lệ (0 < trả trước < tổng tiền).");
             if (isInstallment) order.DepositAmount = req.DepositAmount;
             order.RemainingAmount = order.GrandTotal;
         }
@@ -124,7 +126,7 @@ public partial class OrderService
         }
         else
         {
-            // Đặt cọc / trả góp → giữ chỗ tồn ATOMIC, xuất kho khi tất toán & giao xe.
+            // Đặt cọc / trả góp → giữ chỗ tồn ATOMIC, xuất kho khi giao xe.
             var holdUntil = isInstallment ? now.AddDays(30) : now.AddDays(7);
             var reservationsToAdd = new List<Reservation>();
             foreach (var line in order.Lines)
@@ -151,9 +153,9 @@ public partial class OrderService
             _payments.Add(new Payment
             {
                 Code = $"TT{now:yyyyMMddHHmmssfff}", OrderId = order.Id,
-                PaymentType = isDeposit ? PaymentRecordType.Deposit : isInstallment ? PaymentRecordType.Installment : PaymentRecordType.Full,
+                PaymentType = (isDeposit || isInstallment) ? PaymentRecordType.Deposit : PaymentRecordType.Full,
                 Amount = paid, Method = paymentMethod, PaymentRecordStatus = PaymentRecordStatus.Paid,
-                Note = isInstallment ? "Trả trước (trả góp)" : "Thu tại quầy", RecordedBy = staffUserId, PaidAt = now, CreatedDate = now,
+                Note = isInstallment ? "Cọc/trả trước ban đầu (trả góp)" : "Thu tại quầy", RecordedBy = staffUserId, PaidAt = now, CreatedDate = now,
             });
             _db.CashTransactions.Add(new CashTransaction
             {
@@ -162,11 +164,11 @@ public partial class OrderService
                 Note = $"Thu tại quầy {order.Code}", RecordedBy = staffUserId, OccurredAt = now, CreatedDate = now,
             });
             order.RemainingAmount = Math.Max(0, order.GrandTotal - paid);
-            // Chưa thu đủ (gồm đơn đặt cọc) -> vẫn "Chờ thanh toán"; cọc/còn nợ theo dõi qua DepositAmount/RemainingAmount.
-            order.PaymentStatus = paid >= order.GrandTotal ? PaymentStatus.Paid : PaymentStatus.Unpaid;
+            // Đơn trả góp chỉ thu khoản trả trước tại cửa hàng; phần còn lại do đối tác tài chính xử lý ngoài hệ thống.
+            order.PaymentStatus = isInstallment || paid >= order.GrandTotal ? PaymentStatus.Paid : PaymentStatus.Unpaid;
         }
 
-        // Bán đứt tại quầy: giao ngay -> "Đã giao". (Đơn cọc/trả góp vẫn "Chờ xác nhận" tới khi thu đủ & giao.)
+        // Bán đứt tại quầy: giao ngay -> "Đã giao". (Đơn cọc/trả góp đi tiếp luồng giao hàng từ trạng thái chờ xác nhận.)
         if (!reserveOnly)
             order.OrderStatus = OrderStatus.Delivered;
 

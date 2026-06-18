@@ -127,6 +127,8 @@ public partial class VoucherService
             discount = subtotal;
         }
 
-        return discount;
+        // VND không có đơn vị nhỏ hơn 1 đồng — làm tròn để tổng đơn, tiền cọc và phần còn lại
+        // luôn là số nguyên, tránh lệch vài đồng giữa số khách nhập và số cần thanh toán.
+        return Math.Round(discount, 0, MidpointRounding.AwayFromZero);
     }
 }

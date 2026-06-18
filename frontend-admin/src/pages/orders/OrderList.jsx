@@ -87,6 +87,14 @@ const OrderList = () => {
   const getOrderId = (order) => order.maDonHang || order.orderCode || order.code || order.id;
   const getOrderCode = (order) => order.maDonHangKinhDoanh || order.maDonHang || order.orderCode || order.code || order.id;
   const getOrderAmount = (order) => order.tongThanhToan ?? order.tongTien ?? order.totalAmount ?? order.grandTotal ?? 0;
+  const getOrderType = (order) => order.orderType || order.loaiDon || order.type || '';
+  const getOrderPaymentStatusMeta = (order) => {
+    const status = order.trangThaiThanhToan || order.paymentStatus;
+    if (getOrderType(order) === 'Installment' && status === 'Paid') {
+      return { label: 'Đã trả trước', color: 'success' };
+    }
+    return getPaymentStatusMeta(status);
+  };
 
   const buildFilterParams = (extra = {}) => {
     const params = { ...extra };
@@ -145,7 +153,7 @@ const OrderList = () => {
               email: order.emailNhanHang || order.email || '',
               createdAt: order.ngayTao || order.createdAt || order.placedAt,
               orderStatus: getOrderStatusMeta(order.trangThaiDonHang || order.trangThai || order.status || order.orderStatus).label,
-              paymentStatus: getPaymentStatusMeta(order.trangThaiThanhToan || order.paymentStatus).label,
+              paymentStatus: getOrderPaymentStatusMeta(order).label,
               amount: getOrderAmount(order),
             })),
           },
@@ -266,7 +274,7 @@ const OrderList = () => {
                             <td className="table-col-text">{getCustomerName(order)}</td>
                             <td className="table-col-money">{formatCurrency(getOrderAmount(order))}</td>
                             <td className="table-col-status">{renderBadge(getOrderStatusMeta(order.trangThaiDonHang || order.trangThai || order.status || order.orderStatus))}</td>
-                            <td className="table-col-status">{renderBadge(getPaymentStatusMeta(order.trangThaiThanhToan || order.paymentStatus))}</td>
+                            <td className="table-col-status">{renderBadge(getOrderPaymentStatusMeta(order))}</td>
                             <td className="table-col-date">{formatDate(order.ngayTao || order.createdAt || order.placedAt)}</td>
                             <td className="table-col-actions">
                               <button

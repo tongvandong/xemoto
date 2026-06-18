@@ -23,7 +23,9 @@ public record OrderLineSummaryDto(int SkuId, string ProductName, string SkuCode,
 
 public record OrderListItem(
     int Id, string Code, string OrderStatus, string PaymentStatus, string FulfillmentStatus,
-    decimal GrandTotal, DateTime? PlacedAt, int UserId, string? CustomerName, IEnumerable<OrderLineSummaryDto> Lines);
+    decimal GrandTotal, DateTime? PlacedAt, int UserId, string? CustomerName,
+    string OrderType, decimal DepositAmount, decimal DiscountTotal,
+    IEnumerable<OrderLineSummaryDto> Lines);
 
 public record OrderDetail(
     int Id, string Code, int UserId, string OrderType, string OrderStatus, string PaymentMethod, string PaymentStatus, string FulfillmentStatus,
@@ -61,7 +63,9 @@ public record PosOrderLineRequest(int SkuId, int Qty, decimal? UnitPrice = null)
 public record PosOrderRequest(
     int? CustomerId, string? CustomerName, string? CustomerPhone, string? Note,
     string OrderType, decimal DepositAmount, string? VoucherCode,
-    string PaymentMethod, decimal PaidAmount, List<PosOrderLineRequest> Lines);
+    string PaymentMethod, decimal PaidAmount, List<PosOrderLineRequest> Lines,
+    // Tùy chọn: dùng cho đơn trả góp duyệt từ hồ sơ để đơn không bị trống email/địa chỉ/hình thức nhận.
+    string? CustomerEmail = null, string? ShippingAddress = null, string? ReceivingMethod = null);
 
 // ===== Voucher =====
 public record VoucherDto(

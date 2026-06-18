@@ -19,7 +19,7 @@ function CheckoutSummary({
   const {
     subtotal, shippingFee, originalShippingFee, shippingDiscount, carrierName,
     voucherDiscount, totalAmount, depositNum, remainingAmount,
-    needsDownPayment, isInstallment, installmentTerm,
+    needsDownPayment, isInstallment,
   } = totals;
 
   return (
@@ -151,7 +151,7 @@ function CheckoutSummary({
                 <strong className="font-bold">{formatCurrency(depositNum)}</strong>
               </div>
               <div className="flex items-center justify-between text-sm text-zinc-500">
-                <span>{isInstallment ? `Còn lại (góp ${installmentTerm} kỳ, chưa gồm lãi)` : 'Còn lại cần thanh toán'}</span>
+                <span>{isInstallment ? 'Còn lại do đối tác tài chính xử lý' : 'Còn lại cần thanh toán'}</span>
                 <strong className="font-bold">{formatCurrency(remainingAmount > 0 ? remainingAmount : 0)}</strong>
               </div>
             </>

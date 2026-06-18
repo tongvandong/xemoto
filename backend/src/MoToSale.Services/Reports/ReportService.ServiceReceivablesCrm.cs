@@ -74,6 +74,7 @@ public partial class ReportService
 
         return orders
             .Where(order => order.OrderStatus != OrderStatus.Cancelled)
+            .Where(order => order.OrderType != OrderType.Installment)
             .Where(order => order.PaymentStatus != PaymentStatus.Paid)
             .Where(order => order.PaymentStatus != PaymentStatus.Refunded)
             .Select(order =>

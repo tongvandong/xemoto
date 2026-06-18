@@ -17,7 +17,7 @@ import {
   RECEIVING_METHODS,
   ORDER_TYPES,
   INSTALLMENT_TERMS,
-  INSTALLMENT_MIN_DOWN_PERCENT,
+  FINANCE_PARTNERS,
   DEPOSIT_MIN_PERCENT,
   PAYMENT_METHODS,
   initialCheckoutForm,
@@ -32,7 +32,7 @@ import { formatCurrency } from '../utils/formatters.js';
 function CheckoutPage() {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
-  const { cart, refreshCart } = useCart();
+  const { cart, refreshCart, clearCart } = useCart();
   const { notify } = useNotification();
   const items = cart?.items || [];
 
@@ -43,6 +43,8 @@ function CheckoutPage() {
   const [fieldErrors, setFieldErrors] = useState({});
   // Trả góp không tạo đơn ngay mà gửi hồ sơ cho cửa hàng thẩm định; true = đã gửi xong.
   const [installmentSubmitted, setInstallmentSubmitted] = useState(false);
+  // Tóm tắt hồ sơ vừa gửi để hiển thị lại ở màn xác nhận (giỏ hàng đã được dọn).
+  const [installmentSummary, setInstallmentSummary] = useState(null);
 
   // Voucher state
   const [voucherCode, setVoucherCode] = useState('');
@@ -200,11 +202,12 @@ function CheckoutPage() {
   const shippingDiscount = Number(shippingQuote?.discountAmount ?? shippingQuote?.DiscountAmount ?? 0);
   const carrierName = shippingQuote?.carrierName ?? shippingQuote?.CarrierName;
   const totalAmount = Math.max(0, subtotal - voucherDiscount + shippingFee);
-  const needsDownPayment = form.orderType === 'Deposit' || form.orderType === 'Installment';
+  // Trả góp KHÔNG thu trước khoản nào (đối tác tài chính xử lý); chỉ đơn đặt cọc mới có khoản trả trước.
   const isInstallment = form.orderType === 'Installment';
-  const depositNum = needsDownPayment ? Number(form.depositAmount) || 0 : 0;
+  const needsDownPayment = form.orderType === 'Deposit';
+  // Tiền cọc khách nhập làm tròn về đồng chẵn (VND không có hào) để số tiền cần thanh toán khớp đúng số đã nhập.
+  const depositNum = needsDownPayment ? Math.round(Number(form.depositAmount) || 0) : 0;
   const remainingAmount = needsDownPayment ? Math.max(0, totalAmount - depositNum) : 0;
-  const minDownPayment = Math.round((totalAmount * INSTALLMENT_MIN_DOWN_PERCENT) / 100);
   const minDeposit = Math.round((totalAmount * DEPOSIT_MIN_PERCENT) / 100);
 
   function handleChange(e) {
@@ -301,8 +304,18 @@ function CheckoutPage() {
       // Trả góp: gửi hồ sơ cho cửa hàng thẩm định (admin duyệt mới lập đơn bán),
       // không tạo đơn và không yêu cầu chuyển khoản ngay.
       if (isInstallment) {
-        const application = buildInstallmentApplication({ form, items, subtotal, depositNum });
+        const application = buildInstallmentApplication({ form, items, subtotal });
         await installmentApi.submitApplication(application);
+        // Lưu tóm tắt trước khi dọn giỏ (sau khi clear thì items không còn).
+        setInstallmentSummary({
+          partner: form.installmentFinancePartner,
+          term: Number(form.installmentTerm),
+          estimated: totalAmount,
+          phone: form.installmentPhone || form.shippingPhoneNumber,
+          productNames: items.map((item) => `${item.product?.name || item.productName || 'Sản phẩm'} x${item.quantity || 1}`),
+        });
+        // Đơn trả góp đã chuyển thành hồ sơ -> dọn các sản phẩm khỏi giỏ hàng.
+        await clearCart().catch(() => refreshCart().catch(() => {}));
         setInstallmentSubmitted(true);
         window.scrollTo({ top: 0, behavior: 'smooth' });
         return;
@@ -351,10 +364,22 @@ function CheckoutPage() {
               <FiCheck className="h-10 w-10 text-green-600" />
             </div>
             <h1 className="mt-6 text-[32px] font-black text-zinc-950">Đã gửi hồ sơ trả góp!</h1>
-            <p className="mt-3 text-sm leading-7 text-zinc-500">
-              Cửa hàng sẽ liên hệ với bạn qua số điện thoại trong hồ sơ để thẩm định và xác nhận đơn trả góp.
-              Sau khi hồ sơ được duyệt, đơn hàng sẽ xuất hiện trong mục Đơn hàng của tôi.
-            </p>
+
+            {installmentSummary && (
+              <div className="mt-7 rounded-3xl border border-zinc-200 bg-white p-6 text-left shadow-sm">
+                <h2 className="text-sm font-extrabold uppercase tracking-[0.12em] text-zinc-400">Tóm tắt hồ sơ</h2>
+                <dl className="mt-4 space-y-2.5 text-sm">
+                  {installmentSummary.productNames?.length > 0 && (
+                    <div className="flex justify-between gap-4"><dt className="text-zinc-500">Sản phẩm</dt><dd className="text-right font-bold text-zinc-900">{installmentSummary.productNames.join(', ')}</dd></div>
+                  )}
+                  <div className="flex justify-between gap-4"><dt className="text-zinc-500">Đối tác tài chính</dt><dd className="font-bold text-zinc-900">{installmentSummary.partner}</dd></div>
+                  <div className="flex justify-between gap-4"><dt className="text-zinc-500">Kỳ hạn</dt><dd className="font-bold text-zinc-900">{installmentSummary.term} tháng</dd></div>
+                  <div className="flex justify-between gap-4"><dt className="text-zinc-500">Giá trị tạm tính</dt><dd className="font-bold text-zinc-900">{formatCurrency(installmentSummary.estimated)}</dd></div>
+                </dl>
+                <p className="mt-3 text-xs leading-5 text-zinc-400">* Cửa hàng chỉ tiếp nhận hồ sơ — bạn không phải thanh toán hay đặt cọc trước. Toàn bộ khoản vay, lãi suất và lịch thanh toán do đối tác tài chính làm việc trực tiếp với khách.</p>
+              </div>
+            )}
+
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <Link to="/orders" className="inline-flex min-h-12 items-center justify-center rounded-full bg-[#d71920] px-6 text-sm font-extrabold uppercase tracking-[0.08em] text-white transition hover:bg-[#b61016]">
                 Đơn hàng của tôi
@@ -452,6 +477,31 @@ function CheckoutPage() {
               {isInstallment && (
                 <div className="mt-4 space-y-4">
                   <div>
+                    <span className="mb-1.5 block text-sm font-bold text-zinc-700">Đối tác tài chính *</span>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {FINANCE_PARTNERS.map((partner) => {
+                        const selected = form.installmentFinancePartner === partner.name;
+                        return (
+                          <button
+                            type="button"
+                            key={partner.name}
+                            onClick={() => handleChange({ target: { name: 'installmentFinancePartner', value: partner.name } })}
+                            className={`flex items-start gap-3 rounded-2xl border p-4 text-left transition ${selected ? 'border-[#d71920] bg-red-50/50 shadow-sm' : 'border-zinc-200 bg-zinc-50 hover:border-zinc-300'}`}
+                          >
+                            <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${selected ? 'border-[#d71920]' : 'border-zinc-300'}`}>
+                              {selected && <span className="h-2.5 w-2.5 rounded-full bg-[#d71920]" />}
+                            </span>
+                            <span className="min-w-0">
+                              <span className={`block text-sm font-bold ${selected ? 'text-[#d71920]' : 'text-zinc-900'}`}>{partner.name}</span>
+                              <span className="mt-0.5 block text-xs leading-5 text-zinc-500">{partner.tagline}</span>
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {fieldErrors.installmentFinancePartner && <p className="mt-1 text-xs font-medium text-red-500">{fieldErrors.installmentFinancePartner}</p>}
+                  </div>
+                  <div>
                     <span className="mb-1.5 block text-sm font-bold text-zinc-700">Kỳ hạn trả góp *</span>
                     <div className="flex flex-wrap gap-3">
                       {INSTALLMENT_TERMS.map((term) => (
@@ -460,16 +510,9 @@ function CheckoutPage() {
                     </div>
                     {fieldErrors.installmentTerm && <p className="mt-1 text-xs font-medium text-red-500">{fieldErrors.installmentTerm}</p>}
                   </div>
-                  <Field
-                    label={`Số tiền trả trước * (tối thiểu ${INSTALLMENT_MIN_DOWN_PERCENT}% — ${formatCurrency(minDownPayment)})`}
-                    id="depositAmount"
-                    name="depositAmount"
-                    value={form.depositAmount}
-                    onChange={handleChange}
-                    error={fieldErrors.depositAmount}
-                    placeholder={String(minDownPayment || 5000000)}
-                    type="number"
-                  />
+                  <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-700">
+                    Cửa hàng chỉ tiếp nhận hồ sơ — bạn không cần thanh toán hay đặt cọc trước khoản nào. Đối tác tài chính sẽ liên hệ để thẩm định và xử lý toàn bộ khoản vay.
+                  </p>
                 </div>
               )}
             </SectionCard>
@@ -480,23 +523,25 @@ function CheckoutPage() {
             )}
 
             {/* Payment Method */}
-            <SectionCard title="Phương thức thanh toán">
-              <div className="mt-4 space-y-3">
-                {PAYMENT_METHODS.map((m) => (
-                  <label key={m.value} className={`flex cursor-pointer items-center gap-4 rounded-2xl border p-4 transition ${form.paymentMethod === m.value ? 'border-[#d71920] bg-red-50/50 shadow-sm' : 'border-zinc-200 bg-zinc-50 hover:border-zinc-300'}`}>
-                    <input type="radio" name="paymentMethod" value={m.value} checked={form.paymentMethod === m.value} onChange={handleChange} className="sr-only" />
-                    <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${form.paymentMethod === m.value ? 'border-[#d71920]' : 'border-zinc-300'}`}>
-                      {form.paymentMethod === m.value && <span className="h-2.5 w-2.5 rounded-full bg-[#d71920]" />}
-                    </span>
-                    <span className="text-2xl leading-none">{m.icon}</span>
-                    <div className="flex-1 min-w-0">
-                      <div className={`text-sm font-bold ${form.paymentMethod === m.value ? 'text-[#d71920]' : 'text-zinc-900'}`}>{m.label}</div>
-                      <div className="mt-0.5 text-xs text-zinc-500">{m.desc}</div>
-                    </div>
-                  </label>
-                ))}
-              </div>
-            </SectionCard>
+            {!isInstallment && (
+              <SectionCard title="Phương thức thanh toán">
+                <div className="mt-4 space-y-3">
+                  {PAYMENT_METHODS.map((m) => (
+                    <label key={m.value} className={`flex cursor-pointer items-center gap-4 rounded-2xl border p-4 transition ${form.paymentMethod === m.value ? 'border-[#d71920] bg-red-50/50 shadow-sm' : 'border-zinc-200 bg-zinc-50 hover:border-zinc-300'}`}>
+                      <input type="radio" name="paymentMethod" value={m.value} checked={form.paymentMethod === m.value} onChange={handleChange} className="sr-only" />
+                      <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${form.paymentMethod === m.value ? 'border-[#d71920]' : 'border-zinc-300'}`}>
+                        {form.paymentMethod === m.value && <span className="h-2.5 w-2.5 rounded-full bg-[#d71920]" />}
+                      </span>
+                      <span className="text-2xl leading-none">{m.icon}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className={`text-sm font-bold ${form.paymentMethod === m.value ? 'text-[#d71920]' : 'text-zinc-900'}`}>{m.label}</div>
+                        <div className="mt-0.5 text-xs text-zinc-500">{m.desc}</div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </SectionCard>
+            )}
 
             {/* Note */}
             <SectionCard title="Ghi chú đơn hàng">
@@ -519,7 +564,6 @@ function CheckoutPage() {
               remainingAmount,
               needsDownPayment,
               isInstallment,
-              installmentTerm: form.installmentTerm,
             }}
             shipping={{ loading: shippingLoading, error: shippingError }}
             voucher={{

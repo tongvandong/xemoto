@@ -54,6 +54,7 @@ public partial class ReportService
     {
         return orders
             .Where(order => order.OrderStatus != OrderStatus.Cancelled)
+            .Where(order => order.OrderType != OrderType.Installment)
             .Where(order => order.PaymentStatus != PaymentStatus.Paid)
             .Where(order => order.PaymentStatus != PaymentStatus.Refunded)
             .Sum(order => Math.Max(0, order.RemainingAmount));
@@ -76,6 +77,11 @@ public partial class ReportService
     private static bool IsUnpaidActiveOrder(Order order)
     {
         if (order.OrderStatus == OrderStatus.Cancelled)
+        {
+            return false;
+        }
+
+        if (order.OrderType == OrderType.Installment)
         {
             return false;
         }

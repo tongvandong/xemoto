@@ -117,7 +117,6 @@ export const serviceHighlights = [
 export const navItems = [
   { label: 'Trang chủ', to: '/' },
   { label: 'Sản phẩm', to: '/products', hasCaret: true },
-  { label: 'Trả góp', to: '/tra-gop' },
   { label: 'Liên hệ', to: '/contact' },
   { label: 'Câu hỏi thường gặp', to: '/faq' },
 ];

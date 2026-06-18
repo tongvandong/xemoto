@@ -7,32 +7,51 @@ export function formatCurrency(value) {
   }).format(amount);
 }
 
+const VIETNAM_TIME_ZONE = 'Asia/Ho_Chi_Minh';
+
+// Backend lưu DateTime bằng UTC nhưng SQL datetime2 không giữ Kind, nên JSON có thể thiếu hậu tố Z.
+// Nếu gặp chuỗi ISO không có timezone, hiểu nó là UTC rồi hiển thị theo giờ Việt Nam.
+export function parseApiDate(value) {
+  if (!value) return null;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+
+  const text = String(value);
+  const hasTimezone = /(?:z|[+-]\d{2}:?\d{2})$/i.test(text);
+  const normalized = /^\d{4}-\d{2}-\d{2}T/.test(text) && !hasTimezone ? `${text}Z` : text;
+  const date = new Date(normalized);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
 // Định dạng ngày dùng chung cho toàn storefront (tránh mỗi nơi tự gọi toLocaleDateString với option khác nhau).
 export function formatDate(value) {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const date = parseApiDate(value);
+  if (!date) return '';
+  return date.toLocaleDateString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    timeZone: VIETNAM_TIME_ZONE,
+  });
 }
 
 // Định dạng ngày + giờ dùng chung.
 export function formatDateTime(value) {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return date.toLocaleDateString('vi-VN', {
+  const date = parseApiDate(value);
+  if (!date) return '';
+  return date.toLocaleString('vi-VN', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: VIETNAM_TIME_ZONE,
   });
 }
 
 // Ngày giờ tuyệt đối kèm khoảng cách tương đối ("vừa xong", "5 phút trước") cho danh sách đơn hàng.
 export function formatDateTimeWithRelative(value, now) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'Chưa cập nhật';
+  const date = parseApiDate(value);
+  if (!date) return 'Chưa cập nhật';
 
   const absoluteTime = formatDateTime(value);
   const diffMs = now.getTime() - date.getTime();

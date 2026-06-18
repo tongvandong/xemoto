@@ -114,12 +114,12 @@ public partial class OrderService
             if (req.DepositAmount <= 0 || req.DepositAmount >= order.GrandTotal)
                 throw new OrderException("Tiền đặt cọc không hợp lệ.");
             order.DepositAmount = req.DepositAmount;
-            order.RemainingAmount = order.GrandTotal - req.DepositAmount;
         }
-        else
-        {
-            order.RemainingAmount = order.GrandTotal;
-        }
+
+        // Đơn online CHƯA thu đồng nào lúc tạo (khách chuyển khoản sau), nên số còn phải thu = toàn bộ tổng đơn.
+        // DepositAmount chỉ là khoản cọc DỰ KIẾN; khi khách trả cọc, UpdateOrderAfterPaidAmount sẽ trừ dần
+        // RemainingAmount theo số đã thu thực tế. (Trước đây trừ cọc ngay tại đây khiến "tiền còn lại" bị sai.)
+        order.RemainingAmount = order.GrandTotal;
 
         _orders.Add(order);
         await _orders.SaveChangesAsync(); // sinh OrderId + OrderLine.Id

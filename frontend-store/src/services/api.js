@@ -226,9 +226,13 @@ export const orderApi = {
       && order?.paymentStatus === 'Unpaid'
       && !hasPaidRecord
       && Number(order?.depositAmount || 0) > 0;
-    const amountDue = isFirstDepositPayment
-      ? Number(order.depositAmount)
-      : Number(order?.remainingAmount || order?.totalAmount || 0);
+    // Làm tròn về đồng chẵn (VND không có hào): số tiền cần chuyển phải khớp đúng số khách đã nhập đặt cọc,
+    // tránh lệch vài đồng do số thập phân khi tính giảm giá / phần còn lại.
+    const amountDue = Math.round(
+      isFirstDepositPayment
+        ? Number(order.depositAmount)
+        : Number(order?.remainingAmount || order?.totalAmount || 0),
+    );
     const orderCode = order?.orderCode || id;
     const bankCode = showroom.bankCode || '';
     const accountNo = showroom.bankAccountNo || '';
@@ -275,6 +279,14 @@ export const orderApi = {
 export const installmentApi = {
   // Gửi hồ sơ tư vấn trả góp từ trang thanh toán; admin thẩm định trong trang "Hồ sơ trả góp" rồi duyệt thành đơn bán.
   submitApplication: (data) => api.post('/installment-applications', data).then(responseData),
+  // Hồ sơ trả góp của chính khách (đăng nhập) — hiển thị trong "Đơn hàng của tôi".
+  getMine: () => api.get('/installment-applications/mine').then((res) => {
+    const items = res.data?.items || res.data || [];
+    return Array.isArray(items) ? items : [];
+  }),
+  getById: (id) => api.get(`/installment-applications/${id}`).then((res) => res.data),
+  update: (id, data) => api.put(`/installment-applications/${id}`, data).then(responseData),
+  cancel: (id) => api.post(`/installment-applications/${id}/cancel`).then(responseData),
   // Đăng ký tư vấn trả góp từ trang /tra-gop (map field tường minh để khớp contract backend).
   register: (data) => api.post('/installment-applications', {
     productId: data.productId ?? null,

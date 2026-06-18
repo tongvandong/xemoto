@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { productApi } from '../services/api.js';
 import Breadcrumb from '../components/Breadcrumb.jsx';
 import ErrorState from '../components/ErrorState.jsx';
@@ -463,12 +463,6 @@ function ProductDetailPage() {
                     isFavorite={isFavorite(product)}
                     onToggleFavorite={() => handleToggleFavorite(product)}
                   />
-                  <Link
-                    to={`/tra-gop?productId=${product.id}${selectedVariant?.id ? `&skuId=${selectedVariant.id}` : ''}&product=${encodeURIComponent(product.name || '')}`}
-                    className="flex items-center justify-center gap-2 rounded-xl border border-[#d71920] px-4 py-2.5 text-sm font-semibold text-[#d71920] transition hover:bg-[#d71920] hover:text-white"
-                  >
-                    Mua trả góp qua đối tác tài chính
-                  </Link>
                 </div>
 
                 <div className="space-y-5 lg:hidden xl:block">

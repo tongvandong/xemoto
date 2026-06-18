@@ -138,7 +138,9 @@ public class CustomerProfileService : ICustomerProfileService
         IReadOnlyList<CustomerProfileInteractionDto> interactions)
     {
         decimal orderTotal = orders.Sum(order => order.GrandTotal);
-        decimal remainingTotal = orders.Sum(order => order.RemainingAmount);
+        decimal remainingTotal = orders
+            .Where(order => order.PaymentStatus != "Paid" && order.PaymentStatus != "Refunded")
+            .Sum(order => order.RemainingAmount);
         int openCrmCount = interactions.Count(interaction => interaction.InteractionStatus == "Open");
 
         return new CustomerProfileSummaryDto(

@@ -1,20 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
 import { FiStar } from 'react-icons/fi';
 import { Link, useNavigate } from 'react-router-dom';
-import { orderApi, reviewApi } from '../services/api.js';
+import { orderApi, reviewApi, installmentApi } from '../services/api.js';
 import Breadcrumb from '../components/Breadcrumb.jsx';
 import LoadingState from '../components/LoadingState.jsx';
 import StatusBadge from '../components/common/StatusBadge.jsx';
 import AwaitingPaymentReminder from '../components/orders/AwaitingPaymentReminder.jsx';
 import ReviewProductPicker from '../components/orders/ReviewProductPicker.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
-import { formatCurrency, formatDateTimeWithRelative } from '../utils/formatters.js';
+import { formatCurrency, formatDateTimeWithRelative, parseApiDate } from '../utils/formatters.js';
 import ReviewModal from '../components/product/ReviewModal.jsx';
 import {
   getOrderStatusLabel, getOrderStatusColor,
   getShippingStatusLabel, getShippingStatusColor,
-  getPaymentStatusColor, getPaymentStatusContextual,
-  getOrderTypeLabel,
+  getPaymentStatusColor, getOrderTypeLabel,
 } from '../utils/statusMappings.js';
 import {
   isOrderReviewable,
@@ -23,6 +22,13 @@ import {
   getReviewableOrderItems,
   hasReviewableItems,
 } from '../utils/reviewEligibility.js';
+
+const INSTALLMENT_STATUS = {
+  Pending: { label: 'Chờ duyệt', color: 'bg-amber-100 text-amber-700' },
+  Approved: { label: 'Đã duyệt', color: 'bg-green-100 text-green-700' },
+  Rejected: { label: 'Từ chối', color: 'bg-red-100 text-red-700' },
+  Cancelled: { label: 'Đã hủy', color: 'bg-zinc-200 text-zinc-600' },
+};
 
 function OrdersPage() {
   const navigate = useNavigate();
@@ -36,6 +42,16 @@ function OrdersPage() {
   const [reviewOrderId, setReviewOrderId] = useState(null);
   const [reviewPickerOrder, setReviewPickerOrder] = useState(null);
   const [reviewStatusByProductId, setReviewStatusByProductId] = useState({});
+  const [installmentApps, setInstallmentApps] = useState([]);
+
+  const fetchInstallmentApps = useCallback(async () => {
+    try {
+      const data = await installmentApi.getMine();
+      setInstallmentApps(Array.isArray(data) ? data : []);
+    } catch {
+      setInstallmentApps([]);
+    }
+  }, []);
 
   const fetchOrders = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
@@ -43,13 +59,13 @@ function OrdersPage() {
     try {
       const data = await orderApi.getMyOrders();
       const list = Array.isArray(data) ? data : data?.orders || data?.$values || [];
-      list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      list.sort((a, b) => (parseApiDate(b.createdAt)?.getTime() || 0) - (parseApiDate(a.createdAt)?.getTime() || 0));
       setOrders(list);
 
       // Đơn còn cần khách chuyển khoản: chưa hủy và chưa trả tiền.
       // (PendingConfirmation = khách đã báo chuyển khoản, đang chờ cửa hàng xác nhận — không nhắc nữa.)
       setAwaitingOrders(list.filter(
-        (order) => order.orderStatus !== 'Cancelled' && order.paymentStatus === 'Unpaid',
+        (order) => order.orderType !== 'Installment' && order.orderStatus !== 'Cancelled' && order.paymentStatus === 'Unpaid',
       ));
     } catch (err) {
       setError(err?.message || 'Không thể tải danh sách đơn hàng');
@@ -65,15 +81,17 @@ function OrdersPage() {
     }
 
     fetchOrders();
+    fetchInstallmentApps();
     // Làm mới nền 30s để bắt thay đổi trạng thái từ cửa hàng; bỏ qua khi tab ẩn để khỏi gọi API thừa.
     const refreshTimer = window.setInterval(() => {
       if (document.visibilityState !== 'visible') return;
       setNow(new Date());
       fetchOrders({ silent: true });
+      fetchInstallmentApps();
     }, 30000);
 
     return () => window.clearInterval(refreshTimer);
-  }, [fetchOrders, isAuthenticated, navigate]);
+  }, [fetchOrders, fetchInstallmentApps, isAuthenticated, navigate]);
 
   useEffect(() => {
     if (!isAuthenticated || orders.length === 0) {
@@ -154,6 +172,23 @@ function OrdersPage() {
   const reviewShortcutOrders = orders
     .filter((order) => hasReviewableItems(order, reviewStatusByProductId))
     .slice(0, 3);
+  const orderIds = new Set(orders.map((order) => String(order.id)));
+  const installmentRecords = installmentApps
+    .filter((application) => application.applicationStatus !== 'Approved' || !application.orderId || !orderIds.has(String(application.orderId)))
+    .map((application) => ({
+      kind: 'installment',
+      id: `installment-${application.id}`,
+      date: application.createdDate,
+      application,
+    }));
+  const orderRecords = orders.map((order) => ({
+    kind: 'order',
+    id: `order-${order.id}`,
+    date: order.createdAt,
+    order,
+  }));
+  const timelineRecords = [...installmentRecords, ...orderRecords]
+    .sort((a, b) => (parseApiDate(b.date)?.getTime() || 0) - (parseApiDate(a.date)?.getTime() || 0));
 
   return (
     <>
@@ -219,7 +254,7 @@ function OrdersPage() {
           )}
 
           {/* Empty */}
-          {!loading && !error && orders.length === 0 && awaitingOrders.length === 0 && (
+          {!loading && !error && timelineRecords.length === 0 && awaitingOrders.length === 0 && (
             <div className="mt-8 flex flex-col items-center justify-center rounded-[28px] border border-zinc-200 bg-white py-20 shadow-sm">
               <div className="text-6xl">📦</div>
               <h3 className="mt-4 text-lg font-bold text-zinc-700">Chưa có đơn hàng nào</h3>
@@ -228,75 +263,28 @@ function OrdersPage() {
             </div>
           )}
 
-          {!loading && !error && orders.length === 0 && awaitingOrders.length > 0 && (
+          {!loading && !error && timelineRecords.length === 0 && awaitingOrders.length > 0 && (
             <div className="rounded-[22px] border border-zinc-200 bg-white py-10 text-center text-sm text-zinc-500">
               Chưa có đơn hàng nào đã thanh toán. Hoàn tất thanh toán đơn ở trên để xuất hiện tại đây.
             </div>
           )}
 
           {/* Orders List */}
-          {!loading && !error && orders.length > 0 && (
+          {!loading && !error && timelineRecords.length > 0 && (
             <div className="mt-6 space-y-4">
-              {orders.map((order) => (
-                <article
-                  key={order.id}
-                  role="link"
-                  tabIndex={0}
-                  onClick={() => navigate(`/orders/${order.id}`)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault();
-                      navigate(`/orders/${order.id}`);
-                    }
-                  }}
-                  className="group block cursor-pointer rounded-[22px] border border-zinc-200 bg-white p-5 shadow-sm transition hover:border-zinc-300 hover:shadow-md"
-                >
-                  {/* Header row */}
-                  <div className="flex flex-wrap items-center gap-3">
-                    <div className="flex-1 min-w-0">
-                      <span className="text-sm font-black text-zinc-900">#{order.orderCode || order.id}</span>
-                      <span className="ml-3 text-xs text-zinc-400">{formatDateTimeWithRelative(order.createdAt, now)}</span>
-                    </div>
-                    <StatusBadge label={getOrderStatusLabel(order.orderStatus)} colorClass={getOrderStatusColor(order.orderStatus)} />
-                  </div>
-
-                  {/* Info grid */}
-                  <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                    <InfoCell label="Loại đơn" value={
-                      <span className="text-sm font-bold text-zinc-700">{getOrderTypeLabel(order.orderType)}</span>
-                    } />
-                    <InfoCell label="Thanh toán" value={
-                      <StatusBadge label={getPaymentStatusContextual(order.paymentStatus, order.orderType)} colorClass={getPaymentStatusColor(order.paymentStatus)} />
-                    } />
-                    <InfoCell label="Vận chuyển" value={
-                      <StatusBadge label={getShippingStatusLabel(order.shippingStatus)} colorClass={getShippingStatusColor(order.shippingStatus)} />
-                    } />
-                    <InfoCell label="Tổng tiền" value={
-                      <span className="text-base font-black text-[#d71920]">{formatCurrency(order.totalAmount)}</span>
-                    } />
-                  </div>
-
-                  {/* Footer */}
-                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-100 pt-3">
-                    <div className="text-xs text-zinc-500">
-                      {order.discountAmount > 0 && <span className="mr-3">Giảm giá: <span className="font-bold text-green-600">-{formatCurrency(order.discountAmount)}</span></span>}
-                      {order.depositAmount > 0 && <span>Đã cọc: <span className="font-bold text-amber-600">{formatCurrency(order.depositAmount)}</span></span>}
-                    </div>
-                    <div className="flex flex-wrap items-center justify-end gap-2">
-                      {hasReviewableItems(order, reviewStatusByProductId) && (
-                        <button
-                          type="button"
-                          onClick={(event) => handleReviewOrder(event, order)}
-                          className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-xs font-extrabold uppercase tracking-wider text-amber-700 transition hover:border-amber-300 hover:bg-amber-100"
-                        >
-                          <FiStar className="h-4 w-4" />
-                          Đánh giá đơn hàng
-                        </button>
-                      )}
-                      <span className="text-xs font-bold text-[#d71920] transition group-hover:translate-x-1">Xem chi tiết →</span>
-                    </div>
-                  </div>
-                </article>
+              {timelineRecords.map((record) => (
+                record.kind === 'installment'
+                  ? <InstallmentCard key={record.id} application={record.application} now={now} onOpen={() => navigate(`/installments/${record.application.id}`)} />
+                  : (
+                    <OrderCard
+                      key={record.id}
+                      order={record.order}
+                      now={now}
+                      reviewStatusByProductId={reviewStatusByProductId}
+                      onOpen={() => navigate(`/orders/${record.order.id}`)}
+                      onReview={(event) => handleReviewOrder(event, record.order)}
+                    />
+                  )
               ))}
             </div>
           )}
@@ -324,6 +312,106 @@ function OrdersPage() {
         }}
       />
     </>
+  );
+}
+
+function InstallmentCard({ application, now, onOpen }) {
+  const meta = INSTALLMENT_STATUS[application.applicationStatus] || { label: application.applicationStatus, color: 'bg-zinc-100 text-zinc-700' };
+  return (
+    <article
+      role="link"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onOpen();
+        }
+      }}
+      className="group block cursor-pointer rounded-[22px] border border-zinc-200 bg-white p-5 shadow-sm transition hover:border-zinc-300 hover:shadow-md"
+    >
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex-1 min-w-0">
+          <span className="text-sm font-black text-zinc-900">Hồ sơ trả góp #{application.code || application.id}</span>
+          <span className="ml-3 text-xs text-zinc-400">{formatDateTimeWithRelative(application.createdDate, now)}</span>
+        </div>
+        <StatusBadge label={meta.label} colorClass={meta.color} />
+      </div>
+
+      <div className="mt-3 grid gap-2 sm:grid-cols-3">
+        <InfoCell label="Sản phẩm" value={<span className="text-sm font-bold text-zinc-700">{application.productSnapshot || 'Sản phẩm trả góp'}</span>} />
+        <InfoCell label="Đối tác tài chính" value={<span className="text-sm font-bold text-zinc-700">{application.financePartner || '—'}</span>} />
+        <InfoCell label="Kỳ hạn" value={<span className="text-sm font-bold text-zinc-700">{application.months ? `${application.months} tháng` : '—'}</span>} />
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-100 pt-3">
+        <div className="text-xs text-zinc-500">
+          {application.applicationStatus === 'Pending' ? 'Có thể chỉnh sửa trước khi cửa hàng duyệt.' : 'Hồ sơ đã được cập nhật trạng thái.'}
+        </div>
+        <span className="text-xs font-bold text-[#d71920] transition group-hover:translate-x-1">{application.applicationStatus === 'Pending' ? 'Xem & sửa →' : 'Xem chi tiết →'}</span>
+      </div>
+    </article>
+  );
+}
+
+function OrderCard({ order, now, reviewStatusByProductId, onOpen, onReview }) {
+  // Cột "Thanh toán" hiển thị theo loại đơn: Đặt cọc → Trả trước, Thanh toán toàn bộ, Trả góp.
+  const paymentLabel = order.orderType === 'Deposit'
+    ? 'Trả trước'
+    : getOrderTypeLabel(order.orderType);
+  // Không hiển thị badge "Chờ xác nhận" trên thẻ đơn — trạng thái vận chuyển bên dưới đã đủ ý.
+  const orderStatusLabel = getOrderStatusLabel(order.orderStatus);
+  const showOrderStatusBadge = orderStatusLabel !== 'Chờ xác nhận';
+
+  return (
+    <article
+      role="link"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onOpen();
+        }
+      }}
+      className="group block cursor-pointer rounded-[22px] border border-zinc-200 bg-white p-5 shadow-sm transition hover:border-zinc-300 hover:shadow-md"
+    >
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex-1 min-w-0">
+          <span className="text-sm font-black text-zinc-900">#{order.orderCode || order.id}</span>
+          <span className="ml-3 text-xs text-zinc-400">{formatDateTimeWithRelative(order.createdAt, now)}</span>
+        </div>
+        {showOrderStatusBadge && (
+          <StatusBadge label={orderStatusLabel} colorClass={getOrderStatusColor(order.orderStatus)} />
+        )}
+      </div>
+
+      <div className="mt-3 grid gap-2 sm:grid-cols-3">
+        <InfoCell label="Thanh toán" value={<StatusBadge label={paymentLabel} colorClass={getPaymentStatusColor(order.paymentStatus)} />} />
+        <InfoCell label="Vận chuyển" value={<StatusBadge label={getShippingStatusLabel(order.shippingStatus)} colorClass={getShippingStatusColor(order.shippingStatus)} />} />
+        <InfoCell label="Tổng tiền" value={<span className="text-base font-black text-[#d71920]">{formatCurrency(order.totalAmount)}</span>} />
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-100 pt-3">
+        <div className="text-xs text-zinc-500">
+          {order.discountAmount > 0 && <span className="mr-3">Giảm giá: <span className="font-bold text-green-600">-{formatCurrency(order.discountAmount)}</span></span>}
+          {order.depositAmount > 0 && <span>Đã cọc: <span className="font-bold text-amber-600">{formatCurrency(order.depositAmount)}</span></span>}
+        </div>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {hasReviewableItems(order, reviewStatusByProductId) && (
+            <button
+              type="button"
+              onClick={onReview}
+              className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-xs font-extrabold uppercase tracking-wider text-amber-700 transition hover:border-amber-300 hover:bg-amber-100"
+            >
+              <FiStar className="h-4 w-4" />
+              Đánh giá đơn hàng
+            </button>
+          )}
+          <span className="text-xs font-bold text-[#d71920] transition group-hover:translate-x-1">Xem chi tiết →</span>
+        </div>
+      </div>
+    </article>
   );
 }
 
