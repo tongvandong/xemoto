@@ -1,7 +1,7 @@
-// Lớp service gọi backend của storefront (3 lớp: page -> api -> http; chuẩn hóa ở normalizers.js).
+// Lớp service gọi backend của storefront.
 // - Gọi axios qua `api` (httpClient.js lo baseURL/token/interceptor).
-// - Map dữ liệu qua helper trong normalizers.js (mapOrder/mapVoucher/field/toQuery...), trả shape ổn định cho UI.
-// - Adapter này nói chuyện với backend xemoto (MoToSale) qua gateway 5100, contract tiếng Anh.
+// - Đọc đúng tên field camelCase backend; chỉ map những shape UI hiện còn dùng chung.
+// - Adapter này nói chuyện với backend xemoto (MoToSale) qua gateway 5100.
 import api, {
   responseData,
   getToken,
@@ -16,21 +16,175 @@ import api, {
   AUTH_CHANGED_EVENT,
 } from './httpClient.js';
 import {
-  mapOrder,
-  mapVoucher,
-  mapFavorite,
-  mapReview,
-  buildReviewPayload,
-  toQuery,
-  listOf,
-  mapAddressBody,
   normalizeCart,
   normalizeCategory,
   normalizeFilters,
   normalizeProduct,
   normalizeProductList,
-} from './normalizers.js';
+} from '../utils/productMappers.js';
 import { notifyCartChanged } from '../utils/cartEvents.js';
+import { normalizeImageUrl } from '../utils/formatters.js';
+
+const toNumber = (value) => Number(value || 0);
+const listOf = (data) => (Array.isArray(data) ? data : data?.items || []);
+
+const mapShippingStatus = (status) => {
+  if (status === 'Unallocated' || status === 'Allocated' || status === 'Preparing' || status === 'Pending') {
+    return 'Preparing';
+  }
+  if (status === 'Shipped' || status === 'Shipping') {
+    return 'Shipping';
+  }
+  if (status === 'Fulfilled' || status === 'Delivered' || status === 'Completed') {
+    return 'Delivered';
+  }
+  return status;
+};
+
+const mapPayment = (raw = {}) => ({
+  id: raw.id,
+  paymentCode: raw.code,
+  orderId: raw.orderId,
+  paymentType: raw.paymentType,
+  amount: toNumber(raw.amount),
+  paymentMethod: raw.method,
+  paymentStatus: raw.status,
+  transactionRef: raw.transactionRef,
+  paidAt: raw.paidAt,
+  createdAt: raw.paidAt,
+});
+
+const mapOrderLine = (line) => ({
+  id: line.id,
+  productId: line.productId,
+  productVariantId: line.skuId,
+  productNameSnapshot: line.productName,
+  skuSnapshot: line.skuCode,
+  unitPrice: toNumber(line.unitPrice),
+  quantity: toNumber(line.qty),
+  lineTotal: toNumber(line.lineTotal),
+});
+
+const mapOrder = (raw = {}) => ({
+  id: raw.id,
+  orderCode: raw.code,
+  userId: raw.userId,
+  customerName: raw.customerName,
+  shippingFullName: raw.shippingRecipient,
+  shippingPhoneNumber: raw.shippingPhone,
+  shippingEmail: raw.shippingEmail,
+  shippingAddressLine: raw.shippingAddress,
+  receivingMethod: raw.receivingMethod,
+  paymentMethod: raw.paymentMethod,
+  orderType: raw.orderType,
+  subtotal: toNumber(raw.subtotal),
+  discountAmount: toNumber(raw.discountTotal),
+  shippingFee: toNumber(raw.shippingFee),
+  totalAmount: toNumber(raw.grandTotal),
+  depositAmount: toNumber(raw.depositAmount),
+  remainingAmount: toNumber(raw.remainingAmount),
+  orderStatus: raw.orderStatus,
+  paymentStatus: raw.paymentStatus,
+  shippingStatus: mapShippingStatus(raw.fulfillmentStatus || raw.orderStatus),
+  note: raw.note,
+  fulfillmentNote: raw.fulfillmentNote,
+  pickupAppointmentAt: raw.pickupAppointmentAt,
+  createdAt: raw.placedAt,
+  items: (raw.lines || []).map(mapOrderLine),
+  payments: (raw.payments || []).map(mapPayment),
+  histories: raw.histories || [],
+  vouchers: [],
+});
+
+const mapVoucher = (raw = {}) => ({
+  id: raw.id,
+  code: raw.code,
+  description: raw.description,
+  discountType: raw.discountType,
+  discountValue: toNumber(raw.discountValue),
+  maxDiscountValue: raw.maxDiscount,
+  minOrderValue: toNumber(raw.minOrderValue),
+  usageLimit: raw.usageLimit,
+  perUserLimit: raw.perUserLimit,
+  usedCount: raw.usedCount,
+  startAt: raw.startAt,
+  endAt: raw.endAt,
+  status: raw.status,
+});
+
+const mapFavorite = (raw = {}) => ({
+  id: raw.id,
+  userId: raw.userId,
+  productId: raw.productId,
+  createdAt: raw.createdDate,
+  product: raw.product ? normalizeProduct(raw.product) : null,
+});
+
+const mapReview = (raw = {}) => ({
+  id: raw.id,
+  rating: toNumber(raw.rating),
+  title: raw.title,
+  comment: raw.comment,
+  userName: raw.userName,
+  status: raw.reviewStatus,
+  imageUrl: normalizeImageUrl(raw.imageUrl),
+  createdAt: raw.createdDate,
+});
+
+const buildReviewPayload = (payload = {}) => ({
+  rating: payload.rating,
+  title: payload.title ?? null,
+  comment: payload.comment ?? '',
+  orderId: payload.orderId ?? null,
+});
+
+const mapAddressBody = (data) => ({
+  recipientName: data.fullName,
+  phone: data.phoneNumber,
+  line: data.addressLine,
+  ward: data.ward,
+  district: data.district,
+  province: data.province,
+  note: data.note,
+});
+
+const toQuery = (params = {}) => {
+  const sortMap = {
+    price_asc: { SortBy: 'price', SortDescending: false },
+    price_desc: { SortBy: 'price', SortDescending: true },
+    name_asc: { SortBy: 'name', SortDescending: false },
+    name_desc: { SortBy: 'name', SortDescending: true },
+    year_asc: { SortBy: 'created', SortDescending: false },
+    year_desc: { SortBy: 'created', SortDescending: true },
+  };
+
+  const paramMap = {
+    categoryId: 'CategoryId',
+    brandId: 'BrandId',
+    carModelId: 'VehicleModelId',
+    compatibleCarModelId: 'CompatibleVehicleModelId',
+    showroomId: 'ShowroomId',
+    productType: 'Kind',
+    status: 'Status',
+    minPrice: 'MinPrice',
+    maxPrice: 'MaxPrice',
+  };
+
+  const source = { ...params };
+  if (sortMap[params.sortBy]) {
+    delete source.sortBy;
+    Object.assign(source, sortMap[params.sortBy]);
+  }
+
+  const mapped = Object.entries(source).reduce((acc, [key, value]) => {
+    acc[paramMap[key] || key] = value;
+    return acc;
+  }, {});
+
+  return Object.fromEntries(
+    Object.entries(mapped).filter(([, value]) => value !== '' && value !== undefined && value !== null),
+  );
+};
 
 // ===== Auth =====
 
