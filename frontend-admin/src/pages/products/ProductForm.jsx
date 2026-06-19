@@ -40,12 +40,16 @@ const normalizeText = (value) => String(value || '')
   .replace(/đ/g, 'd')
   .trim();
 
+const SHOW_MAIN_IMAGE_UPLOAD_INPUT = true; // Đổi thành false để ẩn phần upload ảnh chính từ máy tính trong form sản phẩm.
+const SHOW_MAIN_IMAGE_URL_INPUT = true; // Đổi thành false để ẩn phần nhập URL ảnh chính trong form sản phẩm.
+
 const ProductForm = ({ show, onClose, onSaved, product, categories = [], brands = [], manufacturers = [], fixedProductType = null }) => {
   const isEdit = !!product;
   const lockedType = fixedProductType || null;
   const [models, setModels] = useState([]);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
+  const [originalMainImageUrl, setOriginalMainImageUrl] = useState('');
 
   const [form, setForm] = useState({
     maSP: '',
@@ -61,6 +65,7 @@ const ProductForm = ({ show, onClose, onSaved, product, categories = [], brands 
     giaKhuyenMai: '',
     soLuongTon: '',
     anhChinhUrl: '',
+    anhChinhPreviewUrl: '',
     anhChinhFile: null,
     trangThai: 'Available',
     noiBat: false,
@@ -129,6 +134,8 @@ const ProductForm = ({ show, onClose, onSaved, product, categories = [], brands 
 
   useEffect(() => {
     if (product) {
+      const mainImageUrl = product.anhChinhUrl || product.mainImage || '';
+      setOriginalMainImageUrl(mainImageUrl);
       setForm({
         maSP: product.maSanPhamKinhDoanh || product.maSP || product.sku || '',
         tenSanPham: product.tenSanPham || product.name || '',
@@ -142,13 +149,15 @@ const ProductForm = ({ show, onClose, onSaved, product, categories = [], brands 
         giaGoc: product.giaGoc || product.basePrice || '',
         giaKhuyenMai: product.giaKhuyenMai || product.salePrice || '',
         soLuongTon: product.soLuongTon ?? product.stock ?? 0,
-        anhChinhUrl: product.anhChinhUrl || product.mainImage || '',
+        anhChinhUrl: mainImageUrl,
+        anhChinhPreviewUrl: mainImageUrl,
         anhChinhFile: null,
         trangThai: product.trangThaiSanPham || product.trangThai || product.status || 'Available',
         noiBat: product.noiBat ?? product.NoiBat ?? false,
         hotDeal: product.hotDeal ?? product.HotDeal ?? false,
       });
     } else {
+      setOriginalMainImageUrl('');
       setForm({
         maSP: '',
         tenSanPham: '',
@@ -163,6 +172,7 @@ const ProductForm = ({ show, onClose, onSaved, product, categories = [], brands 
         giaKhuyenMai: '',
         soLuongTon: '',
         anhChinhUrl: '',
+        anhChinhPreviewUrl: '',
         anhChinhFile: null,
         trangThai: 'Available',
         noiBat: false,
@@ -247,6 +257,7 @@ const ProductForm = ({ show, onClose, onSaved, product, categories = [], brands 
     setSaving(true);
     try {
       const mainImageFile = form.anhChinhFile;
+      const mainImageUrl = String(form.anhChinhUrl || '').trim();
       const payload = {
         maSanPhamKinhDoanh: form.maSP || undefined,
         tenSanPham: form.tenSanPham,
@@ -259,7 +270,6 @@ const ProductForm = ({ show, onClose, onSaved, product, categories = [], brands 
         moTaNgan: form.moTaNgan || undefined,
         giaGoc: Number(form.giaGoc) || 0,
         giaKhuyenMai: Number(form.giaKhuyenMai) || null,
-        anhChinhUrl: mainImageFile ? undefined : form.anhChinhUrl || undefined,
         trangThaiSanPham: form.trangThai,
         noiBat: !!form.noiBat,
         hotDeal: !!form.hotDeal,
@@ -278,6 +288,13 @@ const ProductForm = ({ show, onClose, onSaved, product, categories = [], brands 
         formData.append('file', mainImageFile);
         formData.append('isMain', 'true');
         await productService.uploadImage(productId, formData);
+      }
+      if (mainImageUrl && productId && (!isEdit || mainImageUrl !== originalMainImageUrl)) {
+        await productService.addImageUrl(productId, {
+          url: mainImageUrl,
+          isPrimary: !mainImageFile,
+          sortOrder: mainImageFile ? 1 : 0,
+        });
       }
       onSaved();
     } catch (err) {
@@ -463,29 +480,50 @@ const ProductForm = ({ show, onClose, onSaved, product, categories = [], brands 
                 </div>
               </div>
 
-              <div className="form-group">
-                <label>Ảnh chính</label>
-                <div className="custom-file">
-                  <input
-                    type="file"
-                    className="custom-file-input"
-                    id="mainImageFile"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files[0];
-                      if (file) {
-                        setForm((prev) => ({ ...prev, anhChinhFile: file, anhChinhUrl: URL.createObjectURL(file) }));
-                      }
-                    }}
-                  />
-                  <label className="custom-file-label" htmlFor="mainImageFile">
-                    {form.anhChinhFile ? form.anhChinhFile.name : 'Chọn ảnh từ máy tính...'}
-                  </label>
+              {(SHOW_MAIN_IMAGE_UPLOAD_INPUT || SHOW_MAIN_IMAGE_URL_INPUT) && (
+                <div className="form-group">
+                  <label>Ảnh chính</label>
+                  {SHOW_MAIN_IMAGE_UPLOAD_INPUT && (
+                    <div className="custom-file">
+                      <input
+                        type="file"
+                        className="custom-file-input"
+                        id="mainImageFile"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files[0];
+                          if (file) {
+                            setForm((prev) => ({ ...prev, anhChinhFile: file, anhChinhPreviewUrl: URL.createObjectURL(file) }));
+                          }
+                        }}
+                      />
+                      <label className="custom-file-label" htmlFor="mainImageFile">
+                        {form.anhChinhFile ? form.anhChinhFile.name : 'Chọn ảnh từ máy tính...'}
+                      </label>
+                    </div>
+                  )}
+                  {SHOW_MAIN_IMAGE_URL_INPUT && (
+                    <input
+                      type="url"
+                      className={`form-control ${SHOW_MAIN_IMAGE_UPLOAD_INPUT ? 'mt-2' : ''}`}
+                      name="anhChinhUrl"
+                      value={form.anhChinhUrl}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setForm((prev) => ({
+                          ...prev,
+                          anhChinhUrl: value,
+                          anhChinhPreviewUrl: prev.anhChinhFile ? prev.anhChinhPreviewUrl : value,
+                        }));
+                      }}
+                      placeholder="https://example.com/anh-san-pham.jpg"
+                    />
+                  )}
+                  {(form.anhChinhPreviewUrl || form.anhChinhUrl) && (
+                    <img src={form.anhChinhPreviewUrl || form.anhChinhUrl} alt="Preview" className="mt-2 rounded border" style={{ maxHeight: 100, maxWidth: 150, objectFit: 'cover' }} />
+                  )}
                 </div>
-                {form.anhChinhUrl && (
-                  <img src={form.anhChinhUrl} alt="Preview" className="mt-2 rounded border" style={{ maxHeight: 100, maxWidth: 150, objectFit: 'cover' }} />
-                )}
-              </div>
+              )}
             </div>
             <div className="modal-footer">
               <button type="button" className="btn btn-secondary" onClick={onClose}>Hủy</button>

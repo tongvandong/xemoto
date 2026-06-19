@@ -29,6 +29,7 @@ const shouldSyncDisplayName = (form) => {
 };
 
 const SHOW_SKU_BARCODE_FIELD = false; // Doi thanh true de bat lai o quan ly ma vach trong form SKU.
+const SHOW_LOWEST_PRICE_VARIANT_BADGE = false; // Đổi thành false để ẩn đánh dấu biến thể có giá bán thấp nhất.
 
 const VARIANT_LABELS = {
   XeMay: {
@@ -239,21 +240,28 @@ const VariantManager = ({ productId, productType = 'XeMay', onClose }) => {
                     </tr>
                   </thead>
                   <tbody>
-                    {variants.map(v => (
-                      <tr key={v.id}>
-                        <td>{v.tenBienThe || v.variantName || v.name || buildSkuDisplayName(v.phienBan || v.version, v.mauSac || v.color)}</td>
-                        <td>{v.sku}</td>
-                        {SHOW_SKU_BARCODE_FIELD && <td>{v.barcode || v.barCode || v.maVach || ''}</td>}
-                        <td>{v.phienBan || v.version || inferVersion(v) || ''}</td>
-                        <td>{v.mauSac || v.color || ''}</td>
-                        <td>{formatCurrency(v.giaNiemYet ?? v.listPrice ?? 0)}</td>
-                        <td>{(v.giaKhuyenMai ?? v.salePrice) ? formatCurrency(v.giaKhuyenMai ?? v.salePrice) : 'Không'}</td>
-                        <td>
+                    {variants.map(v => {
+                      const isLowestPriceVariant = SHOW_LOWEST_PRICE_VARIANT_BADGE && Boolean(v.laGiaThapNhat ?? v.isLowestPrice);
+                      return (
+                        <tr key={v.id} className={isLowestPriceVariant ? 'table-success' : ''}>
+                          <td>
+                          {v.tenBienThe || v.variantName || v.name || buildSkuDisplayName(v.phienBan || v.version, v.mauSac || v.color)}
+                          {isLowestPriceVariant && (
+                            <span className="badge badge-success ml-2">Giá thấp nhất</span>
+                          )}
+                          </td>
+                          <td>{v.sku}</td>
+                          {SHOW_SKU_BARCODE_FIELD && <td>{v.barcode || v.barCode || v.maVach || ''}</td>}
+                          <td>{v.phienBan || v.version || inferVersion(v) || ''}</td>
+                          <td>{v.mauSac || v.color || ''}</td>
+                          <td>{formatCurrency(v.giaNiemYet ?? v.listPrice ?? 0)}</td>
+                          <td>{(v.giaKhuyenMai ?? v.salePrice) ? formatCurrency(v.giaKhuyenMai ?? v.salePrice) : 'Không'}</td>
+                          <td>
                           <span className={`badge badge-${(v.trangThai || v.status) === 'Available' || (v.trangThai || v.status) === 'Available' ? 'success' : 'secondary'}`}>
                             {(v.trangThai || v.status) === 'Available' || (v.trangThai || v.status) === 'Available' ? 'Hoạt động' : 'Ngừng'}
                           </span>
-                        </td>
-                        <td>
+                          </td>
+                          <td>
                           <button className="btn btn-xs btn-info mr-1" onClick={() => openEdit(v)}>
                             <i className="fas fa-edit"></i>
                           </button>
@@ -262,9 +270,10 @@ const VariantManager = ({ productId, productType = 'XeMay', onClose }) => {
                               <i className="fas fa-trash"></i>
                             </button>
                           )}
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

@@ -5,6 +5,9 @@ import { useAuth } from '../../contexts/AuthContext';
 const imageFallback =
   'data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22200%22%20height%3D%22120%22%20viewBox%3D%220%200%20200%20120%22%3E%3Crect%20width%3D%22200%22%20height%3D%22120%22%20fill%3D%22%23f3f4f6%22/%3E%3Cpath%20d%3D%22M55%2085h90l-28-35-20%2024-13-16z%22%20fill%3D%22%239ca3af%22/%3E%3Ccircle%20cx%3D%2270%22%20cy%3D%2242%22%20r%3D%2210%22%20fill%3D%22%23d1d5db%22/%3E%3Ctext%20x%3D%22100%22%20y%3D%22105%22%20text-anchor%3D%22middle%22%20font-family%3D%22Arial%2Csans-serif%22%20font-size%3D%2212%22%20fill%3D%22%236b7280%22%3ENo%20Image%3C/text%3E%3C/svg%3E';
 
+const SHOW_PRODUCT_IMAGE_UPLOAD_INPUT = true; // Đổi thành false để ẩn phần upload ảnh từ máy tính trong quản lý ảnh sản phẩm.
+const SHOW_PRODUCT_IMAGE_URL_INPUT = false; // Đổi thành false để ẩn phần nhập URL ảnh trong quản lý ảnh sản phẩm.
+
 const ImageManager = ({ productId, onClose }) => {
   const { isAdmin } = useAuth();
   const [images, setImages] = useState([]);
@@ -12,7 +15,9 @@ const ImageManager = ({ productId, onClose }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [addingUrl, setAddingUrl] = useState(false);
   const [previews, setPreviews] = useState([]);
+  const [imageUrl, setImageUrl] = useState('');
   const [selectedVariant, setSelectedVariant] = useState('');
   const [viewFilter, setViewFilter] = useState('all'); // 'all', 'common', or variant id
   const fileInputRef = useRef(null);
@@ -97,6 +102,31 @@ const ImageManager = ({ productId, onClose }) => {
     }
   };
 
+  const handleAddImageUrl = async () => {
+    const url = imageUrl.trim();
+    if (!url) {
+      alert('Vui lòng nhập URL ảnh!');
+      return;
+    }
+
+    setAddingUrl(true);
+    try {
+      await productService.addImageUrl(productId, {
+        url,
+        skuId: selectedVariant ? Number(selectedVariant) : null,
+        isPrimary: images.length === 0,
+        sortOrder: images.length,
+      });
+      setImageUrl('');
+      fetchData();
+    } catch (err) {
+      alert('Thêm ảnh bằng URL thất bại! Vui lòng kiểm tra lại URL.');
+      console.error(err);
+    } finally {
+      setAddingUrl(false);
+    }
+  };
+
   const handleDelete = async (imageId) => {
     if (!window.confirm('Xóa ảnh này?')) return;
     try {
@@ -149,6 +179,7 @@ const ImageManager = ({ productId, onClose }) => {
           </div>
           <div className="modal-body image-manager-body">
             {/* Upload Section */}
+            {(SHOW_PRODUCT_IMAGE_UPLOAD_INPUT || SHOW_PRODUCT_IMAGE_URL_INPUT) && (
             <div className="card card-primary card-outline mb-3">
               <div className="card-header py-2">
                 <h6 className="card-title m-0"><i className="fas fa-cloud-upload-alt mr-1"></i> Upload ảnh mới</h6>
@@ -172,6 +203,7 @@ const ImageManager = ({ productId, onClose }) => {
                       </select>
                     </div>
                   </div>
+                  {SHOW_PRODUCT_IMAGE_UPLOAD_INPUT && (
                   <div className="col-md-7">
                     <div className="form-group mb-2">
                       <label className="small font-weight-bold">Chọn ảnh:</label>
@@ -191,9 +223,33 @@ const ImageManager = ({ productId, onClose }) => {
                       </div>
                     </div>
                   </div>
+                  )}
                 </div>
 
-                {previews.length > 0 && (
+                {SHOW_PRODUCT_IMAGE_URL_INPUT && (
+                  <div className="form-group mb-2">
+                    <label className="small font-weight-bold">Nhập URL ảnh:</label>
+                    <div className="input-group input-group-sm">
+                      <input
+                        type="url"
+                        className="form-control"
+                        value={imageUrl}
+                        onChange={(e) => setImageUrl(e.target.value)}
+                        placeholder="https://example.com/anh-san-pham.jpg"
+                      />
+                      <div className="input-group-append">
+                        <button type="button" className="btn btn-info" onClick={handleAddImageUrl} disabled={addingUrl}>
+                          {addingUrl ? <><span className="spinner-border spinner-border-sm mr-1"></span>Đang thêm...</> : <><i className="fas fa-link mr-1"></i>Thêm URL</>}
+                        </button>
+                      </div>
+                    </div>
+                    <small className="text-muted">
+                      {selectedVariant ? `Gắn URL vào: ${getVariantName(selectedVariant)}` : 'URL sẽ là ảnh chung của sản phẩm.'}
+                    </small>
+                  </div>
+                )}
+
+                {SHOW_PRODUCT_IMAGE_UPLOAD_INPUT && previews.length > 0 && (
                   <div className="mt-2">
                     <div className="d-flex flex-wrap align-items-end" style={{ gap: 8 }}>
                       {previews.map((p, idx) => (
@@ -218,6 +274,7 @@ const ImageManager = ({ productId, onClose }) => {
                 )}
               </div>
             </div>
+            )}
 
             {error && <div className="alert alert-danger">{error}</div>}
 

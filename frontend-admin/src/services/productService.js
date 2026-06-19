@@ -32,6 +32,7 @@ const normalizeSku = (sku) => {
     phienBan: version,
     giaNiemYet: sku.giaNiemYet ?? sku.listPrice ?? 0,
     giaKhuyenMai: sku.giaKhuyenMai ?? sku.salePrice ?? null,
+    laGiaThapNhat: sku.laGiaThapNhat ?? sku.isLowestPrice ?? false,
     trangThai: sku.trangThai ?? (sku.status === 0 ? 'Inactive' : 'Available'),
   };
 };
@@ -173,6 +174,13 @@ const productService = {
   getImages: (productId) => mapCollection(api.get(`/products/${productId}/images`), normalizeImage),
   uploadImage: (productId, formData) => api.post(`/products/${productId}/images`, normalizeImageFormData(formData), {
     headers: { 'Content-Type': 'multipart/form-data' },
+  }),
+  addImageUrl: (productId, data) => api.post(`/products/${productId}/images/url`, {
+    url: data.url ?? data.urlAnh ?? '',
+    alt: data.alt ?? data.altText ?? null,
+    skuId: data.skuId ?? data.maBienSanPham ?? null,
+    isPrimary: Boolean(data.isPrimary ?? data.laAnhChinh),
+    sortOrder: Number(data.sortOrder ?? data.thuTu ?? 0),
   }),
   setPrimaryImage: (productId, imageId) => api.post(`/products/${productId}/images/${imageId}/primary`),
   deleteImage: (productId, imageId) => api.delete(`/products/${productId}/images/${imageId}`),

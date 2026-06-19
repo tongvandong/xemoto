@@ -40,6 +40,23 @@ public partial class ProductsController
     }
 
     [Authorize(Roles = StaffRoles)]
+    [HttpPost("{id:int}/images/url")]
+    public async Task<IActionResult> AddImageUrl(int id, AddImageUrlRequest request)
+    {
+        try
+        {
+            var addImageRequest = new AddImageRequest(request.Url, request.Alt, request.SkuId, request.IsPrimary, request.SortOrder);
+            int imageId = await _catalog.AddImageAsync(id, addImageRequest);
+
+            return Ok(new ProductImageUploadResponse { Id = imageId, Url = request.Url.Trim() });
+        }
+        catch (CatalogException ex)
+        {
+            return BadRequest(new MessageResponse { Message = ex.Message });
+        }
+    }
+
+    [Authorize(Roles = StaffRoles)]
     [HttpPost("{id:int}/images/{imageId:int}/primary")]
     public async Task<IActionResult> SetPrimary(int id, int imageId)
     {

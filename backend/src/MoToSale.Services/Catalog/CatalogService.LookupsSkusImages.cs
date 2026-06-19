@@ -87,7 +87,19 @@ public partial class CatalogService
     public async Task<List<SkuDto>> GetSkusByProductAsync(int productId)
     {
         var skus = await _skus.GetByProductAsync(productId);
-        return skus.Select(s => new SkuDto(s.Id, s.SkuCode, s.VariantName, s.Color, s.Version, s.ListPrice, s.SalePrice, s.Barcode, s.Status)).ToList();
+        List<decimal> validPrices = skus
+            .Select(s => s.SalePrice ?? s.ListPrice)
+            .Where(price => price > 0)
+            .ToList();
+        decimal? lowestPrice = validPrices.Count == 0 ? null : validPrices.Min();
+
+        return skus.Select(s =>
+        {
+            decimal effectivePrice = s.SalePrice ?? s.ListPrice;
+            bool isLowestPrice = lowestPrice.HasValue && effectivePrice == lowestPrice.Value;
+
+            return new SkuDto(s.Id, s.SkuCode, s.VariantName, s.Color, s.Version, s.ListPrice, s.SalePrice, s.Barcode, s.Status, IsLowestPrice: isLowestPrice);
+        }).ToList();
     }
 
     public async Task<int> CreateSkuAsync(int productId, CreateSkuRequest r)
@@ -170,6 +182,9 @@ public partial class CatalogService
     {
         _ = await _products.GetByIdAsync(productId) ?? throw new CatalogException("Không tìm thấy sản phẩm.");
         if (string.IsNullOrWhiteSpace(r.Url)) throw new CatalogException("Thiếu URL ảnh.");
+        string imageUrl = r.Url.Trim();
+        if (imageUrl.Length > 500) throw new CatalogException("URL ảnh không được vượt quá 500 ký tự.");
+        if (!IsValidProductImageUrl(imageUrl)) throw new CatalogException("URL ảnh phải bắt đầu bằng http://, https:// hoặc /uploads/.");
 
         if (r.IsPrimary)
         {
@@ -180,7 +195,7 @@ public partial class CatalogService
         {
             ProductId = productId,
             SkuId = r.SkuId,
-            Url = r.Url.Trim(),
+            Url = imageUrl,
             Alt = r.Alt?.Trim(),
             IsPrimary = r.IsPrimary,
             SortOrder = r.SortOrder,
@@ -189,6 +204,15 @@ public partial class CatalogService
         _images.Add(img);
         await _images.SaveChangesAsync();
         return img.Id;
+    }
+
+    private static bool IsValidProductImageUrl(string imageUrl)
+    {
+        if (imageUrl.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase)) return true;
+
+        if (!Uri.TryCreate(imageUrl, UriKind.Absolute, out Uri? uri)) return false;
+
+        return uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps;
     }
 
     public async Task SetPrimaryImageAsync(int productId, int imageId)

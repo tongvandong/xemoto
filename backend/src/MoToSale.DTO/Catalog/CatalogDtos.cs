@@ -54,7 +54,7 @@ public class ManufacturerSearchRequest : PagingRequest
     public bool SortDescending { get; set; } = true;
 }
 
-public record SkuDto(int Id, string SkuCode, string? VariantName, string? Color, string? Version, decimal ListPrice, decimal? SalePrice, string? Barcode, int Status, int Available = 0);
+public record SkuDto(int Id, string SkuCode, string? VariantName, string? Color, string? Version, decimal ListPrice, decimal? SalePrice, string? Barcode, int Status, int Available = 0, bool IsLowestPrice = false);
 
 public record SkuLookupDto(int Id, string SkuCode, string ProductName, decimal ListPrice, decimal? SalePrice);
 
@@ -65,6 +65,8 @@ public record UpdateSkuRequest(string? SkuCode, string? VariantName, string? Col
 public record ProductImageDto(int Id, int? SkuId, string Url, string? Alt, bool IsPrimary, int SortOrder);
 
 public record AddImageRequest(string Url, string? Alt, int? SkuId, bool IsPrimary, int SortOrder);
+
+public record AddImageUrlRequest(string Url, string? Alt, int? SkuId, bool IsPrimary, int SortOrder);
 
 public record ManufacturerDto(int Id, string Name, string? LogoUrl, string? Description, int Status);
 public record SaveManufacturerRequest(string Name, string? LogoUrl, string? Description, int Status);
