@@ -1,17 +1,39 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import orderService from '../../services/orderService';
 import {
   ORDER_STATUS_OPTIONS,
   PAYMENT_STATUS_OPTIONS,
+  SHIPPING_STATUS_OPTIONS,
   getOrderStatusMeta,
   getPaymentStatusMeta,
+  getShippingStatusMeta,
 } from '../../utils/constants';
 import { formatCurrency } from '../../utils/formatCurrency';
 import { formatDate } from '../../utils/formatDate';
 import { createDateStamp, exportWorkbook } from '../../utils/exportExcel';
 
 const pageSize = 10;
+const ORDER_SORT_FIELDS = {
+  id: 'Mới nhất',
+  code: 'Mã đơn',
+  customerName: 'Khách hàng',
+  grandTotal: 'Tổng tiền',
+  orderStatus: 'Trạng thái đơn',
+  paymentStatus: 'Thanh toán',
+  fulfillmentStatus: 'Giao hàng',
+  placedAt: 'Ngày tạo',
+};
+
+const ORDER_LIST_CONTROLS = {
+  showSearch: true, // Đổi thành false để ẩn ô tìm kiếm trên giao diện.
+  showOrderStatusFilter: true, // Đổi thành false để ẩn bộ lọc trạng thái đơn trên giao diện.
+  showPaymentStatusFilter: true, // Đổi thành false để ẩn bộ lọc thanh toán trên giao diện.
+  showFulfillmentStatusFilter: true, // Đổi thành false để ẩn bộ lọc giao hàng/xuất kho trên giao diện.
+  showDateFilter: false, // Đổi thành false để ẩn bộ lọc từ ngày/đến ngày trên giao diện.
+  showSort: false, // Đổi thành false để ẩn phần sắp xếp trên giao diện.
+  showReload: true, // Đổi thành false để ẩn nút tải lại trên giao diện.
+};
 
 const OrderList = () => {
   const navigate = useNavigate();
@@ -22,8 +44,11 @@ const OrderList = () => {
   const [keyword, setKeyword] = useState(searchParams.get('keyword') || '');
   const [orderStatus, setOrderStatus] = useState(searchParams.get('trangThaiDonHang') || '');
   const [paymentStatus, setPaymentStatus] = useState(searchParams.get('trangThaiThanhToan') || '');
+  const [fulfillmentStatus, setFulfillmentStatus] = useState(searchParams.get('fulfillmentStatus') || '');
   const [startDate, setStartDate] = useState(searchParams.get('startDate') || '');
   const [endDate, setEndDate] = useState(searchParams.get('endDate') || '');
+  const [sortBy, setSortBy] = useState(searchParams.get('sortBy') || 'id');
+  const [sortDescending, setSortDescending] = useState(searchParams.get('sortDescending') !== 'false');
   const [page, setPage] = useState(Number(searchParams.get('page')) || 1);
   const [totalPages, setTotalPages] = useState(1);
   const [exporting, setExporting] = useState(false);
@@ -33,39 +58,43 @@ const OrderList = () => {
     if (keyword.trim()) params.set('keyword', keyword.trim());
     if (orderStatus) params.set('trangThaiDonHang', orderStatus);
     if (paymentStatus) params.set('trangThaiThanhToan', paymentStatus);
+    if (fulfillmentStatus) params.set('fulfillmentStatus', fulfillmentStatus);
     if (startDate) params.set('startDate', startDate);
     if (endDate) params.set('endDate', endDate);
+    if (sortBy !== 'id') params.set('sortBy', sortBy);
+    if (!sortDescending) params.set('sortDescending', 'false');
     if (page > 1) params.set('page', String(page));
     setSearchParams(params, { replace: true });
-  }, [keyword, orderStatus, paymentStatus, startDate, endDate, page, setSearchParams]);
+  }, [keyword, orderStatus, paymentStatus, fulfillmentStatus, startDate, endDate, sortBy, sortDescending, page, setSearchParams]);
+
+  const fetchOrders = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const params = { page, pageSize, sortBy, sortDescending };
+      if (keyword.trim()) params.keyword = keyword.trim();
+      if (orderStatus) params.orderStatus = orderStatus;
+      if (paymentStatus) params.paymentStatus = paymentStatus;
+      if (fulfillmentStatus) params.fulfillmentStatus = fulfillmentStatus;
+      if (startDate) params.startDate = startDate;
+      if (endDate) params.endDate = endDate;
+
+      const res = await orderService.getAll(params);
+      const data = res.data;
+      const totalItems = data.totalItems ?? data.total ?? 0;
+      setOrders(data.items || data.data || data || []);
+      setTotalPages(data.totalPages || Math.ceil(totalItems / pageSize) || 1);
+    } catch (err) {
+      setError('Không thể tải danh sách đơn hàng. Vui lòng thử lại.');
+      setOrders([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [page, keyword, orderStatus, paymentStatus, fulfillmentStatus, startDate, endDate, sortBy, sortDescending]);
 
   useEffect(() => {
-    const fetchOrders = async () => {
-      setLoading(true);
-      setError('');
-      try {
-        const params = { page, pageSize };
-        if (keyword.trim()) params.keyword = keyword.trim();
-        if (orderStatus) params.orderStatus = orderStatus;
-        if (paymentStatus) params.paymentStatus = paymentStatus;
-        if (startDate) params.startDate = startDate;
-        if (endDate) params.endDate = endDate;
-
-        const res = await orderService.getAll(params);
-        const data = res.data;
-        const totalItems = data.totalItems ?? data.total ?? 0;
-        setOrders(data.items || data.data || data || []);
-        setTotalPages(data.totalPages || Math.ceil(totalItems / pageSize) || 1);
-      } catch (err) {
-        setError('Không thể tải danh sách đơn hàng. Vui lòng thử lại.');
-        setOrders([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchOrders();
-  }, [page, keyword, orderStatus, paymentStatus, startDate, endDate]);
+  }, [fetchOrders]);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -101,8 +130,11 @@ const OrderList = () => {
     if (keyword.trim()) params.keyword = keyword.trim();
     if (orderStatus) params.orderStatus = orderStatus;
     if (paymentStatus) params.paymentStatus = paymentStatus;
+    if (fulfillmentStatus) params.fulfillmentStatus = fulfillmentStatus;
     if (startDate) params.startDate = startDate;
     if (endDate) params.endDate = endDate;
+    params.sortBy = sortBy;
+    params.sortDescending = sortDescending;
     return params;
   };
 
@@ -184,6 +216,17 @@ const OrderList = () => {
             <div className="card-header">
               <h3 className="card-title">Danh sách đơn hàng</h3>
               <div className="card-tools">
+                {ORDER_LIST_CONTROLS.showReload && (
+                  <button
+                    type="button"
+                    className="btn btn-outline-secondary btn-sm mr-2"
+                    onClick={fetchOrders}
+                    disabled={loading}
+                    title="Tải lại danh sách đơn hàng theo bộ lọc hiện tại"
+                  >
+                    <i className="fas fa-sync-alt"></i> Tải lại
+                  </button>
+                )}
                 <button
                   className="btn btn-success btn-sm"
                   onClick={handleExportExcel}
@@ -196,48 +239,79 @@ const OrderList = () => {
             </div>
             <div className="card-body">
               <div className="row mb-3">
-                <div className="col-md-4">
-                  <form onSubmit={handleSearch}>
-                    <div className="input-group">
-                      <input
-                        type="text"
-                        className="form-control"
-                        placeholder="Mã đơn, tên, SĐT, email..."
-                        value={keyword}
-                        onChange={(e) => { setKeyword(e.target.value); setPage(1); }}
-                      />
-                      <div className="input-group-append">
-                        <button className="btn btn-default" type="submit">
-                          <i className="fas fa-search"></i>
-                        </button>
+                {ORDER_LIST_CONTROLS.showSearch && (
+                  <div className="col-md-4">
+                    <form onSubmit={handleSearch}>
+                      <div className="input-group">
+                        <input
+                          type="text"
+                          className="form-control"
+                          placeholder="Mã đơn, tên, SĐT, email..."
+                          value={keyword}
+                          onChange={(e) => { setKeyword(e.target.value); setPage(1); }}
+                        />
+                        <div className="input-group-append">
+                          <button className="btn btn-default" type="submit">
+                            <i className="fas fa-search"></i>
+                          </button>
+                        </div>
                       </div>
+                    </form>
+                  </div>
+                )}
+                {ORDER_LIST_CONTROLS.showOrderStatusFilter && (
+                  <div className="col-md-2">
+                    <select className="form-control" value={orderStatus} onChange={(e) => { setOrderStatus(e.target.value); setPage(1); }}>
+                      <option value="">Trạng thái đơn</option>
+                      {ORDER_STATUS_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                    </select>
+                  </div>
+                )}
+                {ORDER_LIST_CONTROLS.showPaymentStatusFilter && (
+                  <div className="col-md-3">
+                    <select className="form-control" value={paymentStatus} onChange={(e) => { setPaymentStatus(e.target.value); setPage(1); }}>
+                      <option value="">Thanh toán</option>
+                      {PAYMENT_STATUS_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                    </select>
+                  </div>
+                )}
+                {ORDER_LIST_CONTROLS.showFulfillmentStatusFilter && (
+                  <div className="col-md-3">
+                    <select className="form-control" value={fulfillmentStatus} onChange={(e) => { setFulfillmentStatus(e.target.value); setPage(1); }}>
+                      <option value="">Giao hàng/xuất kho</option>
+                      {SHIPPING_STATUS_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                    </select>
+                  </div>
+                )}
+                {ORDER_LIST_CONTROLS.showDateFilter && (
+                  <>
+                    <div className="col-md-2 mt-2">
+                      <input type="date" className="form-control" value={startDate} onChange={(e) => { setStartDate(e.target.value); setPage(1); }} title="Từ ngày" />
                     </div>
-                  </form>
-                </div>
-                <div className="col-md-2">
-                  <select className="form-control" value={orderStatus} onChange={(e) => { setOrderStatus(e.target.value); setPage(1); }}>
-                    <option value="">Trạng thái đơn</option>
-                    {ORDER_STATUS_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                  </select>
-                </div>
-                <div className="col-md-3">
-                  <select className="form-control" value={paymentStatus} onChange={(e) => { setPaymentStatus(e.target.value); setPage(1); }}>
-                    <option value="">Thanh toán</option>
-                    {PAYMENT_STATUS_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                  </select>
-                </div>
-                <div className="col-md-2 mt-2">
-                  <input type="date" className="form-control" value={startDate} onChange={(e) => { setStartDate(e.target.value); setPage(1); }} title="Từ ngày" />
-                </div>
-                <div className="col-md-2 mt-2">
-                  <input type="date" className="form-control" value={endDate} onChange={(e) => { setEndDate(e.target.value); setPage(1); }} title="Đến ngày" />
-                </div>
-                <div className="col-md-2 mt-2">
-                  <button type="button" className="btn btn-outline-secondary btn-block" onClick={() => { setKeyword(''); setOrderStatus(''); setPaymentStatus(''); setStartDate(''); setEndDate(''); setPage(1); }}>
-                    Xóa lọc
-                  </button>
-                </div>
+                    <div className="col-md-2 mt-2">
+                      <input type="date" className="form-control" value={endDate} onChange={(e) => { setEndDate(e.target.value); setPage(1); }} title="Đến ngày" />
+                    </div>
+                  </>
+                )}
               </div>
+
+              {ORDER_LIST_CONTROLS.showSort && (
+                <div className="row mb-3">
+                  <div className="col-md-3 mb-2">
+                    <select className="form-control" value={sortBy} onChange={(e) => { setSortBy(e.target.value); setPage(1); }}>
+                      {Object.entries(ORDER_SORT_FIELDS).map(([key, label]) => (
+                        <option key={key} value={key}>{label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="col-md-2 mb-2">
+                    <select className="form-control" value={sortDescending ? 'desc' : 'asc'} onChange={(e) => { setSortDescending(e.target.value === 'desc'); setPage(1); }}>
+                      <option value="desc">Giảm dần</option>
+                      <option value="asc">Tăng dần</option>
+                    </select>
+                  </div>
+                </div>
+              )}
 
               {error && <div className="alert alert-danger">{error}</div>}
 
@@ -263,6 +337,7 @@ const OrderList = () => {
                           <th className="table-col-money">Tổng tiền</th>
                           <th className="table-col-status">Trạng thái đơn</th>
                           <th className="table-col-status">Thanh toán</th>
+                          <th className="table-col-status">Giao hàng</th>
                           <th className="table-col-date">Ngày tạo</th>
                           <th className="table-col-actions">Thao tác</th>
                         </tr>
@@ -275,6 +350,7 @@ const OrderList = () => {
                             <td className="table-col-money">{formatCurrency(getOrderAmount(order))}</td>
                             <td className="table-col-status">{renderBadge(getOrderStatusMeta(order.trangThaiDonHang || order.trangThai || order.status || order.orderStatus))}</td>
                             <td className="table-col-status">{renderBadge(getOrderPaymentStatusMeta(order))}</td>
+                            <td className="table-col-status">{renderBadge(getShippingStatusMeta(order.trangThaiGiaoHang || order.fulfillmentStatus))}</td>
                             <td className="table-col-date">{formatDate(order.ngayTao || order.createdAt || order.placedAt)}</td>
                             <td className="table-col-actions">
                               <button

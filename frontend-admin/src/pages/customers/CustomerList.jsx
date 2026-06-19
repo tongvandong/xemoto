@@ -22,12 +22,12 @@ const CUSTOMER_SORT_FIELDS = {
 const CUSTOMER_LIST_CONTROLS = {
   showSearch: true, // Đổi thành false để ẩn ô tìm kiếm khách hàng trên giao diện.
   showStatusFilter: true, // Đổi thành false để ẩn bộ lọc trạng thái khách hàng trên giao diện.
-  showPhoneFilter: true, // Đổi thành false để ẩn bộ lọc số điện thoại trên giao diện.
-  showEmailFilter: true, // Đổi thành false để ẩn bộ lọc email trên giao diện.
-  showCareNoteFilter: true, // Đổi thành false để ẩn bộ lọc ghi chú chăm sóc trên giao diện.
-  showCreatedDateFilter: true, // Đổi thành false để ẩn bộ lọc ngày tạo trên giao diện.
-  showSort: true, // Đổi thành false để ẩn phần sắp xếp trên giao diện.
-  showReload: true, // Đổi thành false để ẩn nút tải lại trên giao diện.
+  showPhoneFilter: false, // Đổi thành false để ẩn bộ lọc số điện thoại trên giao diện.
+  showEmailFilter: false, // Đổi thành false để ẩn bộ lọc email trên giao diện.
+  showCareNoteFilter: false, // Đổi thành false để ẩn bộ lọc ghi chú chăm sóc trên giao diện.
+  showCreatedDateFilter: false, // Đổi thành false để ẩn bộ lọc ngày tạo trên giao diện.
+  showSort: false, // Đổi thành false để ẩn phần sắp xếp trên giao diện.
+  showReload: false, // Đổi thành false để ẩn nút tải lại trên giao diện.
 };
 
 const emptyCustomerForm = {

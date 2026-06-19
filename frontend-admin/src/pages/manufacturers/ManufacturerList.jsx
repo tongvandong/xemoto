@@ -19,6 +19,16 @@ const SORT_FIELDS = {
   description: 'Mô tả',
   status: 'Trạng thái',
 };
+
+const MANUFACTURER_LIST_CONTROLS = {
+  showSearch: true, // Đổi thành false để ẩn ô tìm kiếm hãng sản xuất phụ tùng.
+  showDescriptionFilter: true, // Đổi thành false để ẩn bộ lọc mô tả.
+  showStatusFilter: true, // Đổi thành false để ẩn bộ lọc trạng thái.
+  showLogoFilter: false, // Đổi thành false để ẩn bộ lọc logo.
+  showSort: false, // Đổi thành false để ẩn phần sắp xếp.
+  showReload: false, // Đổi thành false để ẩn nút tải lại.
+};
+
 const normalizeLogoUrl = (logoUrl = '') => (logoUrl.includes('logo.clearbit.com') ? '' : logoUrl);
 const getLogo = (item) => {
   const logoUrl = item.logoUrl || item.logo || '';
@@ -81,8 +91,8 @@ const ManufacturerList = () => {
         pageSize,
         keyword: search || undefined,
         description: descriptionFilter || undefined,
-        status: statusFilter === '' ? undefined : Number(statusFilter),
-        hasLogo: logoFilter === '' ? undefined : logoFilter === 'has',
+        status: statusFilter !== '' ? Number(statusFilter) : undefined,
+        hasLogo: logoFilter !== '' ? logoFilter === 'has' : undefined,
         sortBy,
         sortDescending,
       });
@@ -221,6 +231,11 @@ const ManufacturerList = () => {
             <div className="card-header">
               <h3 className="card-title">Danh sách hãng sản xuất</h3>
               <div className="card-tools">
+                {MANUFACTURER_LIST_CONTROLS.showReload && (
+                  <button type="button" className="btn btn-outline-secondary btn-sm mr-2" onClick={fetchData}>
+                    <i className="fas fa-sync-alt"></i> Tải lại
+                  </button>
+                )}
                 <button className="btn btn-primary btn-sm" onClick={openAdd}>
                   <i className="fas fa-plus"></i> Thêm hãng sản xuất
                 </button>
@@ -228,55 +243,65 @@ const ManufacturerList = () => {
             </div>
             <div className="card-body">
               <div className="row mb-3">
-                <div className="col-md-3 mb-2">
-                  <input
-                    type="text"
-                    className="form-control form-control-sm"
-                    placeholder="Tìm theo tên, mô tả..."
-                    value={search}
-                    onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                  />
-                </div>
-                <div className="col-md-3 mb-2">
-                  <input
-                    type="text"
-                    className="form-control form-control-sm"
-                    placeholder="Lọc mô tả"
-                    value={descriptionFilter}
-                    onChange={(e) => { setDescriptionFilter(e.target.value); setPage(1); }}
-                  />
-                </div>
-                <div className="col-md-2 mb-2">
-                  <select className="form-control form-control-sm" value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}>
-                    <option value="">-- Trạng thái --</option>
-                    <option value="1">Đang hoạt động</option>
-                    <option value="0">Đã xoá (ẩn)</option>
-                  </select>
-                </div>
-                <div className="col-md-2 mb-2">
-                  <select className="form-control form-control-sm" value={logoFilter} onChange={(e) => { setLogoFilter(e.target.value); setPage(1); }}>
-                    <option value="">-- Logo --</option>
-                    <option value="has">Có logo</option>
-                    <option value="none">Không có logo</option>
-                  </select>
-                </div>
+                {MANUFACTURER_LIST_CONTROLS.showSearch && (
+                  <div className="col-md-3 mb-2">
+                    <input
+                      type="text"
+                      className="form-control form-control-sm"
+                      placeholder="Tìm theo tên, mô tả..."
+                      value={search}
+                      onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                    />
+                  </div>
+                )}
+                {MANUFACTURER_LIST_CONTROLS.showDescriptionFilter && (
+                  <div className="col-md-3 mb-2">
+                    <input
+                      type="text"
+                      className="form-control form-control-sm"
+                      placeholder="Lọc mô tả"
+                      value={descriptionFilter}
+                      onChange={(e) => { setDescriptionFilter(e.target.value); setPage(1); }}
+                    />
+                  </div>
+                )}
+                {MANUFACTURER_LIST_CONTROLS.showStatusFilter && (
+                  <div className="col-md-2 mb-2">
+                    <select className="form-control form-control-sm" value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}>
+                      <option value="">-- Trạng thái --</option>
+                      <option value="1">Đang hoạt động</option>
+                      <option value="0">Đã xoá (ẩn)</option>
+                    </select>
+                  </div>
+                )}
+                {MANUFACTURER_LIST_CONTROLS.showLogoFilter && (
+                  <div className="col-md-2 mb-2">
+                    <select className="form-control form-control-sm" value={logoFilter} onChange={(e) => { setLogoFilter(e.target.value); setPage(1); }}>
+                      <option value="">-- Logo --</option>
+                      <option value="has">Có logo</option>
+                      <option value="none">Không có logo</option>
+                    </select>
+                  </div>
+                )}
               </div>
 
-              <div className="row mb-3">
-                <div className="col-md-3 mb-2">
-                  <select className="form-control form-control-sm" value={sortBy} onChange={(e) => { setSortBy(e.target.value); setPage(1); }}>
-                    {Object.entries(SORT_FIELDS).map(([key, label]) => (
-                      <option key={key} value={key}>{label}</option>
-                    ))}
-                  </select>
+              {MANUFACTURER_LIST_CONTROLS.showSort && (
+                <div className="row mb-3">
+                  <div className="col-md-3 mb-2">
+                    <select className="form-control form-control-sm" value={sortBy} onChange={(e) => { setSortBy(e.target.value); setPage(1); }}>
+                      {Object.entries(SORT_FIELDS).map(([key, label]) => (
+                        <option key={key} value={key}>{label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="col-md-3 mb-2">
+                    <select className="form-control form-control-sm" value={sortDescending ? 'desc' : 'asc'} onChange={(e) => { setSortDescending(e.target.value === 'desc'); setPage(1); }}>
+                      <option value="desc">Giảm dần</option>
+                      <option value="asc">Tăng dần</option>
+                    </select>
+                  </div>
                 </div>
-                <div className="col-md-3 mb-2">
-                  <select className="form-control form-control-sm" value={sortDescending ? 'desc' : 'asc'} onChange={(e) => { setSortDescending(e.target.value === 'desc'); setPage(1); }}>
-                    <option value="desc">Giảm dần</option>
-                    <option value="asc">Tăng dần</option>
-                  </select>
-                </div>
-              </div>
+              )}
 
               {error && <div className="alert alert-danger">{error}</div>}
 

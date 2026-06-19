@@ -18,6 +18,24 @@ const MODEL_SORT_FIELDS = {
   status: 'Trạng thái',
 };
 
+const BRAND_LIST_CONTROLS = {
+  showSearch: true, // Đổi thành false để ẩn ô tìm kiếm hãng xe.
+  showSlugFilter: true, // Đổi thành false để ẩn bộ lọc slug hãng xe.
+  showStatusFilter: false, // Đổi thành false để ẩn bộ lọc trạng thái hãng xe.
+  showLogoFilter: false, // Đổi thành false để ẩn bộ lọc logo hãng xe.
+  showSort: false, // Đổi thành false để ẩn phần sắp xếp hãng xe.
+  showReload: false, // Đổi thành false để ẩn nút tải lại hãng xe.
+};
+
+const MODEL_LIST_CONTROLS = {
+  showSearch: true, // Đổi thành false để ẩn ô tìm kiếm dòng xe.
+  showSlugFilter: true, // Đổi thành false để ẩn bộ lọc slug dòng xe.
+  showBrandFilter: true, // Đổi thành false để ẩn bộ lọc hãng xe của dòng xe.
+  showStatusFilter: false, // Đổi thành false để ẩn bộ lọc trạng thái dòng xe.
+  showSort: false, // Đổi thành false để ẩn phần sắp xếp dòng xe.
+  showReload: false, // Đổi thành false để ẩn nút tải lại dòng xe.
+};
+
 /**
  * Tạo slug từ chuỗi tiếng Việt
  */
@@ -100,8 +118,8 @@ const BrandList = () => {
         pageSize,
         keyword: brandSearch || undefined,
         slug: brandSlugFilter || undefined,
-        status: brandStatusFilter === '' ? undefined : Number(brandStatusFilter),
-        hasLogo: brandLogoFilter === '' ? undefined : brandLogoFilter === 'has',
+        status: brandStatusFilter !== '' ? Number(brandStatusFilter) : undefined,
+        hasLogo: brandLogoFilter !== '' ? brandLogoFilter === 'has' : undefined,
         sortBy: brandSortBy,
         sortDescending: brandSortDescending,
       });
@@ -141,7 +159,7 @@ const BrandList = () => {
         pageSize,
         keyword: modelSearch || undefined,
         slug: modelSlugFilter || undefined,
-        status: modelStatusFilter === '' ? undefined : Number(modelStatusFilter),
+        status: modelStatusFilter !== '' ? Number(modelStatusFilter) : undefined,
         sortBy: modelSortBy,
         sortDescending: modelSortDescending,
       };
@@ -377,60 +395,75 @@ const BrandList = () => {
               {activeTab === 'brands' && (
                 <>
                   <div className="row mb-3">
-                    <div className="col-md-3 mb-2">
-                      <input
-                        type="text"
-                        className="form-control form-control-sm"
-                        placeholder="Tìm tên hãng"
-                        value={brandSearch}
-                        onChange={(e) => { setBrandSearch(e.target.value); setBrandPage(1); }}
-                      />
-                    </div>
-                    <div className="col-md-3 mb-2">
-                      <input
-                        type="text"
-                        className="form-control form-control-sm"
-                        placeholder="Lọc slug"
-                        value={brandSlugFilter}
-                        onChange={(e) => { setBrandSlugFilter(e.target.value); setBrandPage(1); }}
-                      />
-                    </div>
+                    {BRAND_LIST_CONTROLS.showSearch && (
+                      <div className="col-md-3 mb-2">
+                        <input
+                          type="text"
+                          className="form-control form-control-sm"
+                          placeholder="Tìm tên hãng"
+                          value={brandSearch}
+                          onChange={(e) => { setBrandSearch(e.target.value); setBrandPage(1); }}
+                        />
+                      </div>
+                    )}
+                    {BRAND_LIST_CONTROLS.showSlugFilter && (
+                      <div className="col-md-3 mb-2">
+                        <input
+                          type="text"
+                          className="form-control form-control-sm"
+                          placeholder="Lọc slug"
+                          value={brandSlugFilter}
+                          onChange={(e) => { setBrandSlugFilter(e.target.value); setBrandPage(1); }}
+                        />
+                      </div>
+                    )}
+                    {BRAND_LIST_CONTROLS.showStatusFilter && (
+                      <div className="col-md-2 mb-2">
+                        <select className="form-control form-control-sm" value={brandStatusFilter} onChange={(e) => { setBrandStatusFilter(e.target.value); setBrandPage(1); }}>
+                          <option value="">-- Trạng thái --</option>
+                          <option value="1">Hoạt động</option>
+                          <option value="0">Đã xoá (ẩn)</option>
+                        </select>
+                      </div>
+                    )}
+                    {BRAND_LIST_CONTROLS.showLogoFilter && (
+                      <div className="col-md-2 mb-2">
+                        <select className="form-control form-control-sm" value={brandLogoFilter} onChange={(e) => { setBrandLogoFilter(e.target.value); setBrandPage(1); }}>
+                          <option value="">-- Logo --</option>
+                          <option value="has">Có logo</option>
+                          <option value="none">Không có logo</option>
+                        </select>
+                      </div>
+                    )}
                     <div className="col-md-2 mb-2">
-                      <select className="form-control form-control-sm" value={brandStatusFilter} onChange={(e) => { setBrandStatusFilter(e.target.value); setBrandPage(1); }}>
-                        <option value="">-- Trạng thái --</option>
-                        <option value="1">Hoạt động</option>
-                        <option value="0">Đã xoá (ẩn)</option>
-                      </select>
-                    </div>
-                    <div className="col-md-2 mb-2">
-                      <select className="form-control form-control-sm" value={brandLogoFilter} onChange={(e) => { setBrandLogoFilter(e.target.value); setBrandPage(1); }}>
-                        <option value="">-- Logo --</option>
-                        <option value="has">Có logo</option>
-                        <option value="none">Không có logo</option>
-                      </select>
-                    </div>
-                    <div className="col-md-2 mb-2">
+                      {BRAND_LIST_CONTROLS.showReload && (
+                        <button type="button" className="btn btn-outline-secondary btn-sm btn-block mb-2" onClick={fetchBrands}>
+                          <i className="fas fa-sync-alt"></i> Tải lại
+                        </button>
+                      )}
                       <button type="button" className="btn btn-primary btn-sm btn-block" onClick={openAddBrand}>
                         <i className="fas fa-plus"></i> Thêm hãng xe
                       </button>
                     </div>
                   </div>
 
-                  <div className="row mb-3">
-                    <div className="col-md-3 mb-2">
-                      <select className="form-control form-control-sm" value={brandSortBy} onChange={(e) => { setBrandSortBy(e.target.value); setBrandPage(1); }}>
-                        {Object.entries(BRAND_SORT_FIELDS).map(([key, label]) => (
-                          <option key={key} value={key}>{label}</option>
-                        ))}
-                      </select>
+                  {BRAND_LIST_CONTROLS.showSort && (
+                    <div className="row mb-3">
+                      <div className="col-md-3 mb-2">
+                        <select className="form-control form-control-sm" value={brandSortBy} onChange={(e) => { setBrandSortBy(e.target.value); setBrandPage(1); }}>
+                          {Object.entries(BRAND_SORT_FIELDS).map(([key, label]) => (
+                            <option key={key} value={key}>{label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="col-md-3 mb-2">
+                        <select className="form-control form-control-sm" value={brandSortDescending ? 'desc' : 'asc'} onChange={(e) => { setBrandSortDescending(e.target.value === 'desc'); setBrandPage(1); }}>
+                          <option value="desc">Giảm dần</option>
+                          <option value="asc">Tăng dần</option>
+                        </select>
+                      </div>
                     </div>
-                    <div className="col-md-3 mb-2">
-                      <select className="form-control form-control-sm" value={brandSortDescending ? 'desc' : 'asc'} onChange={(e) => { setBrandSortDescending(e.target.value === 'desc'); setBrandPage(1); }}>
-                        <option value="desc">Giảm dần</option>
-                        <option value="asc">Tăng dần</option>
-                      </select>
-                    </div>
-                  </div>
+                  )}
 
                   {errorBrands && <div className="alert alert-danger">{errorBrands}</div>}
 
@@ -516,61 +549,76 @@ const BrandList = () => {
               {activeTab === 'models' && (
                 <>
                   <div className="row mb-3">
-                    <div className="col-md-3 mb-2">
-                      <input
-                        type="text"
-                        className="form-control form-control-sm"
-                        placeholder="Tìm tên dòng xe"
-                        value={modelSearch}
-                        onChange={(e) => { setModelSearch(e.target.value); setModelPage(1); }}
-                      />
-                    </div>
-                    <div className="col-md-3 mb-2">
-                      <input
-                        type="text"
-                        className="form-control form-control-sm"
-                        placeholder="Lọc slug"
-                        value={modelSlugFilter}
-                        onChange={(e) => { setModelSlugFilter(e.target.value); setModelPage(1); }}
-                      />
-                    </div>
+                    {MODEL_LIST_CONTROLS.showSearch && (
+                      <div className="col-md-3 mb-2">
+                        <input
+                          type="text"
+                          className="form-control form-control-sm"
+                          placeholder="Tìm tên dòng xe"
+                          value={modelSearch}
+                          onChange={(e) => { setModelSearch(e.target.value); setModelPage(1); }}
+                        />
+                      </div>
+                    )}
+                    {MODEL_LIST_CONTROLS.showSlugFilter && (
+                      <div className="col-md-3 mb-2">
+                        <input
+                          type="text"
+                          className="form-control form-control-sm"
+                          placeholder="Lọc slug"
+                          value={modelSlugFilter}
+                          onChange={(e) => { setModelSlugFilter(e.target.value); setModelPage(1); }}
+                        />
+                      </div>
+                    )}
+                    {MODEL_LIST_CONTROLS.showBrandFilter && (
+                      <div className="col-md-2 mb-2">
+                        <select className="form-control form-control-sm" value={filterBrandId} onChange={(e) => { setFilterBrandId(e.target.value); setModelPage(1); }}>
+                          <option value="">-- Tất cả hãng xe --</option>
+                          {brandOptions.map(b => (
+                            <option key={b.id} value={String(b.id)}>{b.tenHang || b.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                    {MODEL_LIST_CONTROLS.showStatusFilter && (
+                      <div className="col-md-2 mb-2">
+                        <select className="form-control form-control-sm" value={modelStatusFilter} onChange={(e) => { setModelStatusFilter(e.target.value); setModelPage(1); }}>
+                          <option value="">-- Trạng thái --</option>
+                          <option value="1">Hoạt động</option>
+                          <option value="0">Đã xoá (ẩn)</option>
+                        </select>
+                      </div>
+                    )}
                     <div className="col-md-2 mb-2">
-                      <select className="form-control form-control-sm" value={filterBrandId} onChange={(e) => { setFilterBrandId(e.target.value); setModelPage(1); }}>
-                        <option value="">-- Tất cả hãng xe --</option>
-                        {brandOptions.map(b => (
-                          <option key={b.id} value={String(b.id)}>{b.tenHang || b.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="col-md-2 mb-2">
-                      <select className="form-control form-control-sm" value={modelStatusFilter} onChange={(e) => { setModelStatusFilter(e.target.value); setModelPage(1); }}>
-                        <option value="">-- Trạng thái --</option>
-                        <option value="1">Hoạt động</option>
-                        <option value="0">Đã xoá (ẩn)</option>
-                      </select>
-                    </div>
-                    <div className="col-md-2 mb-2">
+                      {MODEL_LIST_CONTROLS.showReload && (
+                        <button type="button" className="btn btn-outline-secondary btn-sm btn-block mb-2" onClick={fetchModels}>
+                          <i className="fas fa-sync-alt"></i> Tải lại
+                        </button>
+                      )}
                       <button type="button" className="btn btn-primary btn-sm btn-block" onClick={openAddModel}>
                         <i className="fas fa-plus"></i> Thêm dòng xe
                       </button>
                     </div>
                   </div>
 
-                  <div className="row mb-3">
-                    <div className="col-md-3 mb-2">
-                      <select className="form-control form-control-sm" value={modelSortBy} onChange={(e) => { setModelSortBy(e.target.value); setModelPage(1); }}>
-                        {Object.entries(MODEL_SORT_FIELDS).map(([key, label]) => (
-                          <option key={key} value={key}>{label}</option>
-                        ))}
-                      </select>
+                  {MODEL_LIST_CONTROLS.showSort && (
+                    <div className="row mb-3">
+                      <div className="col-md-3 mb-2">
+                        <select className="form-control form-control-sm" value={modelSortBy} onChange={(e) => { setModelSortBy(e.target.value); setModelPage(1); }}>
+                          {Object.entries(MODEL_SORT_FIELDS).map(([key, label]) => (
+                            <option key={key} value={key}>{label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="col-md-3 mb-2">
+                        <select className="form-control form-control-sm" value={modelSortDescending ? 'desc' : 'asc'} onChange={(e) => { setModelSortDescending(e.target.value === 'desc'); setModelPage(1); }}>
+                          <option value="desc">Giảm dần</option>
+                          <option value="asc">Tăng dần</option>
+                        </select>
+                      </div>
                     </div>
-                    <div className="col-md-3 mb-2">
-                      <select className="form-control form-control-sm" value={modelSortDescending ? 'desc' : 'asc'} onChange={(e) => { setModelSortDescending(e.target.value === 'desc'); setModelPage(1); }}>
-                        <option value="desc">Giảm dần</option>
-                        <option value="asc">Tăng dần</option>
-                      </select>
-                    </div>
-                  </div>
+                  )}
 
                   {errorModels && <div className="alert alert-danger">{errorModels}</div>}
 

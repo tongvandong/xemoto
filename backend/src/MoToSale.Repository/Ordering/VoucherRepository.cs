@@ -12,20 +12,17 @@ public class VoucherRepository : Repository<Voucher>, IVoucherRepository
     {
     }
 
-    public async Task<PagingResponse<Voucher>> SearchAsync(PagingRequest request)
+    public async Task<PagingResponse<Voucher>> SearchAsync(VoucherSearchRequest request)
     {
         IQueryable<Voucher> query = Set.AsNoTracking().AsQueryable();
 
-        if (!string.IsNullOrWhiteSpace(request.Keyword))
-        {
-            string keyword = request.Keyword;
-            query = query.Where(voucher => voucher.Code.Contains(keyword));
-        }
+        query = ApplyKeywordFilter(query, request);
+        query = ApplyFieldFilters(query, request);
 
         int totalItems = await query.CountAsync();
+        query = ApplySorting(query, request);
 
         List<Voucher> items = await query
-            .OrderByDescending(voucher => voucher.Id)
             .Skip((request.Page - 1) * request.PageSize)
             .Take(request.PageSize)
             .ToListAsync();
@@ -135,5 +132,119 @@ public class VoucherRepository : Repository<Voucher>, IVoucherRepository
         }
 
         await Context.SaveChangesAsync();
+    }
+
+    private static IQueryable<Voucher> ApplyKeywordFilter(IQueryable<Voucher> query, VoucherSearchRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Keyword))
+        {
+            return query;
+        }
+
+        string keyword = request.Keyword.Trim();
+
+        return query.Where(voucher =>
+            voucher.Code.Contains(keyword)
+            || (voucher.Description != null && voucher.Description.Contains(keyword)));
+    }
+
+    private IQueryable<Voucher> ApplyFieldFilters(IQueryable<Voucher> query, VoucherSearchRequest request)
+    {
+        if (!string.IsNullOrWhiteSpace(request.DiscountType))
+        {
+            string discountType = NormalizeDiscountType(request.DiscountType);
+            query = query.Where(voucher => voucher.DiscountType == discountType);
+        }
+
+        if (request.Status.HasValue)
+        {
+            query = query.Where(voucher => voucher.Status == request.Status.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.ScopeType))
+        {
+            string scopeType = request.ScopeType.Trim();
+            if (scopeType == "All")
+            {
+                query = query.Where(voucher => !Context.VoucherScopes.Any(scope => scope.VoucherId == voucher.Id));
+            }
+            else
+            {
+                query = query.Where(voucher => Context.VoucherScopes.Any(scope =>
+                    scope.VoucherId == voucher.Id
+                    && scope.ScopeType == scopeType));
+            }
+        }
+
+        if (request.StartDate.HasValue)
+        {
+            DateTime startDate = request.StartDate.Value.Date;
+            query = query.Where(voucher => voucher.StartAt >= startDate);
+        }
+
+        if (request.EndDate.HasValue)
+        {
+            DateTime endDate = request.EndDate.Value.Date.AddDays(1);
+            query = query.Where(voucher => voucher.EndAt < endDate);
+        }
+
+        return query;
+    }
+
+    private static IQueryable<Voucher> ApplySorting(IQueryable<Voucher> query, VoucherSearchRequest request)
+    {
+        string sortBy = string.IsNullOrWhiteSpace(request.SortBy)
+            ? "id"
+            : request.SortBy.Trim().ToLowerInvariant();
+
+        bool descending = request.SortDescending;
+
+        return sortBy switch
+        {
+            "code" => descending
+                ? query.OrderByDescending(voucher => voucher.Code)
+                : query.OrderBy(voucher => voucher.Code),
+            "discounttype" => descending
+                ? query.OrderByDescending(voucher => voucher.DiscountType)
+                : query.OrderBy(voucher => voucher.DiscountType),
+            "discountvalue" => descending
+                ? query.OrderByDescending(voucher => voucher.DiscountValue)
+                : query.OrderBy(voucher => voucher.DiscountValue),
+            "minordervalue" => descending
+                ? query.OrderByDescending(voucher => voucher.MinOrderValue)
+                : query.OrderBy(voucher => voucher.MinOrderValue),
+            "usedcount" => descending
+                ? query.OrderByDescending(voucher => voucher.UsedCount)
+                : query.OrderBy(voucher => voucher.UsedCount),
+            "usagelimit" => descending
+                ? query.OrderByDescending(voucher => voucher.UsageLimit)
+                : query.OrderBy(voucher => voucher.UsageLimit),
+            "peruserlimit" => descending
+                ? query.OrderByDescending(voucher => voucher.PerUserLimit)
+                : query.OrderBy(voucher => voucher.PerUserLimit),
+            "startat" => descending
+                ? query.OrderByDescending(voucher => voucher.StartAt)
+                : query.OrderBy(voucher => voucher.StartAt),
+            "endat" => descending
+                ? query.OrderByDescending(voucher => voucher.EndAt)
+                : query.OrderBy(voucher => voucher.EndAt),
+            "status" => descending
+                ? query.OrderByDescending(voucher => voucher.Status)
+                : query.OrderBy(voucher => voucher.Status),
+            _ => descending
+                ? query.OrderByDescending(voucher => voucher.Id)
+                : query.OrderBy(voucher => voucher.Id),
+        };
+    }
+
+    private static string NormalizeDiscountType(string discountType)
+    {
+        string value = discountType.Trim();
+        if (value == "Fixed" || value == "FixedAmount")
+        {
+            return "Amount";
+        }
+
+        return value;
     }
 }

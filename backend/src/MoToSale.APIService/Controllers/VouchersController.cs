@@ -22,7 +22,7 @@ public class VouchersController : ControllerBase
 
     [Authorize(Roles = StaffRoles)]
     [HttpGet]
-    public async Task<IActionResult> Search([FromQuery] PagingRequest request)
+    public async Task<IActionResult> Search([FromQuery] VoucherSearchRequest request)
     {
         var result = await _vouchers.SearchAsync(request);
         return Ok(result);

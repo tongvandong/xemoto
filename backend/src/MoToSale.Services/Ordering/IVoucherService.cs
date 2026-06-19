@@ -5,7 +5,7 @@ namespace MoToSale.Services.Ordering;
 
 public interface IVoucherService
 {
-    Task<PagingResponse<VoucherDto>> SearchAsync(PagingRequest request);
+    Task<PagingResponse<VoucherDto>> SearchAsync(VoucherSearchRequest request);
     Task<List<VoucherDto>> GetAvailableAsync();
     Task<VoucherDto?> GetAsync(int id);
     Task<int> CreateAsync(SaveVoucherRequest request);

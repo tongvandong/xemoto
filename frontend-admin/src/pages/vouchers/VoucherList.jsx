@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import voucherService from '../../services/voucherService';
 import productService from '../../services/productService';
 import categoryService from '../../services/categoryService';
@@ -26,6 +26,30 @@ const SCOPE_TYPES = {
   Product: 'Theo sản phẩm',
   Category: 'Theo danh mục',
   Brand: 'Theo hãng xe',
+};
+
+const VOUCHER_SORT_FIELDS = {
+  id: 'Mới nhất',
+  code: 'Mã voucher',
+  discountType: 'Loại giảm',
+  discountValue: 'Giá trị giảm',
+  minOrderValue: 'Đơn tối thiểu',
+  usedCount: 'Đã dùng',
+  usageLimit: 'Giới hạn dùng',
+  perUserLimit: 'Giới hạn/khách',
+  startAt: 'Ngày bắt đầu',
+  endAt: 'Ngày kết thúc',
+  status: 'Trạng thái',
+};
+
+const VOUCHER_LIST_CONTROLS = {
+  showSearch: true, // Đổi thành false để ẩn ô tìm kiếm voucher trên giao diện.
+  showDiscountTypeFilter: true, // Đổi thành false để ẩn bộ lọc loại giảm trên giao diện.
+  showStatusFilter: true, // Đổi thành false để ẩn bộ lọc trạng thái trên giao diện.
+  showScopeFilter: false, // Đổi thành false để ẩn bộ lọc phạm vi trên giao diện.
+  showDateFilter: false, // Đổi thành false để ẩn bộ lọc ngày bắt đầu/kết thúc trên giao diện.
+  showSort: false, // Đổi thành false để ẩn phần sắp xếp trên giao diện.
+  showReload: false, // Đổi thành false để ẩn nút tải lại trên giao diện.
 };
 
 const defaultForm = {
@@ -61,6 +85,14 @@ const VoucherList = () => {
   const [error, setError] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [keyword, setKeyword] = useState('');
+  const [discountTypeFilter, setDiscountTypeFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [scopeTypeFilter, setScopeTypeFilter] = useState('');
+  const [startDateFilter, setStartDateFilter] = useState('');
+  const [endDateFilter, setEndDateFilter] = useState('');
+  const [sortBy, setSortBy] = useState('id');
+  const [sortDescending, setSortDescending] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({ ...defaultForm });
@@ -95,11 +127,22 @@ const VoucherList = () => {
     }
   };
 
-  const fetchVouchers = async () => {
+  const fetchVouchers = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const res = await voucherService.getAll({ page, pageSize });
+      const res = await voucherService.getAll({
+        page,
+        pageSize,
+        keyword: keyword.trim() || undefined,
+        discountType: discountTypeFilter || undefined,
+        status: statusFilter !== '' ? Number(statusFilter) : undefined,
+        scopeType: scopeTypeFilter || undefined,
+        startDate: startDateFilter || undefined,
+        endDate: endDateFilter || undefined,
+        sortBy,
+        sortDescending,
+      });
       const data = res.data;
       setVouchers(data.items || data.data || data || []);
       setTotalPages(data.totalPages || Math.ceil(((data.totalItems ?? data.total) || 0) / pageSize) || 1);
@@ -109,11 +152,11 @@ const VoucherList = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, keyword, discountTypeFilter, statusFilter, scopeTypeFilter, startDateFilter, endDateFilter, sortBy, sortDescending]);
 
   useEffect(() => {
     fetchVouchers();
-  }, [page]);
+  }, [fetchVouchers]);
 
   const openAddModal = () => {
     setEditingId(null);
@@ -285,12 +328,87 @@ const VoucherList = () => {
             <div className="card-header">
               <h3 className="card-title">Danh sách Voucher</h3>
               <div className="card-tools">
+                {VOUCHER_LIST_CONTROLS.showReload && (
+                  <button type="button" className="btn btn-outline-secondary btn-sm mr-2" onClick={fetchVouchers} disabled={loading}>
+                    <i className="fas fa-sync-alt"></i> Tải lại
+                  </button>
+                )}
                 <button className="btn btn-primary btn-sm" onClick={openAddModal}>
                   <i className="fas fa-plus"></i> Thêm Voucher
                 </button>
               </div>
             </div>
             <div className="card-body">
+              <div className="row mb-3">
+                {VOUCHER_LIST_CONTROLS.showSearch && (
+                  <div className="col-md-3 mb-2">
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="Tìm mã, mô tả voucher..."
+                      value={keyword}
+                      onChange={(e) => { setKeyword(e.target.value); setPage(1); }}
+                    />
+                  </div>
+                )}
+                {VOUCHER_LIST_CONTROLS.showDiscountTypeFilter && (
+                  <div className="col-md-2 mb-2">
+                    <select className="form-control" value={discountTypeFilter} onChange={(e) => { setDiscountTypeFilter(e.target.value); setPage(1); }}>
+                      <option value="">Loại giảm</option>
+                      <option value="Percent">Phần trăm (%)</option>
+                      <option value="Amount">Cố định (VNĐ)</option>
+                    </select>
+                  </div>
+                )}
+                {VOUCHER_LIST_CONTROLS.showStatusFilter && (
+                  <div className="col-md-2 mb-2">
+                    <select className="form-control" value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}>
+                      <option value="">Trạng thái</option>
+                      <option value="1">Hoạt động</option>
+                      <option value="0">Ngừng</option>
+                    </select>
+                  </div>
+                )}
+                {VOUCHER_LIST_CONTROLS.showScopeFilter && (
+                  <div className="col-md-2 mb-2">
+                    <select className="form-control" value={scopeTypeFilter} onChange={(e) => { setScopeTypeFilter(e.target.value); setPage(1); }}>
+                      <option value="">Phạm vi</option>
+                      {Object.entries(SCOPE_TYPES).map(([value, label]) => (
+                        <option key={value} value={value}>{label}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                {VOUCHER_LIST_CONTROLS.showDateFilter && (
+                  <>
+                    <div className="col-md-2 mb-2">
+                      <input type="date" className="form-control" value={startDateFilter} onChange={(e) => { setStartDateFilter(e.target.value); setPage(1); }} title="Ngày bắt đầu từ" />
+                    </div>
+                    <div className="col-md-2 mb-2">
+                      <input type="date" className="form-control" value={endDateFilter} onChange={(e) => { setEndDateFilter(e.target.value); setPage(1); }} title="Ngày kết thúc đến" />
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {VOUCHER_LIST_CONTROLS.showSort && (
+                <div className="row mb-3">
+                  <div className="col-md-3 mb-2">
+                    <select className="form-control" value={sortBy} onChange={(e) => { setSortBy(e.target.value); setPage(1); }}>
+                      {Object.entries(VOUCHER_SORT_FIELDS).map(([key, label]) => (
+                        <option key={key} value={key}>{label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="col-md-2 mb-2">
+                    <select className="form-control" value={sortDescending ? 'desc' : 'asc'} onChange={(e) => { setSortDescending(e.target.value === 'desc'); setPage(1); }}>
+                      <option value="desc">Giảm dần</option>
+                      <option value="asc">Tăng dần</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
               {error && <div className="alert alert-danger">{error}</div>}
 
               {loading ? (

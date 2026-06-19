@@ -46,9 +46,9 @@ public class OrderRepository : Repository<Order>, IOrderRepository
         query = ApplyKeywordFilter(query, request);
 
         int totalItems = await query.CountAsync();
+        query = ApplySorting(query, request);
 
         List<Order> items = await query
-            .OrderByDescending(order => order.Id)
             .Skip((request.Page - 1) * request.PageSize)
             .Take(request.PageSize)
             .ToListAsync();
@@ -151,5 +151,42 @@ public class OrderRepository : Repository<Order>, IOrderRepository
                     || (user.PhoneNumber != null && user.PhoneNumber.Contains(keyword)))));
 
         return query;
+    }
+
+    private static IQueryable<Order> ApplySorting(IQueryable<Order> query, OrderSearchRequest request)
+    {
+        string sortBy = string.IsNullOrWhiteSpace(request.SortBy)
+            ? "id"
+            : request.SortBy.Trim().ToLowerInvariant();
+
+        bool descending = request.SortDescending;
+
+        return sortBy switch
+        {
+            "code" => descending
+                ? query.OrderByDescending(order => order.Code)
+                : query.OrderBy(order => order.Code),
+            "customer" or "customername" => descending
+                ? query.OrderByDescending(order => order.ShippingRecipient)
+                : query.OrderBy(order => order.ShippingRecipient),
+            "total" or "grandtotal" => descending
+                ? query.OrderByDescending(order => order.GrandTotal)
+                : query.OrderBy(order => order.GrandTotal),
+            "orderstatus" => descending
+                ? query.OrderByDescending(order => order.OrderStatus)
+                : query.OrderBy(order => order.OrderStatus),
+            "paymentstatus" => descending
+                ? query.OrderByDescending(order => order.PaymentStatus)
+                : query.OrderBy(order => order.PaymentStatus),
+            "fulfillmentstatus" => descending
+                ? query.OrderByDescending(order => order.FulfillmentStatus)
+                : query.OrderBy(order => order.FulfillmentStatus),
+            "placedat" or "createddate" or "date" => descending
+                ? query.OrderByDescending(order => order.PlacedAt ?? order.CreatedDate)
+                : query.OrderBy(order => order.PlacedAt ?? order.CreatedDate),
+            _ => descending
+                ? query.OrderByDescending(order => order.Id)
+                : query.OrderBy(order => order.Id),
+        };
     }
 }

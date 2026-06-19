@@ -41,6 +41,8 @@ public class OrderSearchRequest : PagingRequest
     public string? FulfillmentStatus { get; set; }
     public DateTime? StartDate { get; set; }
     public DateTime? EndDate { get; set; }
+    public string? SortBy { get; set; }
+    public bool SortDescending { get; set; } = true;
 }
 
 // ===== Allocation (admin phân phối) =====
@@ -78,6 +80,17 @@ public record VoucherDto(
     decimal? MaxDiscount, decimal MinOrderValue, int? UsageLimit, int? PerUserLimit, int UsedCount,
     DateTime? StartAt, DateTime? EndAt, int Status,
     IReadOnlyList<VoucherScopeDto>? Scopes = null);
+
+public class VoucherSearchRequest : PagingRequest
+{
+    public string? DiscountType { get; set; }
+    public int? Status { get; set; }
+    public string? ScopeType { get; set; }
+    public DateTime? StartDate { get; set; }
+    public DateTime? EndDate { get; set; }
+    public string? SortBy { get; set; }
+    public bool SortDescending { get; set; } = true;
+}
 
 // ScopeType: "All" (toàn đơn, mặc định) | "Product" | "Category" | "Brand".
 // ScopeRefIds: danh sách Id đối tượng được gắn (chỉ dùng khi ScopeType khác "All").

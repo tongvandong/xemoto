@@ -18,7 +18,7 @@ public partial class VoucherService : IVoucherService
         _vouchers = vouchers;
     }
 
-    public async Task<PagingResponse<VoucherDto>> SearchAsync(PagingRequest request)
+    public async Task<PagingResponse<VoucherDto>> SearchAsync(VoucherSearchRequest request)
     {
         var page = await _vouchers.SearchAsync(request);
 

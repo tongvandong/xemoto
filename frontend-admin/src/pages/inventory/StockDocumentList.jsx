@@ -63,10 +63,10 @@ const STOCK_DOCUMENT_LIST_CONTROLS = {
   showSearch: true, // Đổi thành false để ẩn ô tìm kiếm chứng từ kho trên giao diện.
   showSourceFilter: true, // Đổi thành false để ẩn bộ lọc nguồn chứng từ trên giao diện.
   showTypeFilter: true, // Đổi thành false để ẩn bộ lọc loại phiếu trên giao diện.
-  showStatusFilter: true, // Đổi thành false để ẩn bộ lọc trạng thái trên giao diện.
-  showDateFilter: true, // Đổi thành false để ẩn bộ lọc ngày tạo trên giao diện.
-  showSort: true, // Đổi thành false để ẩn phần sắp xếp trên giao diện.
-  showReload: true, // Đổi thành false để ẩn nút tải lại trên giao diện.
+  showStatusFilter: false, // Đổi thành false để ẩn bộ lọc trạng thái trên giao diện.
+  showDateFilter: false, // Đổi thành false để ẩn bộ lọc ngày tạo trên giao diện.
+  showSort: false, // Đổi thành false để ẩn phần sắp xếp trên giao diện.
+  showReload: false, // Đổi thành false để ẩn nút tải lại trên giao diện.
 };
 
 const emptyLine = { skuId: '', qty: 1, note: '' };
