@@ -5,7 +5,7 @@ namespace MoToSale.Services.Catalog;
 
 public interface ICatalogService
 {
-    Task<PagingResponse<ProductListItem>> SearchProductsAsync(ProductSearchRequest request);
+    Task<ProductPagingResponse<ProductListItem>> SearchProductsAsync(ProductSearchRequest request);
     Task<ProductDetail?> GetProductAsync(int id);
     Task<int> CreateProductAsync(CreateProductRequest request);
     Task UpdateProductAsync(int id, UpdateProductRequest request);

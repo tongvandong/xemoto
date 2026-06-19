@@ -61,8 +61,7 @@ const SHOW_PRICE_RANGE_FILTER = false; // Doi thanh true de bat lai 2 o loc "Gia
 const SHOW_STOCK_STATUS_FILTER = false; // Đổi thành true để hiện lại bộ lọc "Tồn kho".
 const SHOW_PROMOTION_FILTER = false; // Đổi thành false để ẩn, đổi lại true để hiện bộ lọc "Khuyến mại".
 const SHOW_RELOAD_BUTTON = false; // Đổi thành false để ẩn nút tải lại danh sách.
-const SHOW_PAGE_SUMMARY = false; // Đổi thành false để ẩn dòng "Trang hiện tại / tổng số trang" dưới bảng.
-const SHOW_AVERAGE_PRODUCT_PRICE = false; // Đổi thành false để ẩn dòng "Giá trung bình" của toàn bộ kết quả sau tìm kiếm/lọc.
+const SHOW_PAGE_SUMMARY = true; // Đổi thành false để ẩn dòng "Trang hiện tại / tổng số trang" dưới bảng.
 const SORT_FIELD_VISIBILITY_BY_PAGE = {
   XeMay: {
     newest: false,
@@ -143,7 +142,6 @@ const ProductList = ({ productType = 'XeMay' }) => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-  const [averageProductPrice, setAverageProductPrice] = useState(0);
   const pageSize = 10;
 
   const [showForm, setShowForm] = useState(false);
@@ -267,12 +265,10 @@ const ProductList = ({ productType = 'XeMay' }) => {
         setProducts(data);
         setTotalPages(1);
         setTotalItems(data.length);
-        setAverageProductPrice(0);
       } else {
         setProducts(data.items || data.data || []);
         setTotalPages(data.totalPages || Math.ceil((data.totalItems || 0) / pageSize) || 1);
         setTotalItems(data.totalItems || data.total || data.totalCount || 0);
-        setAverageProductPrice(Number(data.averagePrice || 0));
       }
     } catch (err) {
       setError(`Không thể tải ${productType === 'XeMay' ? 'danh sách xe máy' : 'danh sách phụ tùng'}.`);
@@ -747,9 +743,6 @@ const ProductList = ({ productType = 'XeMay' }) => {
                         Hiển thị {displayProducts.length} / {totalItems} {productType === 'XeMay' ? 'xe máy' : 'phụ tùng'}
                         {SHOW_PAGE_SUMMARY && (
                           <> - Trang {page} / {totalPages}</>
-                        )}
-                        {SHOW_AVERAGE_PRODUCT_PRICE && (
-                          <> - Giá trung bình: {formatCurrency(averageProductPrice)}</>
                         )}
                       </span>
                     </div>

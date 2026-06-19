@@ -22,6 +22,11 @@ public class ProductSearchRequest : PagingRequest
     public bool SortDescending { get; set; } = true;
 }
 
+public class ProductPagingResponse<T> : PagingResponse<T>
+{
+    public decimal AveragePrice { get; set; }
+}
+
 public class BrandSearchRequest : PagingRequest
 {
     public string? Slug { get; set; }

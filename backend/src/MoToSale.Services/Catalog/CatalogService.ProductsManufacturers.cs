@@ -13,7 +13,7 @@ public partial class CatalogService
     private async Task<Dictionary<int, string>> ManufacturerMapAsync() =>
         (await _manufacturers.GetAllAsync()).ToDictionary(m => m.Id, m => m.Name);
 
-    public async Task<PagingResponse<ProductListItem>> SearchProductsAsync(ProductSearchRequest request)
+    public async Task<ProductPagingResponse<ProductListItem>> SearchProductsAsync(ProductSearchRequest request)
     {
         var page = await _products.SearchAsync(request);
         var mfg = await ManufacturerMapAsync();
@@ -30,7 +30,7 @@ public partial class CatalogService
                 AverageRating = Math.Round(g.Average(r => (double)r.Rating), 1)
             })
             .ToDictionaryAsync(x => x.ProductId);
-        return new PagingResponse<ProductListItem>
+        return new ProductPagingResponse<ProductListItem>
         {
             Items = page.Items.Select(p => MapListItem(
                 p,
@@ -41,6 +41,7 @@ public partial class CatalogService
             Page = page.Page,
             PageSize = page.PageSize,
             TotalItems = page.TotalItems,
+            AveragePrice = page.AveragePrice,
         };
     }
 
