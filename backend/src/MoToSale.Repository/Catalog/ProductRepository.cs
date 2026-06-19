@@ -29,7 +29,7 @@ public class ProductRepository : Repository<Product>, IProductRepository
         query = ApplyPromotionFilter(query, request);
 
         int totalItems = await query.CountAsync();
-        decimal averagePrice = await CalculateAveragePriceAsync(query, totalItems);
+        decimal averagePrice = await CalculateAveragePriceAsync(query);
 
         query = ApplySorting(query, request);
 
@@ -48,22 +48,27 @@ public class ProductRepository : Repository<Product>, IProductRepository
         };
     }
 
-    private static async Task<decimal> CalculateAveragePriceAsync(IQueryable<Product> query, int totalItems)
+    private async Task<decimal> CalculateAveragePriceAsync(IQueryable<Product> query)
     {
-        if (totalItems == 0)
+        var rows = await query
+            .SelectMany(product => product.Skus.Select(sku => new
+            {
+                Price = sku.SalePrice ?? sku.ListPrice,
+                Stock = Context.InventoryItems
+                    .Where(item => item.SkuId == sku.Id)
+                    .Sum(item => (int?)item.OnHand) ?? 0
+            }))
+            .Where(row => row.Stock > 0)
+            .ToListAsync();
+
+        if (rows.Count == 0)
         {
             return 0;
         }
 
-        decimal averagePrice = await query
-            .SelectMany(product => product.Skus.Select(sku => new
-            {
-                product.Id,
-                Price = sku.SalePrice ?? sku.ListPrice
-            }))
-            .GroupBy(row => row.Id)
-            .Select(group => group.Min(row => row.Price))
-            .AverageAsync();
+        int totalStock = rows.Sum(row => row.Stock);
+        decimal totalInventoryValue = rows.Sum(row => row.Price * row.Stock);
+        decimal averagePrice = totalInventoryValue / totalStock;
 
         return Math.Round(averagePrice, 0);
     }
